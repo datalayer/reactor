@@ -1,0 +1,17 @@
+**/__pycache__
+**/*.egg-info
+**/node_modules
+**/*-lock.json
+
+# Include
+!**/.*ignore
+!**/.*rc
+!**/.*rc.js
+!**/.*rc.json
+!**/.*rc.yml
+!**/.*rc.yaml
+!**/.*config
+!*.*rc.json
+!**/.env
+!.github
+!.devcontainer
