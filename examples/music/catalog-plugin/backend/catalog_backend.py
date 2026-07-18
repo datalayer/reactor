@@ -1,7 +1,7 @@
 """Catalog plugin backend.
 
 A small standalone FastAPI service that exposes the song catalog consumed by the
-e-commerce frontend plugins (catalog, header, shop).
+music frontend plugins (catalog, header, shop).
 
 Run with:
 
@@ -31,7 +31,7 @@ SONGS: list[Song] = [
     Song(id="s6", title="Analog Dreams", artist="Vela Bloom", price=0.89),
 ]
 
-app = FastAPI(title="E-commerce Catalog Backend")
+app = FastAPI(title="Music Catalog Backend")
 
 app.add_middleware(
     CORSMiddleware,

@@ -2,8 +2,8 @@ import React from 'react';
 import { buildPlatformFromExtensions } from '@datalayer/reactor';
 import { ReactorProvider, ReactorSlot } from '@datalayer/reactor/react';
 import { Box } from '@datalayer/primer-addons';
-import { HeaderExtension } from '@ecommerce/header-plugin';
-import { ShopExtension } from '@ecommerce/shop-plugin';
+import { HeaderExtension } from '@music/header-plugin';
+import { ShopExtension } from '@music/shop-plugin';
 
 // The app is purely declarative: it only mounts the header and shop plugins.
 // The base catalog plugin is pulled in automatically as their dependency, and

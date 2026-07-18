@@ -1,5 +1,8 @@
+import os
+import sys
+
 from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_platform_app
-from datalayer_reactor.example_plugins import GreetingPlugin, StatusPlugin
+from datalayer_reactor.examples.greeting_plugin import GreetingPlugin, StatusPlugin
 
 
 platform = PluginPlatform()

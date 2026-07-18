@@ -1,22 +1,27 @@
 {
-  "name": "@ecommerce/app",
+  "name": "@music/monorepo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "catalog-plugin",
+    "header-plugin",
+    "shop-plugin",
+    "app"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npm run dev --workspace @music/app",
+    "build": "npm run build --workspace @music/app"
   },
   "dependencies": {
+    "@datalayer/icons-react": "^1.0.0",
     "@datalayer/primer-addons": "^1.0.17",
-    "@datalayer/reactor": "file:../../..",
-    "@ecommerce/catalog-plugin": "*",
-    "@ecommerce/header-plugin": "*",
-    "@ecommerce/shop-plugin": "*",
+    "@datalayer/reactor": "file:../..",
+    "@primer/octicons-react": "^19.29.1",
     "@primer/react": "^37.31.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-loading-skeleton": "^3.5.0",
     "styled-components": "^5.3.10",
     "zustand": "^5.0.0"
   },

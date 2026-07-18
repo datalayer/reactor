@@ -29,6 +29,14 @@ export type ReactorPlatform = ReactorPlatformView & {
   subscribe: (listener: () => void) => () => void;
   listExtensions: () => string[];
   getConfig: <C = unknown>(name: string) => C | undefined;
+  /**
+   * Monotonically increasing revision that changes on every platform mutation
+   * (start, stop, enable, disable). External subscribers (e.g. the React
+   * bridge) can use it as a stable snapshot value so they re-render whenever
+   * the platform changes — including when `start()` populates build outputs
+   * without changing any extension's enabled flag.
+   */
+  getRevision: () => number;
 };
 
 export function shallowMergeConfig<C>(base: C, override: Partial<C>): C {
@@ -125,8 +133,10 @@ export function buildPlatformFromExtensions(
 
   const state = new Map<string, ExtensionRuntimeState<any, any, any>>();
   const listeners = new Set<() => void>();
+  let revision = 0;
 
   function emitChange() {
+    revision += 1;
     for (const listener of listeners) {
       listener();
     }
@@ -271,6 +281,9 @@ export function buildPlatformFromExtensions(
     },
     getConfig<C = unknown>(name: string): C | undefined {
       return state.get(name)?.config as C | undefined;
+    },
+    getRevision() {
+      return revision;
     },
   };
 }

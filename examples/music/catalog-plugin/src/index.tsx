@@ -110,7 +110,7 @@ function CatalogList() {
  * plugins. Requires the `catalog` backend plugin to be available.
  */
 export const CatalogExtension = defineExtension({
-  name: '@ecommerce/catalog',
+  name: '@music/catalog',
   version: '1.0.0',
   requiredBackendPlugins: ['catalog'],
   build() {

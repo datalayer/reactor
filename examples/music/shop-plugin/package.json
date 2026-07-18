@@ -1,5 +1,5 @@
 {
-  "name": "@ecommerce/catalog-plugin",
+  "name": "@music/shop-plugin",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,8 +11,10 @@
   "dependencies": {
     "@datalayer/primer-addons": "^1.0.17",
     "@datalayer/reactor": "file:../../..",
+    "@music/catalog-plugin": "*",
     "@primer/react": "^37.31.0",
-    "react": "^18.3.1"
+    "react": "^18.3.1",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

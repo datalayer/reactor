@@ -4,7 +4,7 @@ PYTHON ?= python3
 NPM ?= npm
 UVICORN ?= uvicorn
 
-.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py example-frontend example-frontend-backend example-e-commerce clean
+.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -15,7 +15,7 @@ help:
 	@echo "  make package         Build JS and Python distributables"
 	@echo "  make example-frontend          Run the frontend-only React example"
 	@echo "  make example-frontend-backend  Run both backend and frontend for the combined example"
-	@echo "  make example-e-commerce        Run the monorepo e-commerce example (catalog backend + app)"
+	@echo "  make example-music             Run the monorepo music example (catalog backend + app)"
 	@echo "  make clean           Remove build artifacts"
 
 install: install-js install-py
@@ -24,7 +24,7 @@ install-js:
 	$(NPM) install
 	$(NPM) install --prefix examples/frontend
 	$(NPM) install --prefix examples/frontend-backend
-	$(NPM) install --prefix examples/e-commerce
+	$(NPM) install --prefix examples/music
 
 install-py:
 	$(PYTHON) -m pip install -e .
@@ -60,13 +60,13 @@ example-frontend-backend:
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
 
-example-e-commerce: build-js
+example-music: build-js
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
-	$(NPM) install --prefix examples/e-commerce; \
-	$(PYTHON) -m $(UVICORN) --app-dir examples/e-commerce/catalog-plugin/backend catalog_backend:app --reload --port 8799 & \
+	$(NPM) install --prefix examples/music; \
+	$(PYTHON) -m $(UVICORN) --app-dir examples/music/catalog-plugin/backend catalog_backend:app --reload --port 8799 & \
 	PY_PID=$$!; \
-	$(NPM) run dev --prefix examples/e-commerce
+	$(NPM) run dev --prefix examples/music
 
 clean:
 	rm -rf dist
@@ -76,8 +76,8 @@ clean:
 	rm -rf .mypy_cache
 	rm -rf examples/frontend/node_modules
 	rm -rf examples/frontend-backend/node_modules
-	rm -rf examples/e-commerce/node_modules
-	rm -rf examples/e-commerce/*/node_modules
+	rm -rf examples/music/node_modules
+	rm -rf examples/music/*/node_modules
 	rm -rf node_modules
 	rm -rf __pycache__
 	rm -rf datalayer_reactor/__pycache__

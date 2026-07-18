@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .hooks import hookimpl
+from datalayer_reactor.hooks import hookimpl
 
 
 class GreetingPlugin:

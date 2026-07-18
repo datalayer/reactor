@@ -31,3 +31,6 @@ Run the Python app for the combined frontend-backend demo:
 ```bash
 python -m uvicorn --app-dir examples/frontend-backend python_platform_demo:app --reload --port 8788
 ```
+
+The demo backend registers the shared example plugins (`GreetingPlugin` and
+`StatusPlugin`) defined in `examples/greeting_plugin.py`.

@@ -90,7 +90,7 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
     platform.subscribe,
-    () => platform.listExtensions().map((name) => `${name}:${platform.isEnabled(name)}`).join('|'),
+    () => platform.getRevision(),
   );
 
   const components = useMemo(() => {
