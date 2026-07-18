@@ -56,17 +56,43 @@ frontend:
 frontend-backend:
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
-	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend python_reactor_demo:app --reload --port 8788 & \
+	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend reactor_demo:app --reload --port 8788 & \
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
 
 music: build-js
 	@set -e; \
-	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
+	kill_port() { \
+		local port="$$1"; \
+		local pids=""; \
+		if command -v lsof >/dev/null 2>&1; then \
+			pids="$$(lsof -ti tcp:$$port 2>/dev/null || true)"; \
+		elif command -v fuser >/dev/null 2>&1; then \
+			pids="$$(fuser -n tcp $$port 2>/dev/null || true)"; \
+		elif command -v ss >/dev/null 2>&1; then \
+			pids="$$(ss -ltnp "sport = :$$port" 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u)"; \
+		fi; \
+		if [ -n "$$pids" ]; then \
+			kill $$pids 2>/dev/null || true; \
+			if command -v lsof >/dev/null 2>&1; then \
+				local remaining; remaining="$$(lsof -ti tcp:$$port 2>/dev/null || true)"; \
+				if [ -n "$$remaining" ]; then kill -9 $$remaining 2>/dev/null || true; fi; \
+			fi; \
+		fi; \
+	}; \
+	cleanup() { \
+		if [ -n "$$PY_PID" ]; then \
+			pkill -P $$PY_PID 2>/dev/null || true; \
+			kill $$PY_PID 2>/dev/null || true; \
+		fi; \
+		kill_port 8799; \
+		kill_port 5179; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	kill_port 8799; \
+	kill_port 5179; \
 	echo "[music] Installing Python backends..."; \
 	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin; \
-	echo "[music] Installing npm workspaces..."; \
-	$(NPM) install --prefix examples/music --no-audit --no-fund --no-progress --loglevel=error; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
 	$(PYTHON) -m $(UVICORN) checkout_plugin.app:app --reload --port 8799 & \
 	PY_PID=$$!; \

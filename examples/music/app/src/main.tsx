@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemedProvider, setupPrimerPortals, useThemeStore } from '@datalayer/primer-addons';
 import App from './App';
+
 import './styles.css';
 
 setupPrimerPortals();

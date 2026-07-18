@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
 import { buildReactorFromExtensions } from '../../../src';
-import { ReactorProvider, ReactorSlot, useReactorPlatform } from '../../../src/react';
+import { ReactorSlot, useReactor, useReactorPlatform } from '../../../src/react';
 import { StatusBannerExtension } from './plugins/statusBannerExtension';
 import { WelcomeCardExtension } from './plugins/welcomeCardExtension';
 
@@ -65,8 +65,10 @@ export function App() {
     [],
   );
 
+  useReactor(reactor);
+
   return (
-    <ReactorProvider reactor={reactor}>
+    <>
       <AppHeader />
       <Box sx={{ maxWidth: 980, mx: 'auto', px: 3, py: 4 }}>
         <Box
@@ -79,7 +81,7 @@ export function App() {
           }}
         >
           <Heading as="h2" sx={{ fontSize: [4, 5], mb: 2 }}>
-            Frontend plugins
+            Frontend Plugins
           </Heading>
           <Text as="p" sx={{ color: 'fg.muted', fontSize: 2 }}>
             Extension runtime with a React bridge and dynamic plugin lifecycle.
@@ -103,6 +105,6 @@ export function App() {
           </Box>
         </Box>
       </Box>
-    </ReactorProvider>
+    </>
   );
 }

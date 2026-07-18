@@ -23,7 +23,6 @@ from pydantic import BaseModel
 
 from catalog_plugin import (
     catalog_router,
-    list_songs,
     register as register_catalog,
 )
 from datalayer_reactor import (
@@ -59,6 +58,9 @@ CHECKOUT_MANIFEST = PluginManifest(
 class CheckoutPlugin:
     """Reactor plugin that prices a cart against the catalog and confirms orders."""
 
+    def __init__(self, reactor: PluginPlatform):
+        self._reactor = reactor
+
     @hookimpl
     def on_reactor_start(self, tenant_id: str | None = None) -> None:
         print(f"[CheckoutPlugin] started tenant={tenant_id}")
@@ -82,9 +84,16 @@ class CheckoutPlugin:
         data = payload or {}
         items = data.get("items", [])
 
-        # Reactor dependency at work: price the cart against the catalog owned by
-        # the catalog plugin.
-        catalog = {song.id: song for song in list_songs()}
+        # Resolve the catalog through Reactor so the checkout flow depends on the
+        # registered catalog plugin contract (not a direct in-process call).
+        catalog_payload = self._reactor.invoke_plugin_action(
+            plugin_name="catalog",
+            action="list_songs",
+            payload=None,
+            tenant_id=tenant_id,
+        )
+        songs = catalog_payload.get("songs", [])
+        catalog = {song["id"]: song for song in songs}
 
         lines: list[dict] = []
         item_count = 0
@@ -95,16 +104,16 @@ class CheckoutPlugin:
                 raise ValueError(f"Unknown song '{item.get('id')}'")
             quantity = int(item.get("quantity", 1))
             if quantity < 1:
-                raise ValueError(f"Invalid quantity for song '{song.id}'")
-            line_total = round(song.price * quantity, 2)
+                raise ValueError(f"Invalid quantity for song '{song['id']}'")
+            line_total = round(float(song["price"]) * quantity, 2)
             item_count += quantity
             total += line_total
             lines.append(
                 {
-                    "id": song.id,
-                    "title": song.title,
-                    "artist": song.artist,
-                    "price": song.price,
+                    "id": song["id"],
+                    "title": song["title"],
+                    "artist": song["artist"],
+                    "price": song["price"],
                     "quantity": quantity,
                     "lineTotal": line_total,
                 }
@@ -125,7 +134,7 @@ def register(reactor: PluginPlatform) -> None:
     The catalog plugin must already be registered — the reactor enforces the
     ``dependencies=["catalog"]`` declared in ``CHECKOUT_MANIFEST``.
     """
-    reactor.register_plugin(CHECKOUT_MANIFEST, CheckoutPlugin())
+    reactor.register_plugin(CHECKOUT_MANIFEST, CheckoutPlugin(reactor))
 
 
 def build_checkout_router(reactor: PluginPlatform) -> APIRouter:

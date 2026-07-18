@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
-import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
+import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
 import { UnmuteIcon } from '@primer/octicons-react';
 import { defineExtension } from '@datalayer/reactor';
 import { CatalogExtension, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
@@ -38,6 +38,16 @@ function CartSummary() {
       onClose={() => setOpen(false)}
       align="end"
       side="outside-bottom"
+      overlayProps={{
+        sx: {
+          bg: 'canvas.overlay',
+          color: 'fg.default',
+          border: '1px solid',
+          borderColor: 'border.default',
+          borderRadius: 2,
+          boxShadow: 'shadow.large',
+        },
+      }}
       renderAnchor={(anchorProps) => (
         <Box
           {...anchorProps}
@@ -51,52 +61,59 @@ function CartSummary() {
         </Box>
       )}
     >
-      <Box
-        onMouseEnter={openOverlay}
-        onMouseLeave={scheduleClose}
-        sx={{ p: 3, width: 280, display: 'grid', gap: 2 }}
-      >
-        <Text sx={{ fontWeight: 'bold' }}>Shopping cart</Text>
-        {items.length === 0 && <Text sx={{ color: 'fg.muted' }}>Your cart is empty.</Text>}
-        {items.map((line) => (
-          <Box
-            key={line.id}
-            sx={{ display: 'flex', justifyContent: 'space-between', gap: 3 }}
-          >
-            <Text sx={{ minWidth: 0 }}>
-              {line.title}
-              <Text as="span" sx={{ color: 'fg.muted' }}>
-                {' '}
-                × {line.quantity}
-              </Text>
-            </Text>
-            <Text sx={{ color: 'fg.muted', whiteSpace: 'nowrap' }}>
-              ${(line.price * line.quantity).toFixed(2)}
-            </Text>
-          </Box>
-        ))}
-        {items.length > 0 && (
-          <>
+      <ThemedProvider useStore={useThemeStore}>
+        <Box
+          onMouseEnter={openOverlay}
+          onMouseLeave={scheduleClose}
+          sx={{
+            p: 3,
+            width: 280,
+            display: 'grid',
+            gap: 2,
+          }}
+        >
+          <Text sx={{ fontWeight: 'bold' }}>Shopping cart</Text>
+          {items.length === 0 && <Text sx={{ color: 'fg.muted' }}>Your cart is empty.</Text>}
+          {items.map((line) => (
             <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 3,
-                pt: 2,
-                mt: 1,
-                borderTop: '1px solid',
-                borderColor: 'border.default',
-                fontWeight: 'bold',
-              }}
+              key={line.id}
+              sx={{ display: 'flex', justifyContent: 'space-between', gap: 3 }}
             >
-              <Text>Total</Text>
-              <Text>${total.toFixed(2)}</Text>
+              <Text sx={{ minWidth: 0 }}>
+                {line.title}
+                <Text as="span" sx={{ color: 'fg.muted' }}>
+                  {' '}
+                  × {line.quantity}
+                </Text>
+              </Text>
+              <Text sx={{ color: 'fg.muted', whiteSpace: 'nowrap' }}>
+                ${(line.price * line.quantity).toFixed(2)}
+              </Text>
             </Box>
-            {/* Checkout trigger is provided by the checkout plugin. */}
-            <CheckoutButton />
-          </>
-        )}
-      </Box>
+          ))}
+          {items.length > 0 && (
+            <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 3,
+                  pt: 2,
+                  mt: 1,
+                  borderTop: '1px solid',
+                  borderColor: 'border.default',
+                  fontWeight: 'bold',
+                }}
+              >
+                <Text>Total</Text>
+                <Text>${total.toFixed(2)}</Text>
+              </Box>
+              {/* Checkout trigger is provided by the checkout plugin. */}
+              <CheckoutButton />
+            </>
+          )}
+        </Box>
+      </ThemedProvider>
     </AnchoredOverlay>
   );
 }

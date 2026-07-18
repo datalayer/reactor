@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
 import { buildReactorFromExtensions } from '../../../src';
-import { ReactorProvider, ReactorSlot, useReactorPlatform } from '../../../src/react';
+import { ReactorSlot, useReactor, useReactorPlatform } from '../../../src/react';
 import { StatusBannerExtension } from './plugins/statusBannerExtension';
 import { WelcomeCardExtension } from './plugins/welcomeCardExtension';
 
@@ -83,8 +83,10 @@ export function App() {
     });
   };
 
+  useReactor(reactor, { availableBackendPlugins });
+
   return (
-    <ReactorProvider reactor={reactor} availableBackendPlugins={availableBackendPlugins}>
+    <>
       <AppHeader />
       <Box sx={{ maxWidth: 980, mx: 'auto', px: 3, py: 4 }}>
         <Box
@@ -97,7 +99,7 @@ export function App() {
           }}
         >
           <Heading as="h2" sx={{ fontSize: [4, 5], mb: 2 }}>
-            Frontend + backend plugins
+            Frontend + Backend Plugins
           </Heading>
           <Text as="p" sx={{ color: 'fg.muted', fontSize: 2 }}>
             Combined frontend-backend demo with runtime checks on required backend plugins.
@@ -135,6 +137,6 @@ export function App() {
           </Box>
         </Box>
       </Box>
-    </ReactorProvider>
+    </>
   );
 }

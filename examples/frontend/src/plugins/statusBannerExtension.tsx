@@ -1,14 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { Button, Label, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
-import { defineExtension } from '../../../../src';
+import { defineExtension, signal } from '../../../../src';
+import { useReactorPlatform, useSignalValue } from '../../../../src/react';
+import { WelcomeCardExtension, type WelcomeCardOutput } from './welcomeCardExtension';
 
 type StatusConfig = {
   status: 'Ready' | 'Paused';
 };
 
+// Fallback used only when Plugin A is unavailable (e.g. disabled at runtime).
+const NO_CLICKS = signal(0);
+
 function StatusBanner({ status }: { status: string }) {
   const [runtimeStatus, setRuntimeStatus] = useState(status);
+
+  // Read Plugin A's output through the reactor. Re-render on reactor changes so
+  // we re-resolve the output when Plugin A is enabled/disabled at runtime.
+  const reactor = useReactorPlatform();
+  useSyncExternalStore(reactor.subscribe, reactor.getRevision);
+  const welcomeAvailable = reactor.isEnabled(WelcomeCardExtension.name);
+  const welcome = reactor.getOutput<WelcomeCardOutput>(WelcomeCardExtension.name);
+  const welcomeClicks = useSignalValue(welcome?.clicks ?? NO_CLICKS);
 
   const onToggleStatus = () => {
     setRuntimeStatus((current) => (current === 'Ready' ? 'Paused' : 'Ready'));
@@ -23,16 +36,30 @@ function StatusBanner({ status }: { status: string }) {
         p: 3,
         bg: 'canvas.subtle',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        flexDirection: 'column',
         gap: 2,
       }}
     >
-      <Text>Plugin B: Runtime status panel</Text>
-      <Label variant={runtimeStatus === 'Ready' ? 'success' : 'attention'}>{runtimeStatus}</Label>
-      <Button size="small" onClick={onToggleStatus}>
-        Toggle State
-      </Button>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        <Text>Plugin B: Runtime status panel</Text>
+        <Label variant={runtimeStatus === 'Ready' ? 'success' : 'attention'}>{runtimeStatus}</Label>
+        <Button size="small" onClick={onToggleStatus}>
+          Toggle State
+        </Button>
+      </Box>
+      <Text sx={{ color: 'fg.muted' }}>
+        Plugin A clicks (via reactor dependency):{' '}
+        <Text as="span" sx={{ fontWeight: 'bold', color: 'fg.default' }}>
+          {welcomeAvailable ? welcomeClicks : '— (Plugin A disabled)'}
+        </Text>
+      </Text>
     </Box>
   );
 }
@@ -40,7 +67,10 @@ function StatusBanner({ status }: { status: string }) {
 export const StatusBannerExtension = defineExtension<StatusConfig, unknown, { components: Array<any> }>({
   name: '@demo/status-banner',
   version: '1.0.0',
-  dependencies: [],
+  // Plugin B depends on Plugin A: the reactor auto-includes Plugin A (even if it
+  // is not listed explicitly) and builds it first, so its output — and the
+  // shared `clicks` signal — is available when Plugin B renders.
+  dependencies: [WelcomeCardExtension],
   config: {
     status: 'Ready',
   },

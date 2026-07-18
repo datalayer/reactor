@@ -1,6 +1,6 @@
 import React from 'react';
 import { buildReactorFromExtensions } from '@datalayer/reactor';
-import { ReactorProvider, ReactorSlot } from '@datalayer/reactor/react';
+import { ReactorSlot, useReactor } from '@datalayer/reactor/react';
 import { Box } from '@datalayer/primer-addons';
 import { HeaderExtension } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopExtension } from '@datalayer-examples/reactor-music-shop-plugin';
@@ -38,10 +38,11 @@ function Content() {
 }
 
 export default function App() {
+  useReactor(reactor, { availableBackendPlugins: ['catalog'] });
   return (
-    <ReactorProvider reactor={reactor} availableBackendPlugins={['catalog']}>
+    <>
       <ReactorSlot slot="header" />
       <Content />
-    </ReactorProvider>
+    </>
   );
 }

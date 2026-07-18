@@ -1,16 +1,39 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
-import { defineExtension } from '../../../../src';
+import { defineExtension, signal, type Signal } from '../../../../src';
+import { useSignalValue } from '../../../../src/react';
 
-function WelcomeCard() {
-  const [clickedCount, setClickedCount] = useState(0);
-  const [lastActionMessage, setLastActionMessage] = useState('No action yet.');
+/**
+ * Reactive state that Plugin A publishes through its build output.
+ *
+ * Because these are reactor `signal`s (not React state), any other plugin that
+ * depends on Plugin A can read `reactor.getOutput('@demo/welcome-card')` and
+ * subscribe to them — see the status-banner plugin (Plugin B).
+ */
+export type WelcomeCardOutput = {
+  clicks: Signal<number>;
+  lastAction: Signal<string>;
+  components: Array<{
+    slot: string;
+    id: string;
+    Component: React.ComponentType;
+  }>;
+};
+
+function WelcomeCard({
+  clicks,
+  lastAction,
+}: {
+  clicks: Signal<number>;
+  lastAction: Signal<string>;
+}) {
+  const clickedCount = useSignalValue(clicks);
+  const lastActionMessage = useSignalValue(lastAction);
 
   const onPrimaryAction = () => {
-    const nextCount = clickedCount + 1;
-    setClickedCount(nextCount);
-    setLastActionMessage(`Local frontend action executed at ${new Date().toLocaleTimeString()}.`);
+    clicks.value = clicks.peek() + 1;
+    lastAction.value = `Local frontend action executed at ${new Date().toLocaleTimeString()}.`;
   };
 
   return (
@@ -38,16 +61,22 @@ function WelcomeCard() {
   );
 }
 
-export const WelcomeCardExtension = defineExtension({
+export const WelcomeCardExtension = defineExtension<Record<string, never>, unknown, WelcomeCardOutput>({
   name: '@demo/welcome-card',
   version: '1.0.0',
   build() {
+    // Shared reactive state, exposed on the build output so dependent plugins
+    // can observe it through the reactor.
+    const clicks = signal(0);
+    const lastAction = signal('No action yet.');
     return {
+      clicks,
+      lastAction,
       components: [
         {
           slot: 'main',
           id: 'welcome-card',
-          Component: WelcomeCard,
+          Component: () => <WelcomeCard clicks={clicks} lastAction={lastAction} />,
         },
       ],
     };

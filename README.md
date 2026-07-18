@@ -46,7 +46,7 @@ The TypeScript runtime implements:
 
 React bindings include:
 
-- `ReactorProvider`: reactor lifecycle in React tree
+- `useReactor`: register the reactor in the zustand store and manage its lifecycle
 - `ReactorSlot`: render plugin-provided components by named slot
 - `useReactorPlatform`: reactor access for runtime toggles
 

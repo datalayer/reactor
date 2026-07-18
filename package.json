@@ -26,6 +26,9 @@
     "example:dev:frontend-backend": "npm run dev --prefix examples/frontend-backend",
     "watch:lib": "tsc -w"
   },
+  "dependencies": {
+    "zustand": "^5.0.14"
+  },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
