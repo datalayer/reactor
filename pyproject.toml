@@ -21,4 +21,4 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["datalayer_reactor"]
+packages = ["datalayer_reactor", "datalayer_reactor.examples"]

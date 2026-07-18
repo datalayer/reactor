@@ -33,4 +33,4 @@ python -m uvicorn --app-dir examples/frontend-backend python_platform_demo:app -
 ```
 
 The demo backend registers the shared example plugins (`GreetingPlugin` and
-`StatusPlugin`) defined in `examples/greeting_plugin.py`.
+`StatusPlugin`) defined in `datalayer_reactor/examples/greeting_plugin.py`.

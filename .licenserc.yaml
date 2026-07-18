@@ -1,0 +1,42 @@
+header:
+  license:
+    spdx-id: Datalayer
+    copyright-owner: Datalayer, Inc.
+    copyright-year: 2021-2024
+    content: |
+      Copyright (c) [year] [owner]
+
+      Datalayer License
+
+  paths-ignore:
+    - '**/*.ipynb'
+    - '**/*.json'
+    - '**/*.md'
+    - '**/*.svg'
+    - '**/*.tsbuildinfo'
+    - '**/*.yml'
+    - '**/*.yaml'
+    - '**/build'
+    - '**/lib'
+    - '**/node_modules'
+    - '**/MANIFEST.in'
+    - '**/static'
+    - '**/typings'
+    - '**/schemas'
+    - '**/themes'
+    - '*.map.js'
+    - '*.bundle.js'
+    - '**/.*'
+    - 'LICENSE'
+    - '.devcontainer/resources/'
+    - 'dev/notebooks/example1.dash'
+    - 'dev/notebooks/subfolder-2/untitled.txt'
+    - 'examples/cra/public/robots.txt'
+    - '**/LICENSE.txt'
+    - '**/*.nblink'
+    - 'docs/docs'
+    - 'packages/lexical/src/ui/PrettierButton.tsx_tmp'
+    - 'packages/react/third-party-license.txt'
+    - 'patches/'
+
+  comment: on-failure
