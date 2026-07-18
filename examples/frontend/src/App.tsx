@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Button, Heading, Text } from '@primer/react';
+import { Button, Heading, Text } from '@primer/react';
+import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
 import { buildPlatformFromExtensions } from '../../../src';
 import { ReactorProvider, ReactorSlot, useReactorPlatform } from '../../../src/react';
 import { StatusBannerExtension } from './plugins/statusBannerExtension';
@@ -31,6 +32,29 @@ function RuntimeControls() {
   );
 }
 
+function AppHeader() {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 2,
+        px: 3,
+        py: 2,
+        borderBottom: '1px solid',
+        borderColor: 'border.default',
+        bg: 'canvas.default',
+      }}
+    >
+      <Heading as="h1" sx={{ fontSize: 3, m: 0 }}>
+        Datalayer Reactor
+      </Heading>
+      <AppearanceControlsWithStore useStore={useThemeStore} />
+    </Box>
+  );
+}
+
 export function App() {
   const platform = useMemo(
     () =>
@@ -43,18 +67,34 @@ export function App() {
 
   return (
     <ReactorProvider platform={platform}>
-      <Box className="layout-shell">
-        <Box className="hero-panel">
-          <Heading as="h1" sx={{ fontFamily: 'Fraunces, serif', fontSize: [5, 6], mb: 2 }}>
-            Datalayer Reactor
+      <AppHeader />
+      <Box sx={{ maxWidth: 980, mx: 'auto', px: 3, py: 4 }}>
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'border.default',
+            borderRadius: 2,
+            p: 3,
+            bg: 'canvas.subtle',
+          }}
+        >
+          <Heading as="h2" sx={{ fontSize: [4, 5], mb: 2 }}>
+            Frontend plugins
           </Heading>
           <Text as="p" sx={{ color: 'fg.muted', fontSize: 2 }}>
-            Lexical-style extension runtime with a React bridge and dynamic plugin lifecycle.
+            Extension runtime with a React bridge and dynamic plugin lifecycle.
           </Text>
           <RuntimeControls />
         </Box>
 
-        <Box className="content-grid">
+        <Box
+          sx={{
+            mt: 3,
+            display: 'grid',
+            gridTemplateColumns: ['1fr', '1fr', '1.2fr 0.8fr'],
+            gap: 3,
+          }}
+        >
           <Box>
             <ReactorSlot slot="main" />
           </Box>

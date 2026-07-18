@@ -1,7 +1,7 @@
 {
   "name": "@datalayer/reactor",
   "version": "0.1.0",
-  "description": "Lexical-inspired extension platform with framework-agnostic core and React bridge",
+  "description": "Extension platform with framework-agnostic core and React bridge",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,9 +20,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:lib": "gulp --gulpfile gulpfile.cjs resources-to-lib && tsc",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "example:dev": "npm run dev --prefix examples/frontend",
-    "example:dev:frontend-backend": "npm run dev --prefix examples/frontend-backend"
+    "example:dev:frontend-backend": "npm run dev --prefix examples/frontend-backend",
+    "watch:lib": "tsc -w"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -31,6 +33,10 @@
   "devDependencies": {
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "gulp": "^4.0.2",
+    "gulp-append-prepend": "^1.0.8",
+    "gulp-filter": "^6.0.0",
+    "gulp-watch": "^5.0.1",
     "typescript": "^5.8.3"
   }
 }

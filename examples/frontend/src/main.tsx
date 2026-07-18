@@ -1,16 +1,17 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BaseStyles, ThemeProvider } from '@primer/react';
+import { BaseStyles } from '@primer/react';
+import { ThemedProvider, setupPrimerPortals, useThemeStore } from '@datalayer/primer-addons';
 import { App } from './App';
 
-import './styles.css';
+setupPrimerPortals();
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider>
+    <ThemedProvider useStore={useThemeStore}>
       <BaseStyles>
         <App />
       </BaseStyles>
-    </ThemeProvider>
+    </ThemedProvider>
   </React.StrictMode>,
 );

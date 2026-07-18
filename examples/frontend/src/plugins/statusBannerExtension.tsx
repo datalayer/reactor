@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Button, Label, Text } from '@primer/react';
+import { Button, Label, Text } from '@primer/react';
+import { Box } from '@datalayer/primer-addons';
 import { defineExtension } from '../../../../src';
 
 type StatusConfig = {
@@ -18,15 +19,16 @@ function StatusBanner({ status }: { status: string }) {
       sx={{
         border: '1px solid',
         borderColor: 'border.default',
-        borderRadius: 3,
+        borderRadius: 2,
         p: 3,
-        background: 'rgba(255, 255, 255, 0.88)',
+        bg: 'canvas.subtle',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 2,
       }}
     >
-      <Text sx={{ fontFamily: 'IBM Plex Sans, sans-serif' }}>Plugin B: Runtime status panel</Text>
+      <Text>Plugin B: Runtime status panel</Text>
       <Label variant={runtimeStatus === 'Ready' ? 'success' : 'attention'}>{runtimeStatus}</Label>
       <Button size="small" onClick={onToggleStatus}>
         Toggle State

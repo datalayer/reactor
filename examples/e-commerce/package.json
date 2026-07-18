@@ -1,15 +1,22 @@
 {
-  "name": "@datalayer/reactor-frontend-backend-example",
+  "name": "@ecommerce/monorepo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "catalog-plugin",
+    "header-plugin",
+    "shop-plugin",
+    "app"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "npm run dev --workspace @ecommerce/app",
+    "build": "npm run build --workspace @ecommerce/app"
   },
   "dependencies": {
     "@datalayer/icons-react": "^1.0.0",
     "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "file:../..",
     "@primer/octicons-react": "^19.29.1",
     "@primer/react": "^37.31.0",
     "react": "^18.3.1",

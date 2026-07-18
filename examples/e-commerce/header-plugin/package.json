@@ -1,0 +1,22 @@
+{
+  "name": "@ecommerce/header-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "dependencies": {
+    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "file:../../..",
+    "@ecommerce/catalog-plugin": "*",
+    "@primer/react": "^37.31.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "typescript": "^5.8.3"
+  }
+}

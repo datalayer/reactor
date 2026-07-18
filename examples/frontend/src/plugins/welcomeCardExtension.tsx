@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Button, Heading, Text } from '@primer/react';
+import { Button, Text } from '@primer/react';
+import { Box, Card } from '@datalayer/primer-addons';
 import { defineExtension } from '../../../../src';
 
 function WelcomeCard() {
@@ -13,29 +14,27 @@ function WelcomeCard() {
   };
 
   return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'border.default',
-        borderRadius: 3,
-        p: 4,
-        background: 'rgba(255, 255, 255, 0.8)',
-      }}
-    >
-      <Heading as="h2" sx={{ fontFamily: 'Fraunces, serif', fontSize: 4, mb: 2 }}>
-        Plugin A: Welcome Card
-      </Heading>
-      <Text as="p" sx={{ display: 'block', color: 'fg.muted', mb: 3 }}>
-        This component is rendered through ReactorSlot from an extension output.
-      </Text>
-      <Button variant="primary" onClick={onPrimaryAction}>Execute Local Action</Button>
-      <Text as="p" sx={{ display: 'block', color: 'fg.muted', mt: 3 }}>
-        Clicks: {clickedCount}
-      </Text>
-      <Text as="p" sx={{ display: 'block', color: 'fg.subtle', mt: 1 }}>
-        {lastActionMessage}
-      </Text>
-    </Box>
+    <Card border rounded="medium" shadow="medium">
+      <Card.Header
+        title="Plugin A: Welcome Card"
+        description="This component is rendered through ReactorSlot from an extension output."
+      />
+      <Card.Content>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Text as="p" sx={{ m: 0, color: 'fg.muted' }}>
+            Clicks: {clickedCount}
+          </Text>
+          <Text as="p" sx={{ m: 0, color: 'fg.subtle' }}>
+            {lastActionMessage}
+          </Text>
+        </Box>
+      </Card.Content>
+      <Card.Actions>
+        <Button variant="primary" onClick={onPrimaryAction}>
+          Execute Local Action
+        </Button>
+      </Card.Actions>
+    </Card>
   );
 }
 
