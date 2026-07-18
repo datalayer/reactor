@@ -1,5 +1,5 @@
 {
-  "name": "@music/header-plugin",
+  "name": "@datalayer-examples/reactor-music-header-plugin",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,9 +11,10 @@
   "dependencies": {
     "@datalayer/primer-addons": "^1.0.17",
     "@datalayer/reactor": "file:../../..",
-    "@music/catalog-plugin": "*",
-    "@music/checkout-plugin": "*",
-    "@music/shop-plugin": "*",
+    "@datalayer-examples/reactor-music-catalog-plugin": "*",
+    "@datalayer-examples/reactor-music-checkout-plugin": "*",
+    "@datalayer-examples/reactor-music-shop-plugin": "*",
+    "@primer/octicons-react": "^19.29.1",
     "@primer/react": "^37.31.0",
     "react": "^18.3.1"
   },

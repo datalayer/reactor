@@ -1,5 +1,5 @@
 {
-  "name": "@music/monorepo",
+  "name": "@datalayer-examples/reactor-music",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,8 +11,8 @@
     "app"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @music/app",
-    "build": "npm run build --workspace @music/app"
+    "dev": "npm run dev --workspace @datalayer-examples/reactor-music-app",
+    "build": "npm run build --workspace @datalayer-examples/reactor-music-app"
   },
   "dependencies": {
     "@datalayer/icons-react": "^1.0.0",

@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
+import { UnmuteIcon } from '@primer/octicons-react';
 import { defineExtension } from '@datalayer/reactor';
-import { CatalogExtension, useCatalogSongs } from '@music/catalog-plugin';
-import { ShopExtension, useCart, cartItemCount, cartTotal } from '@music/shop-plugin';
-import { CheckoutExtension, CheckoutButton } from '@music/checkout-plugin';
+import { CatalogExtension, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { ShopExtension, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
+import { CheckoutExtension, CheckoutButton } from '@datalayer-examples/reactor-music-checkout-plugin';
 
 /**
  * Cart summary rendered in the header. Shows the live item count + total from the
@@ -118,9 +119,14 @@ function StoreHeader() {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-        <Heading as="h1" sx={{ fontSize: 3, m: 0 }}>
-          🎵 Datalayer Music
-        </Heading>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ color: 'accent.fg', display: 'inline-flex' }}>
+            <UnmuteIcon size={18} />
+          </Box>
+          <Heading as="h1" sx={{ fontSize: 3, m: 0 }}>
+            Reactor Music
+          </Heading>
+        </Box>
         <Text sx={{ color: 'fg.muted' }}>
           {loading ? 'loading…' : `${songs.length} songs available`}
         </Text>

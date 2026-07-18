@@ -4,7 +4,7 @@ import { Box, Card } from '@datalayer/primer-addons';
 import { defineExtension } from '@datalayer/reactor';
 
 /**
- * Default URL of the catalog FastAPI backend (see backend/catalog_backend.py).
+ * Default URL of the catalog FastAPI backend (see catalog_plugin package).
  */
 export const CATALOG_BACKEND_URL = 'http://localhost:8799';
 

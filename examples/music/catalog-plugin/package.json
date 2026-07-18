@@ -1,5 +1,5 @@
 {
-  "name": "@music/catalog-plugin",
+  "name": "@datalayer-examples/reactor-music-catalog-plugin",
   "private": true,
   "version": "0.1.0",
   "type": "module",

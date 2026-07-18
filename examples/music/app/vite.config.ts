@@ -24,10 +24,10 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@primer/react', 'styled-components', 'zustand'],
     alias: {
-      '@music/catalog-plugin': path.resolve(__dirname, '../catalog-plugin/src/index.tsx'),
-      '@music/checkout-plugin': path.resolve(__dirname, '../checkout-plugin/src/index.tsx'),
-      '@music/header-plugin': path.resolve(__dirname, '../header-plugin/src/index.tsx'),
-      '@music/shop-plugin': path.resolve(__dirname, '../shop-plugin/src/index.tsx'),
+      '@datalayer-examples/reactor-music-catalog-plugin': path.resolve(__dirname, '../catalog-plugin/src/index.tsx'),
+      '@datalayer-examples/reactor-music-checkout-plugin': path.resolve(__dirname, '../checkout-plugin/src/index.tsx'),
+      '@datalayer-examples/reactor-music-header-plugin': path.resolve(__dirname, '../header-plugin/src/index.tsx'),
+      '@datalayer-examples/reactor-music-shop-plugin': path.resolve(__dirname, '../shop-plugin/src/index.tsx'),
     },
   },
   server: {

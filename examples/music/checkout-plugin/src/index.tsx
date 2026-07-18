@@ -3,7 +3,7 @@ import { Button, Heading, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { defineExtension } from '@datalayer/reactor';
 import { create } from 'zustand';
-import { ShopExtension, useCart, cartItemCount, cartTotal } from '@music/shop-plugin';
+import { ShopExtension, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
 
 type CheckoutState = {
   /** Whether the checkout page is currently shown. */

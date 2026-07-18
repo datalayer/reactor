@@ -63,8 +63,9 @@ frontend-backend:
 music: build-js
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
+	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin; \
 	$(NPM) install --prefix examples/music; \
-	$(PYTHON) -m $(UVICORN) --app-dir examples/music/catalog-plugin/backend catalog_backend:app --reload --port 8799 & \
+	$(PYTHON) -m $(UVICORN) checkout_plugin.app:app --reload --port 8799 & \
 	PY_PID=$$!; \
 	$(NPM) run dev --prefix examples/music
 

@@ -1,9 +1,11 @@
 import React from 'react';
 import { Button, Heading, Label, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
+import { BoringAvatar } from '@datalayer/core/lib/components/avatars';
+import { useThemeStore } from '@datalayer/primer-addons';
 import { defineExtension } from '@datalayer/reactor';
 import { create } from 'zustand';
-import { CatalogExtension, useCatalogSongs, type Song } from '@music/catalog-plugin';
+import { CatalogExtension, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 /**
  * A single line in the shopping cart: a catalog song plus the quantity added.
@@ -57,6 +59,15 @@ function Shop() {
   const { songs, loading, error } = useCatalogSongs();
   const lines = useCart((state) => state.lines);
   const addToCart = useCart((state) => state.addToCart);
+  const { colorMode } = useThemeStore();
+
+  const avatarColors = React.useMemo(
+    () =>
+      colorMode === 'dark'
+        ? ['#7EE787', '#58A6FF', '#A5D6FF', '#8B949E', '#79C0FF']
+        : ['#2DA44E', '#0969DA', '#54AEFF', '#57606A', '#1F6FEB'],
+    [colorMode],
+  );
 
   const total = cartTotal(lines);
   const itemCount = cartItemCount(lines);
@@ -78,7 +89,23 @@ function Shop() {
       <Box sx={{ display: 'grid', gridTemplateColumns: ['1fr', '1fr 1fr'], gap: 3 }}>
         {songs.map((song) => (
           <Card key={song.id} border rounded="medium" shadow="small">
-            <Card.Header title={song.title} description={song.artist} />
+            <Card.Header
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <BoringAvatar
+                    displayName={`${song.artist}-${song.title}`}
+                    variant="beam"
+                    square
+                    size={30}
+                    colors={avatarColors}
+                  />
+                  <Box sx={{ display: 'grid', minWidth: 0 }}>
+                    <Text sx={{ fontWeight: 600, lineHeight: 1.2 }}>{song.title}</Text>
+                    <Text sx={{ color: 'fg.muted', fontSize: 1, lineHeight: 1.2 }}>{song.artist}</Text>
+                  </Box>
+                </Box>
+              }
+            />
             <Card.Content>
               <Text sx={{ color: 'fg.muted' }}>${song.price.toFixed(2)}</Text>
             </Card.Content>

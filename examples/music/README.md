@@ -18,9 +18,18 @@ music/
   checkout-plugin/      # depends on shop-plugin, owns the checkout button + page
 ```
 
+The two Python backends are real installable packages (each with its own
+`pyproject.toml`):
+
+```
+catalog-plugin/     # music-catalog-plugin  -> catalog_plugin package
+checkout-plugin/    # music-checkout-plugin -> checkout_plugin package
+```
+
 - **catalog-plugin** — the base plugin. Exposes the `useCatalogSongs` data hook
-  and a `catalog` slot UI. Ships a FastAPI backend
-  (`catalog-plugin/backend/catalog_backend.py`) serving `GET /api/catalog/songs`.
+  and a `catalog` slot UI. Ships the `music-catalog-plugin` Python package
+  (`catalog-plugin/`, import `catalog_plugin`) — a reactor plugin
+  (`CatalogPlugin`, manifest name `catalog`) serving `GET /api/catalog/songs`.
 - **header-plugin** — declares
   `dependencies: [CatalogExtension, ShopExtension, CheckoutExtension]` and
   consumes `useCatalogSongs` plus the shared cart store. Contributes the store
@@ -34,7 +43,12 @@ music/
   shared cart store. Provides the `CheckoutButton` (rendered by the header plugin
   inside its cart overlay) and contributes the `CheckoutPage` to the `checkout`
   slot. Opening checkout replaces the main store view with the checkout page;
-  placing an order clears the cart.
+  placing an order clears the cart. Ships the `music-checkout-plugin` Python
+  package (`checkout-plugin/`, import `checkout_plugin`) — a reactor
+  plugin (`CheckoutPlugin`, manifest name `checkout`) that both **imports** the
+  `catalog_plugin` package to price the cart and declares a reactor
+  `dependencies=["catalog"]`, so the platform refuses to register it unless the
+  catalog plugin is registered first. Serves `POST /api/checkout`.
 - **app** — mounts only `HeaderExtension` and `ShopExtension`; the catalog and
   checkout plugins are pulled in transitively as dependencies. The app swaps the
   main store view for the `checkout` slot while checkout is open.
@@ -55,11 +69,23 @@ Or manually:
 # 1. Build reactor
 npm run build
 
-# 2. Start the catalog FastAPI backend (port 8799)
-uvicorn catalog_backend:app --app-dir examples/music/catalog-plugin/backend --reload --port 8799
+# 2. Install the backend packages (editable). checkout depends on catalog.
+pip install -e examples/music/catalog-plugin \
+              -e examples/music/checkout-plugin
 
-# 3. Install workspaces and start the app (port 5179)
+# 3. Start the combined backend (catalog + checkout) on port 8799
+uvicorn checkout_plugin.app:app --reload --port 8799
+
+# 4. Install workspaces and start the app (port 5179)
 cd examples/music
 npm install
 npm run dev
+```
+
+The checkout endpoint prices a cart against the catalog:
+
+```bash
+curl -s localhost:8799/api/checkout \
+  -H 'content-type: application/json' \
+  -d '{"items":[{"id":"s1","quantity":2},{"id":"s3"}]}'
 ```

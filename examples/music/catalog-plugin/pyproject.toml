@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-catalog-plugin"
+version = "0.1.0"
+description = "Catalog backend plugin for the Reactor music example"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+[tool.setuptools]
+packages = ["catalog_plugin"]
