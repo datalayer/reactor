@@ -30,7 +30,7 @@ from datalayer_reactor import (
     PluginCompatibility,
     PluginManifest,
     PluginPlatform,
-    create_platform_app,
+    create_reactor_app,
 )
 from datalayer_reactor.hooks import hookimpl
 
@@ -45,7 +45,7 @@ class CheckoutRequest(BaseModel):
 
 
 # Reactor manifest for the checkout plugin. The `dependencies=["catalog"]` entry
-# is the reactor dependency on the catalog plugin — the platform enforces that
+# is the reactor dependency on the catalog plugin — the reactor enforces that
 # the catalog plugin is registered first.
 CHECKOUT_MANIFEST = PluginManifest(
     name="checkout",
@@ -60,11 +60,11 @@ class CheckoutPlugin:
     """Reactor plugin that prices a cart against the catalog and confirms orders."""
 
     @hookimpl
-    def on_platform_start(self, tenant_id: str | None = None) -> None:
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
         print(f"[CheckoutPlugin] started tenant={tenant_id}")
 
     @hookimpl
-    def on_platform_stop(self, tenant_id: str | None = None) -> None:
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
         print(f"[CheckoutPlugin] stopped tenant={tenant_id}")
 
     def provide_routes(self) -> list[dict]:
@@ -119,23 +119,23 @@ class CheckoutPlugin:
         }
 
 
-def register(platform: PluginPlatform) -> None:
-    """Register the checkout plugin on an existing reactor platform.
+def register(reactor: PluginPlatform) -> None:
+    """Register the checkout plugin on an existing reactor reactor.
 
-    The catalog plugin must already be registered — the platform enforces the
+    The catalog plugin must already be registered — the reactor enforces the
     ``dependencies=["catalog"]`` declared in ``CHECKOUT_MANIFEST``.
     """
-    platform.register_plugin(CHECKOUT_MANIFEST, CheckoutPlugin())
+    reactor.register_plugin(CHECKOUT_MANIFEST, CheckoutPlugin())
 
 
-def build_checkout_router(platform: PluginPlatform) -> APIRouter:
+def build_checkout_router(reactor: PluginPlatform) -> APIRouter:
     """Build the real HTTP router that delegates to the checkout plugin."""
     router = APIRouter()
 
     @router.post("/api/checkout")
     def checkout(request: CheckoutRequest) -> dict:
         try:
-            return platform.invoke_plugin_action(
+            return reactor.invoke_plugin_action(
                 plugin_name="checkout",
                 action="checkout",
                 payload=request.model_dump(),
@@ -150,14 +150,14 @@ def create_app() -> FastAPI:
     """Build a standalone FastAPI app serving both catalog and checkout.
 
     Registers the catalog plugin first, then the checkout plugin (which declares a
-    reactor dependency on it), starts the platform, and mounts both the catalog
+    reactor dependency on it), starts the reactor, and mounts both the catalog
     and checkout REST endpoints on top of the reactor management routes.
     """
-    platform = PluginPlatform()
-    register_catalog(platform)  # registers "catalog"
-    register(platform)  # registers "checkout" (depends on "catalog")
-    platform.start()
-    app = create_platform_app(platform)
+    reactor = PluginPlatform()
+    register_catalog(reactor)  # registers "catalog"
+    register(reactor)  # registers "checkout" (depends on "catalog")
+    reactor.start()
+    app = create_reactor_app(reactor)
     app.include_router(catalog_router)
-    app.include_router(build_checkout_router(platform))
+    app.include_router(build_checkout_router(reactor))
     return app

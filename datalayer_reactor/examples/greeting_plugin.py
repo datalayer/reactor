@@ -5,11 +5,11 @@ from datalayer_reactor.hooks import hookimpl
 
 class GreetingPlugin:
     @hookimpl
-    def on_platform_start(self, tenant_id: str | None = None) -> None:
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
         print(f"[GreetingPlugin] started tenant={tenant_id}")
 
     @hookimpl
-    def on_platform_stop(self, tenant_id: str | None = None) -> None:
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
         print(f"[GreetingPlugin] stopped tenant={tenant_id}")
 
     def provide_routes(self) -> list[dict]:
@@ -36,11 +36,11 @@ class GreetingPlugin:
 
 class StatusPlugin:
     @hookimpl
-    def on_platform_start(self, tenant_id: str | None = None) -> None:
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
         print(f"[StatusPlugin] started tenant={tenant_id}")
 
     @hookimpl
-    def on_platform_stop(self, tenant_id: str | None = None) -> None:
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
         print(f"[StatusPlugin] stopped tenant={tenant_id}")
 
     def provide_routes(self) -> list[dict]:

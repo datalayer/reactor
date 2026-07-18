@@ -1,7 +1,7 @@
 {
   "name": "@datalayer/reactor",
   "version": "0.1.0",
-  "description": "Extension platform with framework-agnostic core and React bridge",
+  "description": "Extension reactor with framework-agnostic core and React bridge",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

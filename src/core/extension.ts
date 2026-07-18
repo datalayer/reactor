@@ -1,4 +1,4 @@
-import { shallowMergeConfig } from './platform';
+import { shallowMergeConfig } from './reactor';
 
 export type Dispose = () => void;
 
@@ -18,7 +18,7 @@ export type PhaseContext<C, I, O> = {
   extension: ReactorExtension<C, I, O>;
   config: C;
   state: ExtensionState<C, I, O>;
-  platform: ReactorPlatformView;
+  reactor: ReactorPlatformView;
 };
 
 export type ExtensionState<C, I, O> = {

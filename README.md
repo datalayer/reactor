@@ -4,12 +4,12 @@
 
 Reactor provides two sibling packages in one repository, with no python/typescript subpackage folders:
 
-- `datalayer_reactor` (Python): FastAPI + pluggy plugin platform for modular and SaaS-style extensibility.
+- `datalayer_reactor` (Python): FastAPI + pluggy plugin reactor for modular and SaaS-style extensibility.
 - `@datalayer/reactor` (TypeScript): Extension runtime with a framework-agnostic core and separate React integration.
 
 ## Why Reactor
 
-This project targets a full extension platform, not only hook callbacks:
+This project targets a full extension reactor, not only hook callbacks:
 
 - Platform architecture with lifecycle phases and dependency graph
 - Plugin marketplace metadata and discovery primitives
@@ -46,9 +46,9 @@ The TypeScript runtime implements:
 
 React bindings include:
 
-- `ReactorProvider`: platform lifecycle in React tree
+- `ReactorProvider`: reactor lifecycle in React tree
 - `ReactorSlot`: render plugin-provided components by named slot
-- `useReactorPlatform`: platform access for runtime toggles
+- `useReactorPlatform`: reactor access for runtime toggles
 
 ### Build
 
@@ -60,7 +60,7 @@ npm run build
 ### Minimal TypeScript usage
 
 ```ts
-import { buildPlatformFromExtensions, defineExtension } from '@datalayer/reactor';
+import { buildReactorFromExtensions, defineExtension } from '@datalayer/reactor';
 
 const DemoExtension = defineExtension({
 	name: '@demo/core',
@@ -69,8 +69,8 @@ const DemoExtension = defineExtension({
 	},
 });
 
-const platform = buildPlatformFromExtensions([DemoExtension]);
-platform.start();
+const reactor = buildReactorFromExtensions([DemoExtension]);
+reactor.start();
 ```
 
 ## Python Package: datalayer_reactor
@@ -107,8 +107,8 @@ python -m datalayer_reactor
 ```python
 from datalayer_reactor import PluginManifest, PluginCompatibility, PluginPlatform
 
-platform = PluginPlatform()
-platform.register_plugin(
+reactor = PluginPlatform()
+reactor.register_plugin(
 		PluginManifest(
 				name="greeting-plugin",
 				version="1.0.0",

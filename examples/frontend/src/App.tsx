@@ -1,29 +1,29 @@
 import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
-import { buildPlatformFromExtensions } from '../../../src';
+import { buildReactorFromExtensions } from '../../../src';
 import { ReactorProvider, ReactorSlot, useReactorPlatform } from '../../../src/react';
 import { StatusBannerExtension } from './plugins/statusBannerExtension';
 import { WelcomeCardExtension } from './plugins/welcomeCardExtension';
 
 function RuntimeControls() {
-  const platform = useReactorPlatform();
+  const reactor = useReactorPlatform();
   const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(platform.listExtensions().map((name) => [name, platform.isEnabled(name)])),
+    Object.fromEntries(reactor.listExtensions().map((name) => [name, reactor.isEnabled(name)])),
   );
 
   const toggle = (name: string) => {
-    if (platform.isEnabled(name)) {
-      platform.disable(name);
+    if (reactor.isEnabled(name)) {
+      reactor.disable(name);
     } else {
-      platform.enable(name);
+      reactor.enable(name);
     }
-    setEnabled(Object.fromEntries(platform.listExtensions().map((n) => [n, platform.isEnabled(n)])));
+    setEnabled(Object.fromEntries(reactor.listExtensions().map((n) => [n, reactor.isEnabled(n)])));
   };
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
-      {platform.listExtensions().map((name) => (
+      {reactor.listExtensions().map((name) => (
         <Button key={name} variant={enabled[name] ? 'invisible' : 'primary'} onClick={() => toggle(name)}>
           {enabled[name] ? `Disable ${name}` : `Enable ${name}`}
         </Button>
@@ -56,9 +56,9 @@ function AppHeader() {
 }
 
 export function App() {
-  const platform = useMemo(
+  const reactor = useMemo(
     () =>
-      buildPlatformFromExtensions([
+      buildReactorFromExtensions([
         WelcomeCardExtension,
         StatusBannerExtension,
       ]),
@@ -66,7 +66,7 @@ export function App() {
   );
 
   return (
-    <ReactorProvider platform={platform}>
+    <ReactorProvider reactor={reactor}>
       <AppHeader />
       <Box sx={{ maxWidth: 980, mx: 'auto', px: 3, py: 4 }}>
         <Box

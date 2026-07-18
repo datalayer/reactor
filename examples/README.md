@@ -29,7 +29,7 @@ npm run example:dev:frontend-backend
 Run the Python app for the combined frontend-backend demo:
 
 ```bash
-python -m uvicorn --app-dir examples/frontend-backend python_platform_demo:app --reload --port 8788
+python -m uvicorn --app-dir examples/frontend-backend python_reactor_demo:app --reload --port 8788
 ```
 
 The demo backend registers the shared example plugins (`GreetingPlugin` and

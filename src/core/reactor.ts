@@ -30,10 +30,10 @@ export type ReactorPlatform = ReactorPlatformView & {
   listExtensions: () => string[];
   getConfig: <C = unknown>(name: string) => C | undefined;
   /**
-   * Monotonically increasing revision that changes on every platform mutation
+   * Monotonically increasing revision that changes on every reactor mutation
    * (start, stop, enable, disable). External subscribers (e.g. the React
    * bridge) can use it as a stable snapshot value so they re-render whenever
-   * the platform changes — including when `start()` populates build outputs
+   * the reactor changes — including when `start()` populates build outputs
    * without changing any extension's enabled flag.
    */
   getRevision: () => number;
@@ -122,7 +122,7 @@ function collectOverrides(input: ExtensionRef[]): Map<string, object> {
   return out;
 }
 
-export function buildPlatformFromExtensions(
+export function buildReactorFromExtensions(
   extensionsInput: ExtensionRef[],
   options: BuildOptions = {},
 ): ReactorPlatform {
@@ -164,7 +164,7 @@ export function buildPlatformFromExtensions(
     }
   }
 
-  const platformView: ReactorPlatformView = {
+  const reactorView: ReactorPlatformView = {
     hasExtension(name) {
       return state.has(name);
     },
@@ -192,7 +192,7 @@ export function buildPlatformFromExtensions(
         getInit: () => current.initValue,
         getOutput: () => current.outputValue,
       },
-      platform: platformView,
+      reactor: reactorView,
     };
     current.initValue = current.extension.init?.(ctx);
     current.outputValue = current.extension.build?.(ctx);
@@ -211,7 +211,7 @@ export function buildPlatformFromExtensions(
         getInit: () => current.initValue,
         getOutput: () => current.outputValue,
       },
-      platform: platformView,
+      reactor: reactorView,
     };
     current.registerDispose = current.extension.register?.(ctx) ?? undefined;
     current.afterDispose = current.extension.afterRegistration?.(ctx) ?? undefined;
@@ -229,7 +229,7 @@ export function buildPlatformFromExtensions(
   }
 
   return {
-    ...platformView,
+    ...reactorView,
     start() {
       for (const ext of orderedExtensions) {
         runInitAndBuild(ext.name);

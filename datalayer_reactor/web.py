@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .platform import PluginPlatform
+from .reactor import PluginPlatform
 
 
 class PluginTogglePayload(BaseModel):
@@ -24,8 +24,8 @@ class PluginInvokePayload(BaseModel):
     tenant_id: str | None = None
 
 
-def create_platform_app(platform: PluginPlatform | None = None) -> FastAPI:
-    runtime = platform or PluginPlatform()
+def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
+    runtime = reactor or PluginPlatform()
     app = FastAPI(title="Datalayer Reactor", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,

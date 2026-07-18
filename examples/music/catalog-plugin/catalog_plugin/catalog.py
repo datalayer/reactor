@@ -22,7 +22,7 @@ from datalayer_reactor import (
     PluginCompatibility,
     PluginManifest,
     PluginPlatform,
-    create_platform_app,
+    create_reactor_app,
 )
 from datalayer_reactor.hooks import hookimpl
 
@@ -63,11 +63,11 @@ class CatalogPlugin:
     """Reactor plugin exposing the song catalog."""
 
     @hookimpl
-    def on_platform_start(self, tenant_id: str | None = None) -> None:
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
         print(f"[CatalogPlugin] started tenant={tenant_id}")
 
     @hookimpl
-    def on_platform_stop(self, tenant_id: str | None = None) -> None:
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
         print(f"[CatalogPlugin] stopped tenant={tenant_id}")
 
     def provide_routes(self) -> list[dict]:
@@ -93,20 +93,20 @@ def get_songs() -> list[Song]:
     return list_songs()
 
 
-def register(platform: PluginPlatform) -> None:
-    """Register the catalog plugin on an existing reactor platform."""
-    platform.register_plugin(CATALOG_MANIFEST, CatalogPlugin())
+def register(reactor: PluginPlatform) -> None:
+    """Register the catalog plugin on an existing reactor reactor."""
+    reactor.register_plugin(CATALOG_MANIFEST, CatalogPlugin())
 
 
 def create_app() -> FastAPI:
     """Build a standalone FastAPI app for the catalog backend.
 
-    Registers the catalog plugin on a reactor platform, starts it, and mounts the
+    Registers the catalog plugin on a reactor reactor, starts it, and mounts the
     real catalog REST endpoint on top of the reactor management routes.
     """
-    platform = PluginPlatform()
-    register(platform)
-    platform.start()
-    app = create_platform_app(platform)
+    reactor = PluginPlatform()
+    register(reactor)
+    reactor.start()
+    app = create_reactor_app(reactor)
     app.include_router(catalog_router)
     return app

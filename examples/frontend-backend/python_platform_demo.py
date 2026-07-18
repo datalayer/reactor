@@ -1,10 +1,10 @@
-from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_platform_app
+from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_reactor_app
 from datalayer_reactor.examples.greeting_plugin import GreetingPlugin, StatusPlugin
 
 
-platform = PluginPlatform()
+reactor = PluginPlatform()
 
-platform.register_plugin(
+reactor.register_plugin(
     PluginManifest(
         name="greeting-plugin",
         version="1.0.0",
@@ -14,7 +14,7 @@ platform.register_plugin(
     GreetingPlugin(),
 )
 
-platform.register_plugin(
+reactor.register_plugin(
     PluginManifest(
         name="status-plugin",
         version="1.0.0",
@@ -24,4 +24,4 @@ platform.register_plugin(
     StatusPlugin(),
 )
 
-app = create_platform_app(platform)
+app = create_reactor_app(reactor)

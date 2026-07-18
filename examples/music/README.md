@@ -47,7 +47,7 @@ checkout-plugin/    # music-checkout-plugin -> checkout_plugin package
   package (`checkout-plugin/`, import `checkout_plugin`) — a reactor
   plugin (`CheckoutPlugin`, manifest name `checkout`) that both **imports** the
   `catalog_plugin` package to price the cart and declares a reactor
-  `dependencies=["catalog"]`, so the platform refuses to register it unless the
+  `dependencies=["catalog"]`, so the reactor refuses to register it unless the
   catalog plugin is registered first. Serves `POST /api/checkout`.
 - **app** — mounts only `HeaderExtension` and `ShopExtension`; the catalog and
   checkout plugins are pulled in transitively as dependencies. The app swaps the

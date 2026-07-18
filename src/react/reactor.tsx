@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
-import { ReactorPlatform } from '../core/platform';
+import { ReactorPlatform } from '../core/reactor';
 
 export type ReactorSlotComponent = {
   slot: string;
@@ -13,14 +13,14 @@ export type ReactorReactOutput = {
 };
 
 type ReactorContextValue = {
-  platform: ReactorPlatform;
+  reactor: ReactorPlatform;
   isBackendPluginAvailable: (pluginName: string) => boolean;
 };
 
 const ReactorReactContext = createContext<ReactorContextValue | null>(null);
 
 export type ReactorProviderProps = {
-  platform: ReactorPlatform;
+  reactor: ReactorPlatform;
   children: React.ReactNode;
   autoStart?: boolean;
   availableBackendPlugins?: string[];
@@ -28,7 +28,7 @@ export type ReactorProviderProps = {
 };
 
 export function ReactorProvider({
-  platform,
+  reactor,
   children,
   autoStart = true,
   availableBackendPlugins = [],
@@ -36,13 +36,13 @@ export function ReactorProvider({
 }: ReactorProviderProps) {
   useEffect(() => {
     if (autoStart) {
-      platform.start();
+      reactor.start();
       return () => {
-        platform.stop();
+        reactor.stop();
       };
     }
     return undefined;
-  }, [autoStart, platform]);
+  }, [autoStart, reactor]);
 
   const backendPluginSet = useMemo(() => new Set(availableBackendPlugins), [availableBackendPlugins]);
   const backendAvailability = useMemo(
@@ -56,10 +56,10 @@ export function ReactorProvider({
 
   const value = useMemo(
     () => ({
-      platform,
+      reactor,
       isBackendPluginAvailable: backendAvailability,
     }),
-    [platform, backendAvailability],
+    [reactor, backendAvailability],
   );
   return <ReactorReactContext.Provider value={value}>{children}</ReactorReactContext.Provider>;
 }
@@ -69,7 +69,7 @@ export function useReactorPlatform(): ReactorPlatform {
   if (!ctx) {
     throw new Error('useReactorPlatform must be used within ReactorProvider');
   }
-  return ctx.platform;
+  return ctx.reactor;
 }
 
 function useBackendPluginAvailability(): (pluginName: string) => boolean {
@@ -86,11 +86,11 @@ export type ReactorSlotProps = {
 };
 
 export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
-  const platform = useReactorPlatform();
+  const reactor = useReactorPlatform();
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
-    platform.subscribe,
-    () => platform.getRevision(),
+    reactor.subscribe,
+    () => reactor.getRevision(),
   );
 
   const components = useMemo(() => {
@@ -100,17 +100,17 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       return requiredPlugins.every((pluginName) => isBackendPluginAvailable(pluginName));
     }
 
-    for (const extensionName of platform.listExtensions()) {
-      if (!platform.isEnabled(extensionName)) {
+    for (const extensionName of reactor.listExtensions()) {
+      if (!reactor.isEnabled(extensionName)) {
         continue;
       }
 
-      const extensionBackendRequirements = platform.getRequiredBackendPlugins(extensionName);
+      const extensionBackendRequirements = reactor.getRequiredBackendPlugins(extensionName);
       if (!hasRequiredBackendPlugins(extensionBackendRequirements)) {
         continue;
       }
 
-      const output = platform.getOutput<ReactorReactOutput>(extensionName);
+      const output = reactor.getOutput<ReactorReactOutput>(extensionName);
       for (const component of output?.components ?? []) {
         const componentBackendRequirements = component.requiredBackendPlugins ?? [];
         if (component.slot === slot && hasRequiredBackendPlugins(componentBackendRequirements)) {
@@ -119,7 +119,7 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       }
     }
     return out;
-  }, [platform, slot, snapshot, isBackendPluginAvailable]);
+  }, [reactor, slot, snapshot, isBackendPluginAvailable]);
 
   return (
     <>

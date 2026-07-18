@@ -56,17 +56,21 @@ frontend:
 frontend-backend:
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
-	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend python_platform_demo:app --reload --port 8788 & \
+	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend python_reactor_demo:app --reload --port 8788 & \
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
 
 music: build-js
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
+	echo "[music] Installing Python backends..."; \
 	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin; \
-	$(NPM) install --prefix examples/music; \
+	echo "[music] Installing npm workspaces..."; \
+	$(NPM) install --prefix examples/music --no-audit --no-fund --no-progress --loglevel=error; \
+	echo "[music] Starting backend on http://localhost:8799 ..."; \
 	$(PYTHON) -m $(UVICORN) checkout_plugin.app:app --reload --port 8799 & \
 	PY_PID=$$!; \
+	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music
 
 clean:
