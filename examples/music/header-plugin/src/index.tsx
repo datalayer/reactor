@@ -4,6 +4,7 @@ import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/prim
 import { defineExtension } from '@datalayer/reactor';
 import { CatalogExtension, useCatalogSongs } from '@music/catalog-plugin';
 import { ShopExtension, useCart, cartItemCount, cartTotal } from '@music/shop-plugin';
+import { CheckoutExtension, CheckoutButton } from '@music/checkout-plugin';
 
 /**
  * Cart summary rendered in the header. Shows the live item count + total from the
@@ -74,21 +75,25 @@ function CartSummary() {
           </Box>
         ))}
         {items.length > 0 && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 3,
-              pt: 2,
-              mt: 1,
-              borderTop: '1px solid',
-              borderColor: 'border.default',
-              fontWeight: 'bold',
-            }}
-          >
-            <Text>Total</Text>
-            <Text>${total.toFixed(2)}</Text>
-          </Box>
+          <>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 3,
+                pt: 2,
+                mt: 1,
+                borderTop: '1px solid',
+                borderColor: 'border.default',
+                fontWeight: 'bold',
+              }}
+            >
+              <Text>Total</Text>
+              <Text>${total.toFixed(2)}</Text>
+            </Box>
+            {/* Checkout trigger is provided by the checkout plugin. */}
+            <CheckoutButton />
+          </>
         )}
       </Box>
     </AnchoredOverlay>
@@ -130,14 +135,15 @@ function StoreHeader() {
 
 /**
  * Header plugin: depends on the catalog plugin (for the `useCatalogSongs` data
- * service) and the shop plugin (for the shared cart store). Contributes the store
- * header bar with the appearance controls and a live cart summary — hovering the
- * cart reveals its line items in a Primer overlay — to the `header` slot.
+ * service), the shop plugin (for the shared cart store) and the checkout plugin
+ * (for the `CheckoutButton`). Contributes the store header bar with the
+ * appearance controls and a live cart summary — hovering the cart reveals its
+ * line items plus a Checkout button in a Primer overlay — to the `header` slot.
  */
 export const HeaderExtension = defineExtension({
   name: '@music/header',
   version: '1.0.0',
-  dependencies: [CatalogExtension, ShopExtension],
+  dependencies: [CatalogExtension, ShopExtension, CheckoutExtension],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

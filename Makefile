@@ -4,7 +4,7 @@ PYTHON ?= python3
 NPM ?= npm
 UVICORN ?= uvicorn
 
-.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py example-frontend example-frontend-backend example-music clean
+.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -13,9 +13,9 @@ help:
 	@echo "  make build           Build TypeScript package"
 	@echo "  make typecheck       Run TypeScript typecheck"
 	@echo "  make package         Build JS and Python distributables"
-	@echo "  make example-frontend          Run the frontend-only React example"
-	@echo "  make example-frontend-backend  Run both backend and frontend for the combined example"
-	@echo "  make example-music             Run the monorepo music example (catalog backend + app)"
+	@echo "  make frontend          Run the frontend-only React example"
+	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
+	@echo "  make music             Run the monorepo music example (catalog backend + app)"
 	@echo "  make clean           Remove build artifacts"
 
 install: install-js install-py
@@ -50,17 +50,17 @@ package-py:
 	$(PYTHON) -m pip install build
 	$(PYTHON) -m build
 
-example-frontend:
+frontend:
 	$(NPM) run example:dev
 
-example-frontend-backend:
+frontend-backend:
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
 	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend python_platform_demo:app --reload --port 8788 & \
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
 
-example-music: build-js
+music: build-js
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
 	$(NPM) install --prefix examples/music; \

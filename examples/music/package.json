@@ -5,6 +5,7 @@
   "type": "module",
   "workspaces": [
     "catalog-plugin",
+    "checkout-plugin",
     "header-plugin",
     "shop-plugin",
     "app"
