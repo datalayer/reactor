@@ -1,6 +1,8 @@
 [![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
 
-# ⚛️ 🚀 Reactor
+[![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+
+# ☰ 🚀 Reactor
 
 Reactor provides two sibling packages in one repository, with no python/typescript subpackage folders:
 
@@ -117,10 +119,3 @@ reactor.register_plugin(
 		plugin_impl=object(),
 )
 ```
-
-## Next Steps
-
-- Add semantic version range support (`^`, `~`) for compatibility contracts
-- Add a persisted marketplace backend (database + signed plugin artifacts)
-- Add stronger sandbox isolation (subprocess/container boundaries)
-- Add plugin state migrations for compatibility layer upgrades
