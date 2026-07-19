@@ -7,23 +7,23 @@ import { StatusBannerExtension } from './plugins/statusBannerExtension';
 import { WelcomeCardExtension } from './plugins/welcomeCardExtension';
 
 function RuntimeControls() {
-  const reactor = useReactorPlatform();
+  const reactorPlatform = useReactorPlatform();
   const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(reactor.listExtensions().map((name) => [name, reactor.isEnabled(name)])),
+    Object.fromEntries(reactorPlatform.listExtensions().map((name) => [name, reactorPlatform.isEnabled(name)])),
   );
 
   const toggle = (name: string) => {
-    if (reactor.isEnabled(name)) {
-      reactor.disable(name);
+    if (reactorPlatform.isEnabled(name)) {
+      reactorPlatform.disable(name);
     } else {
-      reactor.enable(name);
+      reactorPlatform.enable(name);
     }
-    setEnabled(Object.fromEntries(reactor.listExtensions().map((n) => [n, reactor.isEnabled(n)])));
+    setEnabled(Object.fromEntries(reactorPlatform.listExtensions().map((n) => [n, reactorPlatform.isEnabled(n)])));
   };
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
-      {reactor.listExtensions().map((name) => (
+      {reactorPlatform.listExtensions().map((name) => (
         <Button key={name} variant={enabled[name] ? 'invisible' : 'primary'} onClick={() => toggle(name)}>
           {enabled[name] ? `Disable ${name}` : `Enable ${name}`}
         </Button>

@@ -17,10 +17,10 @@ function StatusBanner({ status }: { status: string }) {
 
   // Read Plugin A's output through the reactor. Re-render on reactor changes so
   // we re-resolve the output when Plugin A is enabled/disabled at runtime.
-  const reactor = useReactorPlatform();
-  useSyncExternalStore(reactor.subscribe, reactor.getRevision);
-  const welcomeAvailable = reactor.isEnabled(WelcomeCardExtension.name);
-  const welcome = reactor.getOutput<WelcomeCardOutput>(WelcomeCardExtension.name);
+  const reactorPlatform = useReactorPlatform();
+  useSyncExternalStore(reactorPlatform.subscribe, reactorPlatform.getRevision);
+  const welcomeAvailable = reactorPlatform.isEnabled(WelcomeCardExtension.name);
+  const welcome = reactorPlatform.getOutput<WelcomeCardOutput>(WelcomeCardExtension.name);
   const welcomeClicks = useSignalValue(welcome?.clicks ?? NO_CLICKS);
 
   const onToggleStatus = () => {

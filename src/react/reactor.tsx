@@ -97,13 +97,13 @@ export function useReactor(reactor: ReactorPlatform, options: UseReactorOptions 
 }
 
 export function useReactorPlatform(): ReactorPlatform {
-  const reactor = useReactorStore((state) => state.reactor);
-  if (!reactor) {
+  const reactorStore = useReactorStore((state) => state.reactor);
+  if (!reactorStore) {
     throw new Error(
-      'useReactorPlatform: no reactor registered. Call useReactor(reactor) (or registerReactor) before using reactor hooks.',
+      'useReactorPlatform: no reactor store registered. Call useReactor(reactor) (or registerReactor) before using reactor hooks.',
     );
   }
-  return reactor;
+  return reactorStore;
 }
 
 /**
@@ -143,11 +143,11 @@ export type ReactorSlotProps = {
 };
 
 export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
-  const reactor = useReactorPlatform();
+  const reactorPlatform = useReactorPlatform();
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
-    reactor.subscribe,
-    () => reactor.getRevision(),
+    reactorPlatform.subscribe,
+    () => reactorPlatform.getRevision(),
   );
 
   const components = useMemo(() => {
@@ -157,17 +157,17 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       return requiredPlugins.every((pluginName) => isBackendPluginAvailable(pluginName));
     }
 
-    for (const extensionName of reactor.listExtensions()) {
-      if (!reactor.isEnabled(extensionName)) {
+    for (const extensionName of reactorPlatform.listExtensions()) {
+      if (!reactorPlatform.isEnabled(extensionName)) {
         continue;
       }
 
-      const extensionBackendRequirements = reactor.getRequiredBackendPlugins(extensionName);
+      const extensionBackendRequirements = reactorPlatform.getRequiredBackendPlugins(extensionName);
       if (!hasRequiredBackendPlugins(extensionBackendRequirements)) {
         continue;
       }
 
-      const output = reactor.getOutput<ReactorReactOutput>(extensionName);
+      const output = reactorPlatform.getOutput<ReactorReactOutput>(extensionName);
       for (const component of output?.components ?? []) {
         const componentBackendRequirements = component.requiredBackendPlugins ?? [];
         if (component.slot === slot && hasRequiredBackendPlugins(componentBackendRequirements)) {
@@ -176,7 +176,7 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       }
     }
     return out;
-  }, [reactor, slot, snapshot, isBackendPluginAvailable]);
+  }, [reactorPlatform, slot, snapshot, isBackendPluginAvailable]);
 
   return (
     <>
