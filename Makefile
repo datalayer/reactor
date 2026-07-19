@@ -54,6 +54,21 @@ package-py:
 	$(PYTHON) -m pip install build
 	$(PYTHON) -m build
 
+build-lib: ## build-lib
+	npm run build:lib
+
+publish-pypi: # publish the pypi package
+	git clean -fdx && \
+		python -m build
+	@exec echo
+	@exec echo twine upload ./dist/*-py3-none-any.whl
+	@exec echo
+	@exec echo https://pypi.org/project/datalayer-reactor/#history
+
+publish-npm: clean build-lib ## publish-npm
+	npm publish
+	echo open https://www.npmjs.com/package/@datalayer/reactor
+
 frontend:
 	$(NPM) run example:dev
 
