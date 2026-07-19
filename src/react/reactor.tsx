@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
-import { ReactorPlatform } from '../core/platform';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { create } from 'zustand';
+import { ReactorPlatform } from '../core/reactor';
+import { effect, type ReadonlySignal, type Signal } from '../core/signals';
 
 export type ReactorSlotComponent = {
   slot: string;
@@ -12,72 +14,127 @@ export type ReactorReactOutput = {
   components?: ReactorSlotComponent[];
 };
 
-type ReactorContextValue = {
-  platform: ReactorPlatform;
+/**
+ * Global reactor store.
+ *
+ * The React bridge deliberately avoids React Context: the reactor platform is
+ * held in this module-level zustand store so that any component — including
+ * portaled content that renders outside any subtree (overlays, dialogs,
+ * tooltips) — can read the platform without a surrounding provider.
+ */
+export type ReactorStoreState = {
+  reactor: ReactorPlatform | null;
   isBackendPluginAvailable: (pluginName: string) => boolean;
 };
 
-const ReactorReactContext = createContext<ReactorContextValue | null>(null);
+export const useReactorStore = create<ReactorStoreState>(() => ({
+  reactor: null,
+  isBackendPluginAvailable: () => false,
+}));
 
-export type ReactorProviderProps = {
-  platform: ReactorPlatform;
-  children: React.ReactNode;
+/** Imperatively register the reactor platform + backend availability. */
+export function registerReactor(
+  reactor: ReactorPlatform | null,
+  isBackendPluginAvailable: (pluginName: string) => boolean = () => false,
+): void {
+  useReactorStore.setState({ reactor, isBackendPluginAvailable });
+}
+
+export type UseReactorOptions = {
+  /** Start the platform on mount and stop it on unmount. Defaults to `true`. */
   autoStart?: boolean;
+  /** Names of backend plugins currently available (used for slot gating). */
   availableBackendPlugins?: string[];
+  /** Custom predicate overriding `availableBackendPlugins`. */
   isBackendPluginAvailable?: (pluginName: string) => boolean;
 };
 
-export function ReactorProvider({
-  platform,
-  children,
-  autoStart = true,
-  availableBackendPlugins = [],
-  isBackendPluginAvailable,
-}: ReactorProviderProps) {
-  useEffect(() => {
-    if (autoStart) {
-      platform.start();
-      return () => {
-        platform.stop();
-      };
+/**
+ * Publishes the reactor platform to the module-level zustand store and manages
+ * its lifecycle. This replaces the former `<ReactorProvider>` component: there
+ * is no React Context and no wrapper element — call this hook once (typically in
+ * your root component) and render your tree directly.
+ *
+ * Because the platform lives in a global store, any component (including
+ * portaled overlays that render outside the React subtree) can reach it via
+ * `useReactorPlatform()` / `ReactorSlot` without an ancestor provider.
+ */
+export function useReactor(reactor: ReactorPlatform, options: UseReactorOptions = {}): ReactorPlatform {
+  const { autoStart = true, availableBackendPlugins, isBackendPluginAvailable } = options;
+
+  const backendAvailability = useMemo(() => {
+    if (isBackendPluginAvailable) {
+      return isBackendPluginAvailable;
     }
-    return undefined;
-  }, [autoStart, platform]);
+    const set = new Set(availableBackendPlugins ?? []);
+    return (pluginName: string) => set.has(pluginName);
+  }, [isBackendPluginAvailable, availableBackendPlugins]);
 
-  const backendPluginSet = useMemo(() => new Set(availableBackendPlugins), [availableBackendPlugins]);
-  const backendAvailability = useMemo(
-    () =>
-      isBackendPluginAvailable ??
-      ((pluginName: string) => {
-        return backendPluginSet.has(pluginName);
-      }),
-    [isBackendPluginAvailable, backendPluginSet],
-  );
+  // Register synchronously on first render so portaled content (which renders
+  // outside this subtree) observes a populated reactor immediately.
+  useState(() => {
+    registerReactor(reactor, backendAvailability);
+    return null;
+  });
 
-  const value = useMemo(
-    () => ({
-      platform,
-      isBackendPluginAvailable: backendAvailability,
-    }),
-    [platform, backendAvailability],
-  );
-  return <ReactorReactContext.Provider value={value}>{children}</ReactorReactContext.Provider>;
+  // Keep the store in sync when the reactor or backend availability changes.
+  useEffect(() => {
+    registerReactor(reactor, backendAvailability);
+  }, [reactor, backendAvailability]);
+
+  // Platform lifecycle.
+  useEffect(() => {
+    if (!autoStart) {
+      return undefined;
+    }
+    reactor.start();
+    return () => {
+      reactor.stop();
+    };
+  }, [autoStart, reactor]);
+
+  return reactor;
 }
 
 export function useReactorPlatform(): ReactorPlatform {
-  const ctx = useContext(ReactorReactContext);
-  if (!ctx) {
-    throw new Error('useReactorPlatform must be used within ReactorProvider');
+  const reactorStore = useReactorStore((state) => state.reactor);
+  if (!reactorStore) {
+    throw new Error(
+      'useReactorPlatform: no reactor store registered. Call useReactor(reactor) (or registerReactor) before using reactor hooks.',
+    );
   }
-  return ctx.platform;
+  return reactorStore;
+}
+
+/**
+ * Subscribe a React component to a reactor `signal` (or `computed`) and return
+ * its current value. The component re-renders whenever the signal changes.
+ *
+ * This is the idiomatic way for one plugin to consume reactive state exposed by
+ * another plugin's build output (retrieved via `reactor.getOutput(name)`).
+ */
+export function useSignalValue<T>(signal: Signal<T> | ReadonlySignal<T>): T {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      let initialized = false;
+      // `effect` tracks the signal on first run and re-runs on every change.
+      return effect(() => {
+        // Touch `.value` so the effect subscribes to this signal.
+        void signal.value;
+        if (initialized) {
+          onStoreChange();
+        } else {
+          initialized = true;
+        }
+      });
+    },
+    () => signal.peek(),
+    () => signal.peek(),
+  );
 }
 
 function useBackendPluginAvailability(): (pluginName: string) => boolean {
-  const ctx = useContext(ReactorReactContext);
-  if (!ctx) {
-    throw new Error('useBackendPluginAvailability must be used within ReactorProvider');
-  }
-  return ctx.isBackendPluginAvailable;
+  return useReactorStore((state) => state.isBackendPluginAvailable);
 }
 
 export type ReactorSlotProps = {
@@ -86,11 +143,11 @@ export type ReactorSlotProps = {
 };
 
 export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
-  const platform = useReactorPlatform();
+  const reactorPlatform = useReactorPlatform();
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
-    platform.subscribe,
-    () => platform.listExtensions().map((name) => `${name}:${platform.isEnabled(name)}`).join('|'),
+    reactorPlatform.subscribe,
+    () => reactorPlatform.getRevision(),
   );
 
   const components = useMemo(() => {
@@ -100,17 +157,17 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       return requiredPlugins.every((pluginName) => isBackendPluginAvailable(pluginName));
     }
 
-    for (const extensionName of platform.listExtensions()) {
-      if (!platform.isEnabled(extensionName)) {
+    for (const extensionName of reactorPlatform.listExtensions()) {
+      if (!reactorPlatform.isEnabled(extensionName)) {
         continue;
       }
 
-      const extensionBackendRequirements = platform.getRequiredBackendPlugins(extensionName);
+      const extensionBackendRequirements = reactorPlatform.getRequiredBackendPlugins(extensionName);
       if (!hasRequiredBackendPlugins(extensionBackendRequirements)) {
         continue;
       }
 
-      const output = platform.getOutput<ReactorReactOutput>(extensionName);
+      const output = reactorPlatform.getOutput<ReactorReactOutput>(extensionName);
       for (const component of output?.components ?? []) {
         const componentBackendRequirements = component.requiredBackendPlugins ?? [];
         if (component.slot === slot && hasRequiredBackendPlugins(componentBackendRequirements)) {
@@ -119,7 +176,7 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
       }
     }
     return out;
-  }, [platform, slot, snapshot, isBackendPluginAvailable]);
+  }, [reactorPlatform, slot, snapshot, isBackendPluginAvailable]);
 
   return (
     <>

@@ -2,6 +2,7 @@
 **/*.egg-info
 **/node_modules
 **/*-lock.json
+dist
 
 # Include
 !**/.*ignore

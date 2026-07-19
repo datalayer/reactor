@@ -1,54 +1,82 @@
-import React, { useState } from 'react';
-import { Box, Button, Heading, Text } from '@primer/react';
-import { defineExtension } from '../../../../src';
+import React from 'react';
+import { Button, Text } from '@primer/react';
+import { Box, Card } from '@datalayer/primer-addons';
+import { defineExtension, signal, type Signal } from '../../../../src';
+import { useSignalValue } from '../../../../src/react';
 
-function WelcomeCard() {
-  const [clickedCount, setClickedCount] = useState(0);
-  const [lastActionMessage, setLastActionMessage] = useState('No action yet.');
+/**
+ * Reactive state that Plugin A publishes through its build output.
+ *
+ * Because these are reactor `signal`s (not React state), any other plugin that
+ * depends on Plugin A can read `reactor.getOutput('@demo/welcome-card')` and
+ * subscribe to them — see the status-banner plugin (Plugin B).
+ */
+export type WelcomeCardOutput = {
+  clicks: Signal<number>;
+  lastAction: Signal<string>;
+  components: Array<{
+    slot: string;
+    id: string;
+    Component: React.ComponentType;
+  }>;
+};
+
+function WelcomeCard({
+  clicks,
+  lastAction,
+}: {
+  clicks: Signal<number>;
+  lastAction: Signal<string>;
+}) {
+  const clickedCount = useSignalValue(clicks);
+  const lastActionMessage = useSignalValue(lastAction);
 
   const onPrimaryAction = () => {
-    const nextCount = clickedCount + 1;
-    setClickedCount(nextCount);
-    setLastActionMessage(`Local frontend action executed at ${new Date().toLocaleTimeString()}.`);
+    clicks.value = clicks.peek() + 1;
+    lastAction.value = `Local frontend action executed at ${new Date().toLocaleTimeString()}.`;
   };
 
   return (
-    <Box
-      sx={{
-        border: '1px solid',
-        borderColor: 'border.default',
-        borderRadius: 3,
-        p: 4,
-        background: 'rgba(255, 255, 255, 0.8)',
-      }}
-    >
-      <Heading as="h2" sx={{ fontFamily: 'Fraunces, serif', fontSize: 4, mb: 2 }}>
-        Plugin A: Welcome Card
-      </Heading>
-      <Text as="p" sx={{ display: 'block', color: 'fg.muted', mb: 3 }}>
-        This component is rendered through ReactorSlot from an extension output.
-      </Text>
-      <Button variant="primary" onClick={onPrimaryAction}>Execute Local Action</Button>
-      <Text as="p" sx={{ display: 'block', color: 'fg.muted', mt: 3 }}>
-        Clicks: {clickedCount}
-      </Text>
-      <Text as="p" sx={{ display: 'block', color: 'fg.subtle', mt: 1 }}>
-        {lastActionMessage}
-      </Text>
-    </Box>
+    <Card border rounded="medium" shadow="medium">
+      <Card.Header
+        title="Plugin A: Welcome Card"
+        description="This component is rendered through ReactorSlot from an extension output."
+      />
+      <Card.Content>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Text as="p" sx={{ m: 0, color: 'fg.muted' }}>
+            Clicks: {clickedCount}
+          </Text>
+          <Text as="p" sx={{ m: 0, color: 'fg.subtle' }}>
+            {lastActionMessage}
+          </Text>
+        </Box>
+      </Card.Content>
+      <Card.Actions>
+        <Button variant="primary" onClick={onPrimaryAction}>
+          Execute Local Action
+        </Button>
+      </Card.Actions>
+    </Card>
   );
 }
 
-export const WelcomeCardExtension = defineExtension({
+export const WelcomeCardExtension = defineExtension<Record<string, never>, unknown, WelcomeCardOutput>({
   name: '@demo/welcome-card',
   version: '1.0.0',
   build() {
+    // Shared reactive state, exposed on the build output so dependent plugins
+    // can observe it through the reactor.
+    const clicks = signal(0);
+    const lastAction = signal('No action yet.');
     return {
+      clicks,
+      lastAction,
       components: [
         {
           slot: 'main',
           id: 'welcome-card',
-          Component: WelcomeCard,
+          Component: () => <WelcomeCard clicks={clicks} lastAction={lastAction} />,
         },
       ],
     };

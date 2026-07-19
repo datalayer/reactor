@@ -6,12 +6,12 @@ hookimpl = pluggy.HookimplMarker("datalayer_reactor")
 
 class ReactorHookSpecs:
     @hookspec
-    def on_platform_start(self, tenant_id: str | None = None) -> None:
-        """Called when the platform starts globally or for a tenant."""
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
+        """Called when the reactor starts globally or for a tenant."""
 
     @hookspec
-    def on_platform_stop(self, tenant_id: str | None = None) -> None:
-        """Called when the platform stops globally or for a tenant."""
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
+        """Called when the reactor stops globally or for a tenant."""
 
     @hookspec
     def provide_routes(self) -> list[dict]:

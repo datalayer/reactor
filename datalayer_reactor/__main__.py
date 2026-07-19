@@ -1,6 +1,6 @@
-from datalayer_reactor import create_platform_app
+from datalayer_reactor import create_reactor_app
 
-app = create_platform_app()
+app = create_reactor_app()
 
 if __name__ == "__main__":
     import uvicorn

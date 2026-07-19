@@ -95,10 +95,10 @@ class PluginPlatform:
         return names
 
     def start(self, tenant_id: str | None = None) -> None:
-        self._invoke_enabled_hook("on_platform_start", tenant_id=tenant_id)
+        self._invoke_enabled_hook("on_reactor_start", tenant_id=tenant_id)
 
     def stop(self, tenant_id: str | None = None) -> None:
-        self._invoke_enabled_hook("on_platform_stop", tenant_id=tenant_id)
+        self._invoke_enabled_hook("on_reactor_stop", tenant_id=tenant_id)
         self._sandbox.shutdown()
 
     def collect_routes(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
@@ -168,16 +168,16 @@ class PluginPlatform:
     def _assert_compatible(self, manifest: PluginManifest) -> None:
         compat = manifest.compatibility
         current = self._version_tuple(self.PLATFORM_VERSION)
-        min_required = self._version_tuple(compat.min_platform_version)
+        min_required = self._version_tuple(compat.min_reactor_version)
         if min_required > current:
             raise ValueError(
-                f"Plugin {manifest.name} requires platform >= {compat.min_platform_version}"
+                f"Plugin {manifest.name} requires reactor >= {compat.min_reactor_version}"
             )
-        if compat.max_platform_version:
-            max_supported = self._version_tuple(compat.max_platform_version)
+        if compat.max_reactor_version:
+            max_supported = self._version_tuple(compat.max_reactor_version)
             if max_supported < current:
                 raise ValueError(
-                    f"Plugin {manifest.name} supports platform <= {compat.max_platform_version}"
+                    f"Plugin {manifest.name} supports reactor <= {compat.max_reactor_version}"
                 )
 
     @staticmethod

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Button, Label, Text } from '@primer/react';
+import { Button, Label, Text } from '@primer/react';
+import { Box } from '@datalayer/primer-addons';
 import { defineExtension } from '../../../../src';
 
 type StatusConfig = {
@@ -12,6 +13,7 @@ type BackendPluginProps = {
 
 function StatusBanner({ status, backendBaseUrl = 'http://localhost:8788' }: { status: string } & BackendPluginProps) {
   const [stateMessage, setStateMessage] = useState(status);
+  const [counterValue, setCounterValue] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const onCheckStatus = async () => {
@@ -24,9 +26,7 @@ function StatusBanner({ status, backendBaseUrl = 'http://localhost:8788' }: { st
         },
         body: JSON.stringify({
           action: 'status',
-          payload: {
-            environment: 'frontend-backend-demo',
-          },
+          payload: {},
         }),
       });
 
@@ -35,10 +35,13 @@ function StatusBanner({ status, backendBaseUrl = 'http://localhost:8788' }: { st
         throw new Error(errorText || `HTTP ${response.status}`);
       }
 
-      const data = (await response.json()) as { state?: string; environment?: string };
-      setStateMessage(`${data.state ?? 'unknown'} @ ${data.environment ?? 'local'}`);
+      const data = (await response.json()) as { state?: string; counter?: number };
+      const nextState = data.state ?? 'unknown';
+      setStateMessage(nextState.toLowerCase() === 'ready' ? 'Backend Ready' : nextState);
+      setCounterValue(typeof data.counter === 'number' ? data.counter : null);
     } catch (error) {
       setStateMessage(`backend error: ${error instanceof Error ? error.message : 'unknown error'}`);
+      setCounterValue(null);
     } finally {
       setIsLoading(false);
     }
@@ -49,19 +52,25 @@ function StatusBanner({ status, backendBaseUrl = 'http://localhost:8788' }: { st
       sx={{
         border: '1px solid',
         borderColor: 'border.default',
-        borderRadius: 3,
+        borderRadius: 2,
         p: 3,
-        background: 'rgba(255, 255, 255, 0.88)',
+        bg: 'canvas.subtle',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 2,
       }}
     >
-      <Text sx={{ fontFamily: 'IBM Plex Sans, sans-serif' }}>Plugin B: Runtime status panel</Text>
-      <Label variant={stateMessage.startsWith('ready') ? 'success' : 'attention'}>{stateMessage}</Label>
-      <Button size="small" onClick={onCheckStatus} disabled={isLoading}>
-        {isLoading ? 'Checking...' : 'Check backend status'}
-      </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+        <Text>Plugin B: Runtime status panel</Text>
+        <Label variant={stateMessage.startsWith('ready') ? 'success' : 'attention'}>{stateMessage}</Label>
+        <Button size="small" onClick={onCheckStatus} disabled={isLoading}>
+          {isLoading ? 'Checking...' : 'Check backend status'}
+        </Button>
+      </Box>
+      <Text sx={{ color: 'fg.muted' }}>
+        Backend counter: {counterValue ?? 'not fetched yet'}
+      </Text>
     </Box>
   );
 }

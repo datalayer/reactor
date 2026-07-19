@@ -7,8 +7,8 @@ from typing import Any, Callable
 @dataclass(frozen=True)
 class PluginCompatibility:
     api_version: str
-    min_platform_version: str = "0.1.0"
-    max_platform_version: str | None = None
+    min_reactor_version: str = "0.1.0"
+    max_reactor_version: str | None = None
 
 
 @dataclass(frozen=True)

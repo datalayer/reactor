@@ -1,15 +1,15 @@
 [![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
 
-# Reactor
+# ⚛️ 🚀 Reactor
 
 Reactor provides two sibling packages in one repository, with no python/typescript subpackage folders:
 
-- `datalayer_reactor` (Python): FastAPI + pluggy plugin platform for modular and SaaS-style extensibility.
-- `@datalayer/reactor` (TypeScript): Lexical-inspired extension runtime with a framework-agnostic core and separate React integration.
+- `datalayer_reactor` (Python): FastAPI + pluggy plugin reactor for modular and SaaS-style extensibility.
+- `@datalayer/reactor` (TypeScript): Extension runtime with a framework-agnostic core and separate React integration.
 
 ## Why Reactor
 
-This project targets a full extension platform, not only hook callbacks:
+This project targets a full extension reactor, not only hook callbacks:
 
 - Platform architecture with lifecycle phases and dependency graph
 - Plugin marketplace metadata and discovery primitives
@@ -27,9 +27,9 @@ This project targets a full extension platform, not only hook callbacks:
 
 ## TypeScript Package: @datalayer/reactor
 
-### Lexical-style design applied
+### Design
 
-The TypeScript runtime implements a similar model to Lexical Extensions docs:
+The TypeScript runtime implements:
 
 - `defineExtension` and `configExtension`
 - `dependencies`, `peerDependencies`, `conflictsWith`
@@ -46,9 +46,9 @@ The TypeScript runtime implements a similar model to Lexical Extensions docs:
 
 React bindings include:
 
-- `ReactorProvider`: platform lifecycle in React tree
+- `useReactor`: register the reactor in the zustand store and manage its lifecycle
 - `ReactorSlot`: render plugin-provided components by named slot
-- `useReactorPlatform`: platform access for runtime toggles
+- `useReactorPlatform`: reactor access for runtime toggles
 
 ### Build
 
@@ -60,7 +60,7 @@ npm run build
 ### Minimal TypeScript usage
 
 ```ts
-import { buildPlatformFromExtensions, defineExtension } from '@datalayer/reactor';
+import { buildReactorFromExtensions, defineExtension } from '@datalayer/reactor';
 
 const DemoExtension = defineExtension({
 	name: '@demo/core',
@@ -69,8 +69,8 @@ const DemoExtension = defineExtension({
 	},
 });
 
-const platform = buildPlatformFromExtensions([DemoExtension]);
-platform.start();
+const reactor = buildReactorFromExtensions([DemoExtension]);
+reactor.start();
 ```
 
 ## Python Package: datalayer_reactor
@@ -107,8 +107,8 @@ python -m datalayer_reactor
 ```python
 from datalayer_reactor import PluginManifest, PluginCompatibility, PluginPlatform
 
-platform = PluginPlatform()
-platform.register_plugin(
+reactor = PluginPlatform()
+reactor.register_plugin(
 		PluginManifest(
 				name="greeting-plugin",
 				version="1.0.0",
@@ -118,39 +118,9 @@ platform.register_plugin(
 )
 ```
 
-## Example: Two Primer React Plugins
-
-The frontend demo at `examples/frontend/` contains two plugins:
-
-- `@demo/welcome-card`
-- `@demo/status-banner`
-
-It renders them through `ReactorSlot` and exposes runtime enable/disable controls.
-
-Run it:
-
-```bash
-npm install
-npm run example:dev
-```
-
-Run the combined frontend-backend demo frontend:
-
-```bash
-npm run example:dev:frontend-backend
-```
-
-## Python Demo
-
-Run the Python app for the combined frontend-backend demo:
-
-```bash
-python -m uvicorn --app-dir examples/frontend-backend python_platform_demo:app --reload --port 8788
-```
-
 ## Next Steps
 
+- Add semantic version range support (`^`, `~`) for compatibility contracts
 - Add a persisted marketplace backend (database + signed plugin artifacts)
 - Add stronger sandbox isolation (subprocess/container boundaries)
-- Add semantic version range support (`^`, `~`) for compatibility contracts
 - Add plugin state migrations for compatibility layer upgrades

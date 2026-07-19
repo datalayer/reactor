@@ -1,0 +1,24 @@
+{
+  "name": "@datalayer-examples/reactor-music-shop-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "dependencies": {
+    "@datalayer/core": "^1.0.24",
+    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "file:../../..",
+    "@datalayer-examples/reactor-music-catalog-plugin": "*",
+    "@primer/react": "^37.31.0",
+    "react": "^18.3.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "@datalayer-examples/reactor-music",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "catalog-plugin",
+    "checkout-plugin",
+    "header-plugin",
+    "shop-plugin",
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @datalayer-examples/reactor-music-app",
+    "build": "npm run build --workspace @datalayer-examples/reactor-music-app"
+  },
+  "dependencies": {
+    "@datalayer/icons-react": "^1.0.0",
+    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "file:../..",
+    "@primer/octicons-react": "^19.29.1",
+    "@primer/react": "^37.31.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-loading-skeleton": "^3.5.0",
+    "styled-components": "^5.3.10",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.5.2",
+    "babel-plugin-styled-components": "^2.1.4",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.10"
+  }
+}

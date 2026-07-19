@@ -29,6 +29,14 @@ export type ReactorPlatform = ReactorPlatformView & {
   subscribe: (listener: () => void) => () => void;
   listExtensions: () => string[];
   getConfig: <C = unknown>(name: string) => C | undefined;
+  /**
+   * Monotonically increasing revision that changes on every reactor mutation
+   * (start, stop, enable, disable). External subscribers (e.g. the React
+   * bridge) can use it as a stable snapshot value so they re-render whenever
+   * the reactor changes — including when `start()` populates build outputs
+   * without changing any extension's enabled flag.
+   */
+  getRevision: () => number;
 };
 
 export function shallowMergeConfig<C>(base: C, override: Partial<C>): C {
@@ -114,7 +122,7 @@ function collectOverrides(input: ExtensionRef[]): Map<string, object> {
   return out;
 }
 
-export function buildPlatformFromExtensions(
+export function buildReactorFromExtensions(
   extensionsInput: ExtensionRef[],
   options: BuildOptions = {},
 ): ReactorPlatform {
@@ -125,8 +133,10 @@ export function buildPlatformFromExtensions(
 
   const state = new Map<string, ExtensionRuntimeState<any, any, any>>();
   const listeners = new Set<() => void>();
+  let revision = 0;
 
   function emitChange() {
+    revision += 1;
     for (const listener of listeners) {
       listener();
     }
@@ -154,7 +164,7 @@ export function buildPlatformFromExtensions(
     }
   }
 
-  const platformView: ReactorPlatformView = {
+  const reactorView: ReactorPlatformView = {
     hasExtension(name) {
       return state.has(name);
     },
@@ -182,7 +192,7 @@ export function buildPlatformFromExtensions(
         getInit: () => current.initValue,
         getOutput: () => current.outputValue,
       },
-      platform: platformView,
+      reactor: reactorView,
     };
     current.initValue = current.extension.init?.(ctx);
     current.outputValue = current.extension.build?.(ctx);
@@ -201,7 +211,7 @@ export function buildPlatformFromExtensions(
         getInit: () => current.initValue,
         getOutput: () => current.outputValue,
       },
-      platform: platformView,
+      reactor: reactorView,
     };
     current.registerDispose = current.extension.register?.(ctx) ?? undefined;
     current.afterDispose = current.extension.afterRegistration?.(ctx) ?? undefined;
@@ -219,7 +229,7 @@ export function buildPlatformFromExtensions(
   }
 
   return {
-    ...platformView,
+    ...reactorView,
     start() {
       for (const ext of orderedExtensions) {
         runInitAndBuild(ext.name);
@@ -271,6 +281,9 @@ export function buildPlatformFromExtensions(
     },
     getConfig<C = unknown>(name: string): C | undefined {
       return state.get(name)?.config as C | undefined;
+    },
+    getRevision() {
+      return revision;
     },
   };
 }
