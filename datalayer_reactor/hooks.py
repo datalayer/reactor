@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 import pluggy
 
 hookspec = pluggy.HookspecMarker("datalayer_reactor")

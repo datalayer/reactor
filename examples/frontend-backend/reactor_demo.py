@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 import random
 
 from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_reactor_app

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useState, useSyncExternalStore } from 'react';
 import { Button, Label, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';

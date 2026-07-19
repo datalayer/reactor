@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React from 'react';
 import { Button, Heading, Label, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';

@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 SHELL := /bin/bash
 
 PYTHON ?= python3

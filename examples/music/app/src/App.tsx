@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React from 'react';
 import { buildReactorFromExtensions } from '@datalayer/reactor';
 import { ReactorSlot, useReactor } from '@datalayer/reactor/react';

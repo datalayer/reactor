@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { ReactorPlatform } from '../core/reactor';

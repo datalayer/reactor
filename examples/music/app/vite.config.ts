@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import path from 'node:path';
 import { searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react';

@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Catalog plugin backend.
 
 A reactor plugin that owns the song catalog consumed by the music frontend

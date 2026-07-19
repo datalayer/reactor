@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';

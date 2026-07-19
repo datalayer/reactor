@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Checkout plugin backend.
 
 A reactor plugin that turns a cart into a confirmed order. It depends on the

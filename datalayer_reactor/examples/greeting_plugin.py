@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 from __future__ import annotations
 
 from datalayer_reactor.hooks import hookimpl

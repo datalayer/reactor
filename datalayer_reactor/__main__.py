@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 from datalayer_reactor import create_reactor_app
 
 app = create_reactor_app()
