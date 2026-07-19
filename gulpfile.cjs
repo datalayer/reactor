@@ -25,15 +25,14 @@ gulp.task('resources-to-lib-watch', function () {
   );
 });
 
-gulp.task('resources-to-lib', async function () {
+gulp.task('resources-to-lib', function () {
   const f = filter([
     '**',
     '!src/**/*.js',
     '!src/**/*.ts',
     '!src/**/*.tsx'
   ]);
-  gulp.src('./src/**/*.*').pipe(f).pipe(gulp.dest('./lib/'));
-  return;
+  return gulp.src('./src/**/*.*').pipe(f).pipe(gulp.dest('./lib/'));
 });
 
 gulp.task('licenses', async function () {

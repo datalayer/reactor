@@ -18,7 +18,7 @@ class ReactiveEffect {
 
   run() {
     for (const dep of this.dependencies) {
-      dep.subscribers.delete(this.run);
+      dep.subscribers.delete(this.runner);
     }
     this.dependencies.clear();
 
