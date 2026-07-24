@@ -4,7 +4,7 @@
 
 import random
 
-from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_reactor_app
+from reactor import PluginCompatibility, PluginManifest, PluginPlatform, create_reactor_app
 
 
 class RandomCounterGreetingPlugin:

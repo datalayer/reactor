@@ -130,7 +130,7 @@ clean:
 	rm -rf examples/music/*/node_modules
 	rm -rf node_modules
 	rm -rf __pycache__
-	rm -rf datalayer_reactor/__pycache__
+	rm -rf reactor/__pycache__
 	rm -rf examples/__pycache__
 	rm -rf ./*.tgz
 	rm -rf ./.venv

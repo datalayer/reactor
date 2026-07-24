@@ -2,7 +2,7 @@
 #
 # Datalayer License
 
-from datalayer_reactor import create_reactor_app
+from reactor import create_reactor_app
 
 app = create_reactor_app()
 

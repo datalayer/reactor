@@ -2,6 +2,6 @@
 #
 # Datalayer License
 
-from datalayer_reactor.examples.greeting_plugin import GreetingPlugin, StatusPlugin
+from reactor.examples.greeting_plugin import GreetingPlugin, StatusPlugin
 
 __all__ = ["GreetingPlugin", "StatusPlugin"]

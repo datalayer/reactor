@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from datalayer_reactor import PluginCompatibility, PluginManifest, PluginPlatform
+from reactor import PluginCompatibility, PluginManifest, PluginPlatform
 
 
 class CatalogPlugin:

@@ -33,4 +33,4 @@ python -m uvicorn --app-dir examples/frontend-backend reactor_demo:app --reload 
 ```
 
 The demo backend registers the shared example plugins (`GreetingPlugin` and
-`StatusPlugin`) defined in `datalayer_reactor/examples/greeting_plugin.py`.
+`StatusPlugin`) defined in `reactor/examples/greeting_plugin.py`.
