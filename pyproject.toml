@@ -3,12 +3,12 @@
 # Datalayer License
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling==1.21.1", "hatch-nodejs-version>=0.3.2"]
+build-backend = "hatchling.build"
 
 [project]
 name = "datalayer_reactor"
-version = "0.1.0"
+dynamic = ["version"]
 description = "FastAPI + pluggy extension reactor for modular SaaS applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,5 +24,8 @@ dev = [
   "pytest>=8.3.0"
 ]
 
-[tool.setuptools]
-packages = ["reactor", "reactor.examples"]
+[tool.hatch.version]
+source = "nodejs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["reactor"]
