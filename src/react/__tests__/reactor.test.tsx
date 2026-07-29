@@ -46,9 +46,10 @@ describe('useReactor', () => {
 
       expect(useReactorStore.getState().reactor).toBe(reactor);
     } finally {
-      if (root) {
+      const mountedRoot = root;
+      if (mountedRoot) {
         act(() => {
-          root?.unmount();
+          mountedRoot.unmount();
         });
       }
     }

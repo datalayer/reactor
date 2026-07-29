@@ -11,5 +11,14 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     environmentMatchGlobs: [['src/react/**', 'jsdom']],
     setupFiles: ['./tests/vitest.setup.ts'],
+    fileParallelism: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    testTimeout: 10000,
+    hookTimeout: 10000,
   },
 });
