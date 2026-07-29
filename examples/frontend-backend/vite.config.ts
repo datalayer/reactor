@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

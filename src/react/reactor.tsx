@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { ReactorPlatform } from '../core/reactor';
@@ -32,10 +38,12 @@ export const useReactorStore = create<ReactorStoreState>(() => ({
   isBackendPluginAvailable: () => false,
 }));
 
+const unavailableBackendPlugin = () => false;
+
 /** Imperatively register the reactor platform + backend availability. */
 export function registerReactor(
   reactor: ReactorPlatform | null,
-  isBackendPluginAvailable: (pluginName: string) => boolean = () => false,
+  isBackendPluginAvailable: (pluginName: string) => boolean = unavailableBackendPlugin,
 ): void {
   useReactorStore.setState({ reactor, isBackendPluginAvailable });
 }
@@ -80,6 +88,12 @@ export function useReactor(reactor: ReactorPlatform, options: UseReactorOptions 
   // Keep the store in sync when the reactor or backend availability changes.
   useEffect(() => {
     registerReactor(reactor, backendAvailability);
+    return () => {
+      const current = useReactorStore.getState();
+      if (current.reactor === reactor) {
+        registerReactor(null, unavailableBackendPlugin);
+      }
+    };
   }, [reactor, backendAvailability]);
 
   // Platform lifecycle.

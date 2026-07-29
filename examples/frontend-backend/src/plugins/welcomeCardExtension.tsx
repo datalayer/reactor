@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useState } from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';

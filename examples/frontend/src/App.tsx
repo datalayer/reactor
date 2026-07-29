@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';

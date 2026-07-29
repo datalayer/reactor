@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import { shallowMergeConfig } from './reactor';
 
 export type Dispose = () => void;

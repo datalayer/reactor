@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 from .reactor import PluginPlatform
 from .types import PluginManifest, PluginCompatibility
 from .web import create_reactor_app

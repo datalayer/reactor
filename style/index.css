@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
+/*
  * Copyright (c) 2022-2026 Datalayer, Inc.
  *
  * Datalayer License

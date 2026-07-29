@@ -1,10 +1,14 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 SHELL := /bin/bash
 
 PYTHON ?= python3
 NPM ?= npm
 UVICORN ?= uvicorn
 
-.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music clean
+.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -16,6 +20,9 @@ help:
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
 	@echo "  make music             Run the monorepo music example (catalog backend + app)"
+	@echo "  make example-frontend          Alias for frontend example"
+	@echo "  make example-frontend-backend  Alias for frontend-backend example"
+	@echo "  make example-music             Alias for music example"
 	@echo "  make clean           Remove build artifacts"
 
 install: install-js install-py
@@ -50,8 +57,25 @@ package-py:
 	$(PYTHON) -m pip install build
 	$(PYTHON) -m build
 
+build-lib: ## build-lib
+	npm run build:lib
+
+publish-pypi: # publish the pypi package
+	git clean -fdx && \
+		python -m build
+	@exec echo
+	@exec echo twine upload ./dist/*-py3-none-any.whl
+	@exec echo
+	@exec echo https://pypi.org/project/datalayer-reactor/#history
+
+publish-npm: clean build-lib ## publish-npm
+	npm publish
+	echo open https://www.npmjs.com/package/@datalayer/reactor
+
 frontend:
 	$(NPM) run example:dev
+
+example-frontend: frontend
 
 frontend-backend:
 	@set -e; \
@@ -59,6 +83,8 @@ frontend-backend:
 	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend reactor_demo:app --reload --port 8788 & \
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
+
+example-frontend-backend: frontend-backend
 
 music: build-js
 	@set -e; \
@@ -99,6 +125,8 @@ music: build-js
 	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music
 
+example-music: music
+
 clean:
 	rm -rf dist
 	rm -rf build
@@ -111,7 +139,7 @@ clean:
 	rm -rf examples/music/*/node_modules
 	rm -rf node_modules
 	rm -rf __pycache__
-	rm -rf datalayer_reactor/__pycache__
+	rm -rf reactor/__pycache__
 	rm -rf examples/__pycache__
 	rm -rf ./*.tgz
 	rm -rf ./.venv

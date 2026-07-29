@@ -2,11 +2,11 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ☰ 🚀 Reactor
+# 🔌 Reactor
 
 Reactor provides two sibling packages in one repository, with no python/typescript subpackage folders:
 
-- `datalayer_reactor` (Python): FastAPI + pluggy plugin reactor for modular and SaaS-style extensibility.
+- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular and SaaS-style extensibility.
 - `@datalayer/reactor` (TypeScript): Extension runtime with a framework-agnostic core and separate React integration.
 
 ## Why Reactor
@@ -23,7 +23,7 @@ This project targets a full extension reactor, not only hook callbacks:
 ## Repository Layout
 
 - `src/`: TypeScript package source for `@datalayer/reactor`
-- `datalayer_reactor/`: Python package source
+- `reactor/`: Python package source
 - `examples/frontend/`: frontend-only React + Primer UI demo
 - `examples/frontend-backend/`: combined React + Python demo
 
@@ -92,7 +92,7 @@ reactor.start();
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python -m datalayer_reactor
+python -m reactor
 ```
 
 ### API app endpoints
@@ -107,7 +107,7 @@ python -m datalayer_reactor
 ### Minimal Python usage
 
 ```python
-from datalayer_reactor import PluginManifest, PluginCompatibility, PluginPlatform
+from reactor import PluginManifest, PluginCompatibility, PluginPlatform
 
 reactor = PluginPlatform()
 reactor.register_plugin(

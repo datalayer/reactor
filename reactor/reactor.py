@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -18,7 +22,7 @@ class PluginPlatform:
     PLATFORM_VERSION = "0.1.0"
 
     def __init__(self):
-        self._pm = pluggy.PluginManager("datalayer_reactor")
+        self._pm = pluggy.PluginManager("reactor")
         self._pm.add_hookspecs(ReactorHookSpecs)
         self._records: dict[str, PluginRecord] = {}
         self._tenant_plugins: dict[str, set[str]] = defaultdict(set)

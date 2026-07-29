@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Checkout plugin backend.
 
 A reactor plugin that turns a cart into a confirmed order. It depends on the
@@ -25,13 +29,13 @@ from catalog_plugin import (
     catalog_router,
     register as register_catalog,
 )
-from datalayer_reactor import (
+from reactor import (
     PluginCompatibility,
     PluginManifest,
     PluginPlatform,
     create_reactor_app,
 )
-from datalayer_reactor.hooks import hookimpl
+from reactor.hooks import hookimpl
 
 
 class CheckoutItem(BaseModel):

@@ -1,7 +1,11 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 import pluggy
 
-hookspec = pluggy.HookspecMarker("datalayer_reactor")
-hookimpl = pluggy.HookimplMarker("datalayer_reactor")
+hookspec = pluggy.HookspecMarker("reactor")
+hookimpl = pluggy.HookimplMarker("reactor")
 
 
 class ReactorHookSpecs:

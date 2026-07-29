@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Catalog plugin backend.
 
 A reactor plugin that owns the song catalog consumed by the music frontend
@@ -18,13 +22,13 @@ from __future__ import annotations
 from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 
-from datalayer_reactor import (
+from reactor import (
     PluginCompatibility,
     PluginManifest,
     PluginPlatform,
     create_reactor_app,
 )
-from datalayer_reactor.hooks import hookimpl
+from reactor.hooks import hookimpl
 
 
 class Song(BaseModel):
