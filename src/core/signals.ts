@@ -59,7 +59,10 @@ class SignalImpl<T> {
       return;
     }
     this._value = next;
-    for (const sub of this.subscribers) {
+    // Iterate over a snapshot so re-subscriptions during execution do not
+    // mutate the collection we are currently traversing.
+    const subscribers = Array.from(this.subscribers);
+    for (const sub of subscribers) {
       queueSubscriber(sub);
     }
   }
