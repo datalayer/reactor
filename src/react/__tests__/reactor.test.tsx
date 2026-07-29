@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildReactorFromExtensions, defineExtension } from '../../index';
 import { registerReactor, useReactor, useReactorStore } from '../reactor';
@@ -34,17 +34,23 @@ describe('useReactor', () => {
     }
 
     const container = document.createElement('div');
-    const root = createRoot(container);
+    let root: Root | null = null;
 
-    act(() => {
-      root.render(<Harness />);
-    });
+    try {
+      root = createRoot(container);
 
-    expect(useReactorStore.getState().reactor).toBe(reactor);
+      act(() => {
+        root.render(<Harness />);
+      });
 
-    act(() => {
-      root.unmount();
-    });
+      expect(useReactorStore.getState().reactor).toBe(reactor);
+    } finally {
+      if (root) {
+        act(() => {
+          root?.unmount();
+        });
+      }
+    }
 
     expect(useReactorStore.getState().reactor).toBeNull();
   });
