@@ -8,7 +8,7 @@ PYTHON ?= python3
 NPM ?= npm
 UVICORN ?= uvicorn
 
-.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music clean
+.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -20,6 +20,9 @@ help:
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
 	@echo "  make music             Run the monorepo music example (catalog backend + app)"
+	@echo "  make example-frontend          Alias for frontend example"
+	@echo "  make example-frontend-backend  Alias for frontend-backend example"
+	@echo "  make example-music             Alias for music example"
 	@echo "  make clean           Remove build artifacts"
 
 install: install-js install-py
@@ -72,12 +75,16 @@ publish-npm: clean build-lib ## publish-npm
 frontend:
 	$(NPM) run example:dev
 
+example-frontend: frontend
+
 frontend-backend:
 	@set -e; \
 	trap 'if [ -n "$$PY_PID" ]; then kill $$PY_PID 2>/dev/null || true; fi' EXIT INT TERM; \
 	$(PYTHON) -m $(UVICORN) --app-dir examples/frontend-backend reactor_demo:app --reload --port 8788 & \
 	PY_PID=$$!; \
 	$(NPM) run example:dev:frontend-backend
+
+example-frontend-backend: frontend-backend
 
 music: build-js
 	@set -e; \
@@ -117,6 +124,8 @@ music: build-js
 	PY_PID=$$!; \
 	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music
+
+example-music: music
 
 clean:
 	rm -rf dist
