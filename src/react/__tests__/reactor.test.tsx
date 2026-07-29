@@ -38,9 +38,10 @@ describe('useReactor', () => {
 
     try {
       root = createRoot(container);
+      const mountedRoot = root;
 
       act(() => {
-        root.render(<Harness />);
+        mountedRoot.render(<Harness />);
       });
 
       expect(useReactorStore.getState().reactor).toBe(reactor);
