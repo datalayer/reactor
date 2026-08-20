@@ -105,6 +105,75 @@ class PluginPlatform:
         self._invoke_enabled_hook("on_reactor_stop", tenant_id=tenant_id)
         self._sandbox.shutdown()
 
+    def register_cli(self, cli: Any, tenant_id: str | None = None) -> list[str]:
+        """Ask every enabled plugin to add its commands to the host CLI.
+
+        Returns the names of the plugins whose ``provide_cli`` ran
+        successfully. A plugin that fails to register is skipped, never
+        fatal: one broken extension must not take the whole command line
+        down.
+        """
+        active = set(self.resolve_tenant_plugins(tenant_id or "*")) if tenant_id else None
+        registered: list[str] = []
+        for plugin_name, record in self._records.items():
+            if not record.enabled:
+                continue
+            if active is not None and plugin_name not in active:
+                continue
+            provider = getattr(record.implementation, "provide_cli", None)
+            if not callable(provider):
+                continue
+            try:
+                # Positionally: the plugin names its own parameter — `cli`,
+                # `app` — and a keyword here would dictate the name.
+                self._run_plugin_call(plugin_name, lambda: provider(cli))
+                registered.append(plugin_name)
+            except Exception as error:  # noqa: BLE001
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Plugin %s failed to register its CLI commands: %s",
+                    plugin_name,
+                    error,
+                    exc_info=True,
+                )
+        return registered
+
+    def discover(self, group: str) -> list[str]:
+        """Register every plugin advertised under an entry-point group.
+
+        An extension declares itself in its own distribution::
+
+            [project.entry-points."datalayer.cli"]
+            agent-runtimes = "agent_runtimes.reactor_extension:plugin"
+
+        The entry point resolves to a callable returning
+        ``(PluginManifest, plugin_implementation)``. Installing the
+        distribution is publishing the plugin; nothing is hardcoded on the
+        host side. A distribution that fails to load is skipped, with a
+        warning — the host CLI must come up whatever is installed next to it.
+        """
+        from importlib.metadata import entry_points
+
+        registered: list[str] = []
+        for entry_point in entry_points(group=group):
+            try:
+                factory = entry_point.load()
+                manifest, implementation = factory()
+                self.register_plugin(manifest, implementation)
+                registered.append(manifest.name)
+            except Exception as error:  # noqa: BLE001
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Extension %r of group %r could not be loaded: %s",
+                    entry_point.name,
+                    group,
+                    error,
+                    exc_info=True,
+                )
+        return registered
+
     def collect_routes(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
         active = set(self.resolve_tenant_plugins(tenant_id or "*")) if tenant_id else None
         routes: list[dict[str, Any]] = []
