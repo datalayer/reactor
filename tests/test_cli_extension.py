@@ -24,6 +24,13 @@ class _WeatherPlugin:
         cli.add_typer("weather")
 
 
+class _RenamedParameterPlugin:
+    """Names its parameter `app`: the hook is called positionally."""
+
+    def provide_cli(self, app) -> None:
+        app.add_typer("renamed")
+
+
 class _BrokenPlugin:
     def provide_cli(self, cli) -> None:
         raise RuntimeError("this extension is broken")
@@ -47,6 +54,15 @@ def test_register_cli_gives_every_plugin_the_host_application():
 
     assert cli.groups == ["weather"]
     assert registered == ["weather"]
+
+
+def test_the_plugin_names_its_own_parameter():
+    platform = PluginPlatform()
+    platform.register_plugin(_manifest("renamed"), _RenamedParameterPlugin())
+    cli = _FakeCli()
+
+    assert platform.register_cli(cli) == ["renamed"]
+    assert cli.groups == ["renamed"]
 
 
 def test_a_broken_extension_does_not_take_the_cli_down():

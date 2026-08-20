@@ -8,7 +8,8 @@ The host owns its Typer application and its built-in commands — here a single
 `hello`. Everything else arrives as reactor plugins: each one implements
 ``provide_cli`` and adds its commands to the application before it runs.
 
-Run it from this folder::
+Run it from this folder — the `reactor` package resolves from the checkout
+two folders up when it is not installed::
 
     python host.py --help          # hello, plus the weather group
     python host.py hello
@@ -26,6 +27,15 @@ Two ways plugins reach the host, both shown below:
 """
 
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+try:
+    import reactor  # noqa: F401
+except ImportError:
+    # Running from a plain checkout: the package sits two folders up.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import typer
 
@@ -52,8 +62,8 @@ def extend(cli: typer.Typer) -> None:
     # group is registered, nothing is named here.
     platform.discover("reactor.demo.cli")
 
-    # And the local example plugin, registered directly so the demo runs
-    # from a checkout with nothing installed.
+    # And the local example plugin, registered directly: no plugin
+    # distribution has to be installed for the demo to have commands.
     from weather_plugin import plugin
 
     manifest, implementation = plugin()

@@ -2,6 +2,8 @@
 #
 # Datalayer License
 
+from typing import Any
+
 import pluggy
 
 hookspec = pluggy.HookspecMarker("reactor")
@@ -26,7 +28,7 @@ class ReactorHookSpecs:
         """Return plugin-provided feature flags for a tenant."""
 
     @hookspec
-    def provide_cli(self, cli) -> None:
+    def provide_cli(self, cli: Any) -> None:
         """Register the plugin's commands into the host CLI application.
 
         The host passes its command-line application — a ``typer.Typer`` for

@@ -10,8 +10,9 @@ the commands it ships, and from then on they are the host's own — help text,
 completion, exit codes, everything.
 
 The plugin travels as any reactor plugin does: registered directly (as
-`host.py` here does, so the example runs from a checkout), or advertised by
-its distribution under an entry-point group and picked up by
+`host.py` here does — no plugin distribution to install, though the
+``reactor`` package itself must be importable, which the host arranges), or
+advertised by its distribution under an entry-point group and picked up by
 ``PluginPlatform.discover``::
 
     [project.entry-points."reactor.demo.cli"]

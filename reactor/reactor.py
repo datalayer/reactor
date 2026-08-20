@@ -108,9 +108,10 @@ class PluginPlatform:
     def register_cli(self, cli: Any, tenant_id: str | None = None) -> list[str]:
         """Ask every enabled plugin to add its commands to the host CLI.
 
-        Returns the names of the plugins that registered something. A plugin
-        that fails to register is skipped, never fatal: one broken extension
-        must not take the whole command line down.
+        Returns the names of the plugins whose ``provide_cli`` ran
+        successfully. A plugin that fails to register is skipped, never
+        fatal: one broken extension must not take the whole command line
+        down.
         """
         active = set(self.resolve_tenant_plugins(tenant_id or "*")) if tenant_id else None
         registered: list[str] = []
@@ -123,7 +124,9 @@ class PluginPlatform:
             if not callable(provider):
                 continue
             try:
-                self._run_plugin_call(plugin_name, lambda: provider(cli=cli))
+                # Positionally: the plugin names its own parameter — `cli`,
+                # `app` — and a keyword here would dictate the name.
+                self._run_plugin_call(plugin_name, lambda: provider(cli))
                 registered.append(plugin_name)
             except Exception as error:  # noqa: BLE001
                 import logging
@@ -132,6 +135,7 @@ class PluginPlatform:
                     "Plugin %s failed to register its CLI commands: %s",
                     plugin_name,
                     error,
+                    exc_info=True,
                 )
         return registered
 
@@ -166,6 +170,7 @@ class PluginPlatform:
                     entry_point.name,
                     group,
                     error,
+                    exc_info=True,
                 )
         return registered
 
