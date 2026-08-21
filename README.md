@@ -2,11 +2,11 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# 🔌 Reactor
+# ☢️ Reactor
 
-Reactor provides two sibling packages in one repository, with no python/typescript subpackage folders:
+Reactor provides two sibling packages:
 
-- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular and SaaS-style extensibility.
+- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular extensibility.
 - `@datalayer/reactor` (TypeScript): Extension runtime with a framework-agnostic core and separate React integration.
 
 ## Why Reactor
@@ -24,8 +24,7 @@ This project targets a full extension reactor, not only hook callbacks:
 
 - `src/`: TypeScript package source for `@datalayer/reactor`
 - `reactor/`: Python package source
-- `examples/frontend/`: frontend-only React + Primer UI demo
-- `examples/frontend-backend/`: combined React + Python demo
+- `examples/`: Various demos
 
 ## TypeScript Package: @datalayer/reactor
 
