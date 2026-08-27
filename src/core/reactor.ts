@@ -148,11 +148,11 @@ export function buildReactorFromExtensions(
   const contributions = new ContributionRegistry();
   let revision = 0;
   let mutationDepth = 0;
-  let changePending = false;
 
   function emitChange() {
+    // Inside a batch there is nothing to do: the outermost `asOneChange`
+    // emits once on the way out, whatever happened in between.
     if (mutationDepth > 0) {
-      changePending = true;
       return;
     }
     revision += 1;
@@ -176,7 +176,6 @@ export function buildReactorFromExtensions(
     } finally {
       mutationDepth -= 1;
       if (mutationDepth === 0) {
-        changePending = false;
         emitChange();
       }
     }
@@ -244,7 +243,16 @@ export function buildReactorFromExtensions(
       ): Dispose {
         const dispose = contributions.add(name, point, value, options);
         emitChange();
+
+        // The registry's disposer is already idempotent; the notification has
+        // to be too. A second call removes nothing, so waking every subscriber
+        // again would be pure noise — and in React, a re-render for no change.
+        let disposed = false;
         return () => {
+          if (disposed) {
+            return;
+          }
+          disposed = true;
           dispose();
           emitChange();
         };

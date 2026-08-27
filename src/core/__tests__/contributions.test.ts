@@ -129,11 +129,13 @@ describe('extension points', () => {
     expect(reactor.getContributions(ViewPoint)).toHaveLength(0);
     expect(reactor.getRevision()).toBeGreaterThan(revisionBefore);
 
-    // Idempotent: disposing twice is not an error and does not double-emit.
+    // Idempotent, notification included: a second call removes nothing, so it
+    // wakes nobody. Emitting again would re-render every subscriber for a
+    // change that did not happen.
     const revisionAfterFirst = reactor.getRevision();
     dispose?.();
     expect(reactor.getContributions(ViewPoint)).toHaveLength(0);
-    expect(reactor.getRevision()).toBe(revisionAfterFirst + 1);
+    expect(reactor.getRevision()).toBe(revisionAfterFirst);
   });
 
   it('drops an extension’s contributions when it is disabled, and restores them on enable', () => {
