@@ -123,6 +123,76 @@ Enablement rules stay in the application. The reactor stores records and hands
 them back; whether a view *may* be opened right now — a notebook that needs a
 running kernel — is a question about your domain, not about the platform.
 
+### Turning plugins on and off at runtime
+
+`enable` and `disable` are not restart-only switches. Disabling an extension
+disposes everything it contributed, and any host reading through
+`useContributions` or `ReactorSlot` updates immediately — a view leaves the
+switcher, a command leaves the palette, without the application tracking
+anything.
+
+```ts
+reactor.disable('@app/notebook');
+reactor.getContributions(ViewTypePoint); // the notebook view is gone
+reactor.enable('@app/notebook');
+reactor.getContributions(ViewTypePoint); // and back
+```
+
+This is what makes a plugin checkbox honest: the list of extensions comes from
+`reactor.listExtensions()`, the state from `reactor.isEnabled(name)`, and the UI
+that follows is one `useSyncExternalStore` away.
+
+```tsx
+function PluginToggles() {
+	const reactor = useReactorPlatform();
+	useSyncExternalStore(reactor.subscribe, reactor.getRevision);
+
+	return (
+		<ul>
+			{reactor.listExtensions().map(name => (
+				<li key={name}>
+					<label>
+						<input
+							type="checkbox"
+							checked={reactor.isEnabled(name)}
+							onChange={event =>
+								event.target.checked ? reactor.enable(name) : reactor.disable(name)
+							}
+						/>
+						{name}
+					</label>
+				</li>
+			))}
+		</ul>
+	);
+}
+```
+
+**One thing to know before you rely on it.** `enable()` re-runs `init` and
+`build`, so an extension that *owns state* — a connection, a cache, a service
+object — comes back as a **fresh instance**. Anything that captured the previous
+build output is now holding a detached one. Two ways to be safe:
+
+- make `build` idempotent for stateful extensions (return the same service from
+	a module-level or closure-held singleton), or
+- have consumers read the service through `reactor.getOutput(name)` at the point
+	of use rather than capturing it once.
+
+A stateless extension — one that only contributes records and components — can
+be toggled freely with nothing to think about.
+
+### Disposal, in one place
+
+| What happens | What the reactor does |
+| --- | --- |
+| `disable(name)` | runs the extension's `register` / `afterRegistration` disposers, then drops every contribution it made |
+| `enable(name)` | re-runs `init`, `build`, `register` — a fresh build output |
+| `stop()` | disposes every extension in reverse dependency order |
+| a disposer returned by `ctx.contribute(...)` | removes that one contribution; idempotent |
+
+Every one of these bumps the revision exactly once, so a plugin contributing
+five views during `register` wakes subscribers once rather than five times.
+
 ### Build
 
 ```bash
@@ -220,6 +290,28 @@ Two differences from the TypeScript side, both deliberate:
 - **Disable keeps, unregister disposes.** Disabling a plugin is reversible and
 	its contributions are retained (hidden, then restored on enable);
 	unregistering is not, and takes them with it.
+
+```python
+platform.disable_plugin("notebook")
+platform.get_contributions(VIEW_TYPE)        # [] — hidden, not lost
+platform.enable_plugin("notebook")
+platform.get_contributions(VIEW_TYPE)        # back, same objects
+
+platform.unregister_plugin("notebook")       # gone for good
+```
+
+The asymmetry is on purpose: the Python platform has no re-register path, so
+disposing on disable would make a toggle destructive. Contributions are filtered
+on read instead — which is also where tenant scoping already happens.
+
+A plugin can contribute after registration too, through the same bound view:
+
+```python
+dispose = platform.contributions_for("notebook").contribute(
+		VIEW_TYPE, {"title": "Scratch"}, contribution_id="scratch"
+)
+dispose()   # idempotent
+```
 
 ### Minimal Python usage
 
