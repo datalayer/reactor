@@ -12,6 +12,12 @@ import {
   ReactorExtension,
   ReactorPlatformView,
 } from './extension';
+import {
+  ContributionRegistry,
+  type ContributeOptions,
+  type Contribution,
+  type ExtensionPoint,
+} from './contributions';
 
 type ExtensionRuntimeState<C, I, O> = {
   extension: ReactorExtension<C, I, O>;
@@ -139,12 +145,40 @@ export function buildReactorFromExtensions(
 
   const state = new Map<string, ExtensionRuntimeState<any, any, any>>();
   const listeners = new Set<() => void>();
+  const contributions = new ContributionRegistry();
   let revision = 0;
+  let mutationDepth = 0;
+  let changePending = false;
 
   function emitChange() {
+    if (mutationDepth > 0) {
+      changePending = true;
+      return;
+    }
     revision += 1;
     for (const listener of listeners) {
       listener();
+    }
+  }
+
+  /**
+   * Run a lifecycle operation as one change. Without this, a plugin
+   * contributing five views during `register` would wake every subscriber five
+   * times before the reactor had even finished starting.
+   *
+   * The outermost batch always emits: `start`, `stop`, `enable` and `disable`
+   * are changes by definition, whether or not anything was contributed.
+   */
+  function asOneChange<T>(operation: () => T): T {
+    mutationDepth += 1;
+    try {
+      return operation();
+    } finally {
+      mutationDepth -= 1;
+      if (mutationDepth === 0) {
+        changePending = false;
+        emitChange();
+      }
     }
   }
 
@@ -183,14 +217,18 @@ export function buildReactorFromExtensions(
     isEnabled(name: string): boolean {
       return state.get(name)?.enabled ?? false;
     },
+    getContributions<T>(point: ExtensionPoint<T>): Contribution<T>[] {
+      // Contributions are disposed when an extension stops, so anything still
+      // stored belongs to a live extension — no filtering needed here.
+      return contributions.get(point);
+    },
   };
 
-  function runInitAndBuild(name: string) {
-    const current = state.get(name);
-    if (!current) {
-      throw new Error(`Unknown extension ${name}`);
-    }
-    const ctx = {
+  function buildPhaseContext(
+    name: string,
+    current: ExtensionRuntimeState<any, any, any>,
+  ) {
+    return {
       extension: current.extension,
       config: current.config,
       state: {
@@ -199,7 +237,27 @@ export function buildReactorFromExtensions(
         getOutput: () => current.outputValue,
       },
       reactor: reactorView,
+      contribute<T>(
+        point: ExtensionPoint<T>,
+        value: T,
+        options?: ContributeOptions,
+      ): Dispose {
+        const dispose = contributions.add(name, point, value, options);
+        emitChange();
+        return () => {
+          dispose();
+          emitChange();
+        };
+      },
     };
+  }
+
+  function runInitAndBuild(name: string) {
+    const current = state.get(name);
+    if (!current) {
+      throw new Error(`Unknown extension ${name}`);
+    }
+    const ctx = buildPhaseContext(name, current);
     current.initValue = current.extension.init?.(ctx);
     current.outputValue = current.extension.build?.(ctx);
   }
@@ -209,16 +267,15 @@ export function buildReactorFromExtensions(
     if (!current || !current.enabled) {
       return;
     }
-    const ctx = {
-      extension: current.extension,
-      config: current.config,
-      state: {
-        getConfig: () => current.config,
-        getInit: () => current.initValue,
-        getOutput: () => current.outputValue,
-      },
-      reactor: reactorView,
-    };
+    const ctx = buildPhaseContext(name, current);
+
+    // Declarative contributions are applied before `register` runs, so an
+    // extension's own register hook already sees a fully populated point.
+    for (const record of current.extension.contributes ?? []) {
+      contributions.add(name, record.point, record.value, record.options);
+    }
+    emitChange();
+
     current.registerDispose = current.extension.register?.(ctx) ?? undefined;
     current.afterDispose = current.extension.afterRegistration?.(ctx) ?? undefined;
   }
@@ -232,24 +289,29 @@ export function buildReactorFromExtensions(
     current.afterDispose = undefined;
     current.registerDispose?.();
     current.registerDispose = undefined;
+    // Whatever it contributed goes with it: a disabled extension must not keep
+    // a view in the switcher or a command in the palette.
+    contributions.disposeExtension(name);
   }
 
   return {
     ...reactorView,
     start() {
-      for (const ext of orderedExtensions) {
-        runInitAndBuild(ext.name);
-      }
-      for (const ext of orderedExtensions) {
-        runRegister(ext.name);
-      }
-      emitChange();
+      asOneChange(() => {
+        for (const ext of orderedExtensions) {
+          runInitAndBuild(ext.name);
+        }
+        for (const ext of orderedExtensions) {
+          runRegister(ext.name);
+        }
+      });
     },
     stop() {
-      for (const ext of [...orderedExtensions].reverse()) {
-        stopExtension(ext.name);
-      }
-      emitChange();
+      asOneChange(() => {
+        for (const ext of [...orderedExtensions].reverse()) {
+          stopExtension(ext.name);
+        }
+      });
     },
     enable(name: string) {
       const current = state.get(name);
@@ -260,9 +322,10 @@ export function buildReactorFromExtensions(
         return;
       }
       current.enabled = true;
-      runInitAndBuild(name);
-      runRegister(name);
-      emitChange();
+      asOneChange(() => {
+        runInitAndBuild(name);
+        runRegister(name);
+      });
     },
     disable(name: string) {
       const current = state.get(name);
@@ -272,9 +335,10 @@ export function buildReactorFromExtensions(
       if (!current.enabled) {
         return;
       }
-      stopExtension(name);
       current.enabled = false;
-      emitChange();
+      asOneChange(() => {
+        stopExtension(name);
+      });
     },
     subscribe(listener: () => void) {
       listeners.add(listener);

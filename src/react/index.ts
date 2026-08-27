@@ -5,3 +5,4 @@
  */
 
 export * from './reactor';
+export * from './host';

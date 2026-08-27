@@ -5,6 +5,12 @@
  */
 
 import { shallowMergeConfig } from './reactor';
+import type {
+  ContributeOptions,
+  Contribution,
+  ContributionRecord,
+  ExtensionPoint,
+} from './contributions';
 
 export type Dispose = () => void;
 
@@ -25,6 +31,18 @@ export type PhaseContext<C, I, O> = {
   config: C;
   state: ExtensionState<C, I, O>;
   reactor: ReactorPlatformView;
+  /**
+   * Contribute to an extension point. Usable in any phase and at any time
+   * afterwards — a contribution made after `start()` is picked up by hosts
+   * immediately. The returned disposer is idempotent, and everything an
+   * extension contributed is disposed automatically when it stops or is
+   * disabled.
+   */
+  contribute: <T>(
+    point: ExtensionPoint<T>,
+    value: T,
+    options?: ContributeOptions,
+  ) => Dispose;
 };
 
 export type ExtensionState<C, I, O> = {
@@ -44,6 +62,13 @@ export type ReactorExtension<C, I, O> = {
   mergeConfig?: (base: C, override: Partial<C>) => C;
   init?: (ctx: PhaseContext<C, I, O>) => I;
   build?: (ctx: PhaseContext<C, I, O>) => O;
+  /**
+   * Contributions declared up-front, resolved by the reactor during the
+   * register phase — the declarative twin of `ctx.contribute`. Use this when a
+   * contribution does not depend on build output; use `ctx.contribute` when it
+   * does, or when it appears later.
+   */
+  contributes?: ContributionRecord<any>[];
   register?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
   afterRegistration?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
 };
@@ -53,6 +78,11 @@ export type ReactorPlatformView = {
   getOutput: <T = unknown>(name: string) => T | undefined;
   getRequiredBackendPlugins: (name: string) => string[];
   isEnabled: (name: string) => boolean;
+  /**
+   * Everything contributed to a point by enabled extensions, ordered by
+   * `order` and then by contribution order.
+   */
+  getContributions: <T>(point: ExtensionPoint<T>) => Contribution<T>[];
 };
 
 export function defineExtension<C = Record<string, never>, I = unknown, O = unknown>(

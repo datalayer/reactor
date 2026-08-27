@@ -10,6 +10,12 @@ from typing import Any
 
 import pluggy
 
+from .contributions import (
+    Contribution,
+    ContributionRegistry,
+    ExtensionPoint,
+    PluginContributions,
+)
 from .hooks import ReactorHookSpecs
 from .marketplace import MarketplaceEntry, PluginMarketplace
 from .sandbox import SandboxExecutor
@@ -28,6 +34,7 @@ class PluginPlatform:
         self._tenant_plugins: dict[str, set[str]] = defaultdict(set)
         self._marketplace = PluginMarketplace()
         self._sandbox = SandboxExecutor()
+        self._contributions = ContributionRegistry()
 
     @property
     def marketplace(self) -> PluginMarketplace:
@@ -62,6 +69,74 @@ class PluginPlatform:
             self._tenant_plugins[tenant_scope].add(manifest.name)
 
         self._pm.register(plugin_impl, name=manifest.name)
+        self._collect_contributions(manifest.name, record)
+
+    def unregister_plugin(self, name: str) -> None:
+        """Remove a plugin and everything it contributed.
+
+        Disabling is reversible and keeps contributions in place; unregistering
+        is not, so what the plugin offered goes with it.
+        """
+        record = self._get_record(name)
+        self._contributions.dispose_plugin(name)
+        try:
+            self._pm.unregister(record.implementation)
+        except Exception as error:  # noqa: BLE001
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Plugin %s could not be unregistered from pluggy: %s", name, error
+            )
+        for plugins in self._tenant_plugins.values():
+            plugins.discard(name)
+        del self._records[name]
+
+    def get_contributions(
+        self,
+        point: ExtensionPoint[Any],
+        tenant_id: str | None = None,
+    ) -> list[Contribution[Any]]:
+        """What enabled plugins have contributed to a point.
+
+        Disabled plugins are filtered out here rather than at each call site,
+        and so is anything outside the tenant's scope when one is given: a
+        contribution a tenant may not use should not be a contribution a tenant
+        can see.
+        """
+        if tenant_id is not None:
+            allowed: set[str] = set(self.resolve_tenant_plugins(tenant_id))
+        else:
+            allowed = {
+                plugin_name
+                for plugin_name, record in self._records.items()
+                if record.enabled
+            }
+        return self._contributions.get(point, plugins=allowed)
+
+    def contributions_for(self, plugin_name: str) -> PluginContributions:
+        """The registry as one plugin sees it, for contributing after startup."""
+        self._get_record(plugin_name)
+        return PluginContributions(self._contributions, plugin_name)
+
+    def _collect_contributions(self, plugin_name: str, record: PluginRecord) -> None:
+        """Let a freshly registered plugin declare what it offers.
+
+        A plugin that fails here is registered anyway, without its
+        contributions: one bad extension must not take down the host, the same
+        posture as `register_cli`.
+        """
+        provider = getattr(record.implementation, "provide_contributions", None)
+        if not callable(provider):
+            return
+        view = PluginContributions(self._contributions, plugin_name)
+        try:
+            self._run_plugin_call(plugin_name, lambda: provider(view))
+        except Exception as error:  # noqa: BLE001
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Plugin %s failed to contribute: %s", plugin_name, error, exc_info=True
+            )
 
     def list_plugins(self) -> list[dict[str, Any]]:
         return [
