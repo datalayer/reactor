@@ -59,7 +59,7 @@ class PlaylistRule:
 
 #: The extension point. Its id is the contract between plugins — the mood
 #: backend contributes to this exact string.
-PLAYLIST_RULE = define_extension_point("music.playlist.rule")
+PLAYLIST_RULE = define_extension_point("music.playlistRule")
 
 
 class RuleInfo(BaseModel):
@@ -74,8 +74,17 @@ class RuleInfo(BaseModel):
 PLAYLIST_MANIFEST = PluginManifest(
     name="playlist",
     version="1.0.0",
-    description="Playlist backend that other plugins fill with rules",
+    display_name="Playlist",
+    description="Opens the music.playlistRule extension point and serves what is contributed to it.",
+    octicon="list-unordered",
+    emoji="🎧",
     dependencies=["catalog"],
+    # The point this plugin opens, declared so a host can draw it even before
+    # anything is contributed to it.
+    extension_points=["music.playlistRule"],
+    # Optional: these routes answer `curl` perfectly well on their own. The
+    # frontend playlist is what makes them *visible*, not what makes them work.
+    optional_frontend_dependencies=["@music/playlist"],
     compatibility=PluginCompatibility(api_version="v1"),
 )
 

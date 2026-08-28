@@ -1,0 +1,42 @@
+{
+  "name": "@datalayer/reactor-graph",
+  "version": "0.1.0",
+  "description": "Renders the plugin graph of a Datalayer Reactor platform \u2014 dependencies, extension points and their extenders, across the frontend and backend tiers.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    }
+  },
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "datalayer",
+    "reactor",
+    "plugins",
+    "graph",
+    "echarts"
+  ],
+  "dependencies": {
+    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "^1.1.0",
+    "@primer/react": "^37.31.0",
+    "echarts": "^5.5.0",
+    "echarts-for-react": "^3.0.2",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf lib"
+  }
+}

@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { ReactorPlatform } from '../core/reactor';
+import type { ExtensionMetadata } from '../core/extension';
 import { effect, type ReadonlySignal, type Signal } from '../core/signals';
 
 export type ReactorSlotComponent = {
@@ -149,6 +150,59 @@ export function useSignalValue<T>(signal: Signal<T> | ReadonlySignal<T>): T {
 
 function useBackendPluginAvailability(): (pluginName: string) => boolean {
   return useReactorStore((state) => state.isBackendPluginAvailable);
+}
+
+/**
+ * Whether one backend plugin is available right now.
+ *
+ * This is how an extension acts on an *optional* backend plugin: a required
+ * one already gates rendering, so by the time a component runs the answer is
+ * yes; an optional one is the extension's own business, and this is what it
+ * asks. Re-renders when the host's answer changes.
+ */
+export function useBackendPlugin(pluginName: string): boolean {
+  const isAvailable = useBackendPluginAvailability();
+  return isAvailable(pluginName);
+}
+
+/**
+ * Metadata for one extension — how it presents itself, what it needs from the
+ * backend, and whether its module has arrived.
+ *
+ * Defined for a lazy extension before its module loads, which is the point:
+ * a host can list and describe a plugin that is still on the wire.
+ */
+export function useExtensionMetadata(name: string): ExtensionMetadata | undefined {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    // `revision` is the snapshot: metadata changes when a lazy module lands.
+    () => reactorPlatform.getMetadata(name),
+    [reactorPlatform, name, revision],
+  );
+}
+
+/**
+ * Metadata for every extension the platform knows, in dependency order.
+ *
+ * Includes lazy extensions that have not loaded, so a plugin list is complete
+ * from the first paint rather than growing as modules arrive.
+ */
+export function useExtensionsMetadata(): ExtensionMetadata[] {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    () =>
+      reactorPlatform
+        .listExtensions()
+        .map((name) => reactorPlatform.getMetadata(name))
+        .filter((entry): entry is ExtensionMetadata => Boolean(entry)),
+    [reactorPlatform, revision],
+  );
 }
 
 export type ReactorSlotProps = {

@@ -58,7 +58,10 @@ def list_songs() -> list[Song]:
 CATALOG_MANIFEST = PluginManifest(
     name="catalog",
     version="1.0.0",
-    description="Song catalog backend",
+    display_name="Catalog",
+    description="Serves the song catalog every other plugin reads.",
+    octicon="book",
+    emoji="🎵",
     compatibility=PluginCompatibility(api_version="v1"),
 )
 

@@ -174,6 +174,10 @@ function CheckoutPage() {
 export const CheckoutExtension = defineExtension({
   name: '@music/checkout',
   version: '1.0.0',
+  displayName: 'Checkout',
+  description: 'Turns the cart into an order: the Checkout button and the checkout page.',
+  octicon: 'credit-card',
+  emoji: '💳',
   dependencies: [ShopExtension],
   requiredBackendPlugins: ['catalog'],
   build() {

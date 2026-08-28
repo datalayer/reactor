@@ -172,6 +172,10 @@ function StoreHeader() {
 export const HeaderExtension = defineExtension({
   name: '@music/header',
   version: '1.0.0',
+  displayName: 'Header',
+  description: 'The store header, with the cart summary and the theme chooser.',
+  octicon: 'browser',
+  emoji: '🧭',
   dependencies: [CatalogExtension, ShopExtension, CheckoutExtension],
   requiredBackendPlugins: ['catalog'],
   build() {

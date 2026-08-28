@@ -135,6 +135,11 @@ function Shop() {
 export const ShopExtension = defineExtension({
   name: '@music/shop',
   version: '1.0.0',
+  displayName: 'Shop',
+  description:
+    'Purchasable song cards and the shared cart store the header and checkout read.',
+  octicon: 'package',
+  emoji: '🛒',
   dependencies: [CatalogExtension],
   requiredBackendPlugins: ['catalog'],
   build() {

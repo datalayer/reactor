@@ -23,7 +23,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
 import { defineExtension, defineExtensionPoint } from '@datalayer/reactor';
-import { useContributions } from '@datalayer/reactor/react';
+import { useBackendPlugin, useContributions } from '@datalayer/reactor/react';
 import {
   CatalogExtension,
   useCatalogSongs,
@@ -74,6 +74,10 @@ function EmptyPlaylist() {
 
 function Playlist() {
   const { songs, loading, error } = useCatalogSongs();
+
+  // An optional backend plugin is the extension's own business: nothing gates
+  // this component on it, so it asks and adapts.
+  const hasServerRules = useBackendPlugin('playlist');
 
   // Everything plugins have offered at the point. This re-renders on its own
   // when a contributing plugin is enabled or disabled, so the chooser is never
@@ -132,6 +136,12 @@ function Playlist() {
               </Text>
             )}
 
+            <Text sx={{ color: 'fg.muted', fontSize: 0 }}>
+              {hasServerRules
+                ? 'The Python playlist plugin is running too: the same rules are served at /api/playlist.'
+                : 'The Python playlist plugin is switched off — an optional backend, so this card is unaffected.'}
+            </Text>
+
             <Box sx={{ display: 'grid', gap: 2 }}>
               {selection.map((song, index) => (
                 <Box
@@ -167,8 +177,21 @@ function Playlist() {
 export const PlaylistExtension = defineExtension({
   name: '@music/playlist',
   version: '1.0.0',
+  displayName: 'Playlist',
+  description:
+    'Owns the playlist and opens the music.playlistRule extension point. Ships no rules of its own.',
+  octicon: 'list-unordered',
+  emoji: '🎧',
   dependencies: [CatalogExtension],
   requiredBackendPlugins: ['catalog'],
+  // Declared so a host can draw the point, and show it even when nothing has
+  // been contributed to it yet — the registry only ever knows contributors.
+  extensionPoints: [PlaylistRuleExtension],
+  // The Python `playlist` plugin serves the same rules over HTTP. This view
+  // does not need it — its rules come from the extension point in the browser
+  // — so it is declared optional: when the backend is there the card says so,
+  // and when it is not the card is exactly as useful.
+  optionalBackendPlugins: ['playlist'],
   build() {
     return {
       components: [

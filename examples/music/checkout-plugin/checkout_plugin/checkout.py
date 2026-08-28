@@ -53,8 +53,14 @@ class CheckoutRequest(BaseModel):
 CHECKOUT_MANIFEST = PluginManifest(
     name="checkout",
     version="1.0.0",
-    description="Checkout backend that turns a cart into an order",
+    display_name="Checkout",
+    description="Prices a cart against the catalog and turns it into an order.",
+    octicon="credit-card",
+    emoji="💳",
     dependencies=["catalog"],
+    # Required, because the endpoint this plugin serves is only ever called by
+    # the checkout UI: a backend without it is reachable but unused.
+    frontend_dependencies=["@music/checkout"],
     compatibility=PluginCompatibility(api_version="v1"),
 )
 

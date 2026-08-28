@@ -4,22 +4,83 @@
  * Datalayer License
  */
 
-import React from 'react';
-import { buildReactorFromExtensions } from '@datalayer/reactor';
+import React, { useCallback, useEffect, useState } from 'react';
+import { buildReactorFromExtensions, defineLazyExtension } from '@datalayer/reactor';
 import { ReactorSlot, useReactor } from '@datalayer/reactor/react';
+import { Button } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { HeaderExtension } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopExtension } from '@datalayer-examples/reactor-music-shop-plugin';
 import { useCheckout } from '@datalayer-examples/reactor-music-checkout-plugin';
-import { MoodExtension } from '@datalayer-examples/reactor-music-mood-plugin';
+import { PlaylistExtension } from '@datalayer-examples/reactor-music-playlist-plugin';
 import {
   PluginsPanelExtension,
   useBackendPluginAvailability,
+  useBackendPlugins,
 } from '@datalayer-examples/reactor-music-plugins-panel-plugin';
+import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
+// Not one of this example's plugins: a reusable one from the repo's `plugins/`
+// folder, installed like anything else. It knows nothing about a music store.
+import { GraphExtension } from '@datalayer/reactor-graph';
+
+/**
+ * The whole router, because the example needs exactly two addresses.
+ *
+ * A router dependency for one route would be the largest thing in this app and
+ * would teach nothing about the reactor. `pushState` plus `popstate` is the
+ * same contract at a hundredth of the size; vite's dev server already serves
+ * `index.html` for unknown paths, so a reload on /graph works.
+ */
+function usePathname(): string {
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+  return pathname;
+}
+
+function navigate(to: string): void {
+  if (window.location.pathname === to) {
+    return;
+  }
+  window.history.pushState({}, '', to);
+  // `pushState` does not fire `popstate`; this is what tells the app it moved.
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+/**
+ * The mood plugin, fetched after the first paint.
+ *
+ * Nothing on screen waits for it: the store and an empty playlist render, the
+ * module arrives, and the playlist's rule chooser fills in. That is the whole
+ * point of a lazy extension — and it is a fair candidate because it renders no
+ * UI of its own, so its absence costs a chooser rather than a page.
+ *
+ * Everything the sidebar needs to list and describe it is declared here, so it
+ * appears in the plugin list from the first frame rather than popping in when
+ * its module lands. `dependencies` is declared for the same reason: ordering
+ * cannot wait for a module to arrive.
+ */
+const MoodExtension = defineLazyExtension({
+  name: '@music/mood',
+  version: '1.0.0',
+  displayName: 'Moods',
+  description:
+    'Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself, and loads after the first paint.',
+  octicon: 'sun',
+  emoji: '🌤️',
+  dependencies: [PlaylistExtension],
+  load: () =>
+    import('@datalayer-examples/reactor-music-mood-plugin').then(
+      (module) => module.MoodExtension,
+    ),
+});
 
 // The app is purely declarative: it only mounts plugins. The base catalog
-// plugin, the checkout plugin and the playlist plugin are pulled in
-// automatically as dependencies, and each contributes its own UI to a slot.
+// plugin and the checkout plugin are pulled in automatically as dependencies,
+// and each contributes its own UI to a slot.
 //
 // `MoodExtension` is mounted for its *contributions* rather than for any UI: it
 // renders nothing, and everything it offers reaches the screen through the
@@ -29,25 +90,38 @@ const reactor = buildReactorFromExtensions([
   ShopExtension,
   MoodExtension,
   PluginsPanelExtension,
+  GraphExtension,
 ]);
 
-function Content() {
+function Content({ pathname }: { pathname: string }) {
   // When checkout is open, the checkout page replaces the main store view.
   const checkingOut = useCheckout((state) => state.open);
+  // The graph plugin is generic, so this application tells it the two things
+  // only this application knows: where its backend is, and which backend
+  // plugins are on. Handing over the panel's own list rather than letting the
+  // graph fetch its own is what keeps the graph and the switches in agreement.
+  const backendPlugins = useBackendPlugins((state) => state.plugins);
+
+  if (pathname === '/graph') {
+    return (
+      <Box sx={{ maxWidth: 1100, px: 3, py: 4, display: 'grid', gap: 3 }}>
+        <ReactorSlot
+          slot="graph"
+          props={{ backendUrl: CATALOG_BACKEND_URL, backendPlugins }}
+        />
+      </Box>
+    );
+  }
   return (
     <Box
       sx={{
         maxWidth: 960,
-        mx: 'auto',
         px: 3,
         py: 4,
         display: 'grid',
         gap: 4,
       }}
     >
-      {/* Outside the checkout branch: the panel is how you switch plugins back
-          on, so it must not be one of the things that disappears. */}
-      <ReactorSlot slot="plugins" />
       {checkingOut ? (
         <ReactorSlot slot="checkout" />
       ) : (
@@ -61,16 +135,70 @@ function Content() {
   );
 }
 
+/**
+ * The right sidebar.
+ *
+ * Outside the checkout branch on purpose: the sidebar is how a plugin gets
+ * switched back on, so it must not be one of the things that disappears. It
+ * sticks while the store scrolls, so a checkbox and what it changes stay in
+ * the same view.
+ */
+function Sidebar({ pathname }: { pathname: string }) {
+  const onGraph = pathname === '/graph';
+  return (
+    <Box
+      as="aside"
+      sx={{
+        width: ['100%', '100%', 280],
+        flexShrink: 0,
+        px: 3,
+        py: 4,
+        bg: 'canvas.subtle',
+        borderLeft: ['none', 'none', '1px solid'],
+        borderTop: ['1px solid', '1px solid', 'none'],
+        borderColor: 'border.default',
+        alignSelf: 'stretch',
+        position: ['static', 'static', 'sticky'],
+        top: 0,
+        maxHeight: ['none', 'none', '100vh'],
+        overflowY: ['visible', 'visible', 'auto'],
+      }}
+    >
+      <Box sx={{ mb: 4 }}>
+        <Button
+          sx={{ width: '100%' }}
+          onClick={() => navigate(onGraph ? '/' : '/graph')}
+        >
+          {onGraph ? 'Back to the store' : 'View plugin graph'}
+        </Button>
+      </Box>
+      <ReactorSlot slot="sidebar" />
+    </Box>
+  );
+}
+
 export default function App() {
   // Which backend plugins are available is the server's answer, not a constant:
   // the Plugins panel toggles them over the reactor's management API, and every
   // slot gated on `requiredBackendPlugins` follows.
   const isBackendPluginAvailable = useBackendPluginAvailability();
   useReactor(reactor, { isBackendPluginAvailable });
+  const pathname = usePathname();
   return (
     <>
       <ReactorSlot slot="header" />
-      <Content />
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: ['column', 'column', 'row'],
+          alignItems: 'flex-start',
+        }}
+      >
+        <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+          <Content pathname={pathname} />
+        </Box>
+        <Sidebar pathname={pathname} />
+      </Box>
     </>
   );
 }

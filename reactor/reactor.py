@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Iterable
 
 import pluggy
 
@@ -147,6 +147,71 @@ class PluginPlatform:
             }
             for record in self._records.values()
         ]
+
+    def describe_contributions(
+        self,
+        tenant_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Every point that holds something, and what each holds.
+
+        For hosts that describe the whole graph rather than read one point:
+        they have no `ExtensionPoint` objects to look things up with, only ids.
+        Disabled plugins are filtered out the same way `get_contributions`
+        filters them, so the description matches what is actually live.
+        """
+        if tenant_id is not None:
+            allowed: set[str] = set(self.resolve_tenant_plugins(tenant_id))
+        else:
+            allowed = {
+                plugin_name
+                for plugin_name, record in self._records.items()
+                if record.enabled
+            }
+        described: list[dict[str, Any]] = []
+        for point_id in self._contributions.points():
+            entries = [
+                {"plugin": entry.plugin, "id": entry.id, "order": entry.order}
+                for entry in self._contributions.get(
+                    ExtensionPoint(id=point_id), plugins=allowed
+                )
+            ]
+            if entries:
+                described.append({"point": point_id, "contributions": entries})
+        return described
+
+    def frontend_requirements(
+        self,
+        active_frontend: Iterable[str] | None = None,
+    ) -> dict[str, dict[str, list[str]]]:
+        """What each enabled plugin asks of the frontend, and what is missing.
+
+        A backend plugin can declare the frontend extensions it needs
+        (`frontend_dependencies`) and the ones it merely benefits from
+        (`optional_frontend_dependencies`). The platform cannot check either on
+        its own — the extensions live in a browser — so it answers here for a
+        caller that *can* see both sides, typically the frontend itself asking
+        "is anything the server needs missing from what I loaded?".
+
+        Passing no `active_frontend` reports the declarations with everything
+        counted as missing, which is the honest answer when the caller does not
+        know what the frontend has.
+        """
+        active = set(active_frontend or ())
+        out: dict[str, dict[str, list[str]]] = {}
+        for plugin_name, record in self._records.items():
+            if not record.enabled:
+                continue
+            required = list(record.manifest.frontend_dependencies)
+            optional = list(record.manifest.optional_frontend_dependencies)
+            if not required and not optional:
+                continue
+            out[plugin_name] = {
+                "required": required,
+                "optional": optional,
+                "missing_required": [n for n in required if n not in active],
+                "missing_optional": [n for n in optional if n not in active],
+            }
+        return out
 
     def enable_plugin(self, name: str) -> None:
         record = self._get_record(name)

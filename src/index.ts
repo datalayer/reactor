@@ -8,3 +8,4 @@ export * from './core/extension';
 export * from './core/reactor';
 export * from './core/signals';
 export * from './core/contributions';
+export * from './core/graph';

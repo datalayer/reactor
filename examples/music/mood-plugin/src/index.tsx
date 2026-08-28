@@ -67,6 +67,11 @@ const ALPHABETICAL: PlaylistRule = {
 export const MoodExtension = defineExtension({
   name: '@music/mood',
   version: '1.0.0',
+  displayName: 'Moods',
+  description:
+    'Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself.',
+  octicon: 'sun',
+  emoji: '🌤️',
   dependencies: [PlaylistExtension],
   contributes: [
     contribution(PlaylistRuleExtension, CHILL, { id: 'chill', order: 0 }),

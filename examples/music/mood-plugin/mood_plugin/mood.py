@@ -5,7 +5,7 @@
 """Mood plugin backend — the plugin that *uses* another plugin's point.
 
 It serves no routes and owns no data. Everything it offers reaches the frontend
-through the playlist backend, which owns ``music.playlist.rule`` and decides
+through the playlist backend, which owns ``music.playlistRule`` and decides
 which rule answers a request.
 
 The direction of the dependency is the lesson: the playlist backend does not
@@ -63,8 +63,12 @@ ALPHABETICAL = PlaylistRule(
 MOOD_MANIFEST = PluginManifest(
     name="mood",
     version="1.0.0",
-    description="Playlist rules contributed to the playlist plugin",
+    display_name="Moods",
+    description="Three rules contributed to the playlist plugin's extension point.",
+    octicon="sun",
+    emoji="🌤️",
     dependencies=["playlist"],
+    optional_frontend_dependencies=["@music/mood"],
     compatibility=PluginCompatibility(api_version="v1"),
 )
 

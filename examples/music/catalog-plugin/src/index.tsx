@@ -118,6 +118,11 @@ function CatalogList() {
 export const CatalogExtension = defineExtension({
   name: '@music/catalog',
   version: '1.0.0',
+  displayName: 'Catalog',
+  description:
+    'The base plugin: fetches the song catalog and exposes it to every other plugin as the useCatalogSongs hook.',
+  octicon: 'book',
+  emoji: '🎵',
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

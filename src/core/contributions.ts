@@ -182,6 +182,27 @@ export class ContributionRegistry {
       }));
   }
 
+  /** Ids of the points that currently hold something. */
+  points(): string[] {
+    return [...this.byPoint.keys()].sort();
+  }
+
+  /**
+   * Every point and what is currently contributed to it.
+   *
+   * For hosts that describe the whole graph rather than read one point — they
+   * have no `ExtensionPoint` objects to look things up with, only ids.
+   */
+  describe(): { point: string; contributions: Contribution<unknown>[] }[] {
+    return this.points().map((point) => ({
+      point,
+      contributions: (this.byPoint.get(point) ?? [])
+        .slice()
+        .sort((a, b) => (a.order === b.order ? a.seq - b.seq : a.order - b.order))
+        .map(({ extension, id, order, value }) => ({ extension, id, order, value })),
+    }));
+  }
+
   /** Drop everything one extension contributed (on `disable`, `stop`). */
   disposeExtension(extensionName: string): void {
     const owned = this.byExtension.get(extensionName);

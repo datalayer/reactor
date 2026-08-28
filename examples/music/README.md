@@ -61,7 +61,7 @@ backend/            # music-backend         -> music_backend package (the host)
   ships no rules itself, so on its own it renders a playlist that says so. Its
   `music-playlist-plugin` Python package (`playlist_plugin`, manifest name
   `playlist`) does the same on the server: it defines the
-  `music.playlist.rule` point and serves `GET /api/playlist/rules` and
+  `music.playlistRule` point and serves `GET /api/playlist/rules` and
   `GET /api/playlist?rule=…` from whatever is contributed to it.
 - **mood-plugin** — the plugin that **uses** that extension point. It declares
   `dependencies: [PlaylistExtension]` and contributes three rules (Chill,
@@ -80,6 +80,12 @@ backend/            # music-backend         -> music_backend package (the host)
   gated on `requiredBackendPlugins` disappears when its backend plugin is
   switched off. The panel never lists itself: a panel that can switch itself off
   cannot switch itself back on.
+- Every plugin, both tiers, declares a `displayName`/`display_name`,
+  `description`, `octicon` and `emoji`. The Python `checkout` plugin also
+  declares `frontend_dependencies=["@music/checkout"]` — the endpoint it serves
+  is only ever called by the checkout UI — while `playlist` and `mood` declare
+  theirs as optional. Ask the server what is missing with
+  `GET /plugins/frontend-requirements?active=…`.
 - **backend** — the host application for the Python side. Plugin packages ship
   their own standalone `create_app`; this package is what runs them *together*,
   in dependency order, on one `PluginPlatform` — which is the platform the
@@ -92,7 +98,7 @@ backend/            # music-backend         -> music_backend package (the host)
 ## Run
 
 The app depends on `@datalayer/reactor` via `file:../..`, which resolves to the
-built `dist/`, so reactor must be built first.
+built `lib/`, so reactor must be built first.
 
 ```bash
 # from the reactor repo root
@@ -129,6 +135,32 @@ curl -s localhost:8799/api/checkout \
   -d '{"items":[{"id":"s1","quantity":2},{"id":"s3"}]}'
 ```
 
+## Loaded after the first paint
+
+`@music/mood` is mounted with `defineLazyExtension`, so its module is fetched
+*after* the platform starts rather than before the first paint:
+
+```ts
+const MoodExtension = defineLazyExtension({
+  name: '@music/mood',
+  displayName: 'Moods',
+  octicon: 'sun',
+  emoji: '🌤️',
+  dependencies: [PlaylistExtension],
+  load: () => import('@datalayer-examples/reactor-music-mood-plugin')
+    .then(module => module.MoodExtension),
+});
+```
+
+The store and an empty playlist render immediately; the module lands, and the
+rule chooser fills in. It is a fair candidate precisely because it renders no UI
+of its own — its absence costs a chooser, not a page.
+
+Everything the sidebar needs to list and describe it is declared on the
+reference rather than inside the module, so it appears in the plugin list from
+the first frame with a `loading…` marker rather than popping into existence when
+its module arrives.
+
 ## Two plugins, one extension point
 
 `playlist-plugin` and `mood-plugin` exist to show the shape that a slot cannot
@@ -154,19 +186,25 @@ this an extension point rather than an import: a fourth plugin can add a rule
 tomorrow without the playlist plugin changing.
 
 The same relationship exists on the Python side, between the `playlist` and
-`mood` backend plugins, over `music.playlist.rule`.
+`mood` backend plugins, over `music.playlistRule`.
 
 ## Switching plugins off and on
 
-The **Plugins** panel at the top of the page has a checkbox per plugin. Both
-kinds are live — nothing restarts, and no page reloads:
+The **Plugins** sidebar on the right has a checkbox per plugin, frontend and
+backend alike. Both kinds are live — nothing restarts, and no page reloads:
 
 | Uncheck | What happens | Why |
 | --- | --- | --- |
 | `@music/mood` (frontend) | the playlist's chooser empties | disabling an extension withdraws its contributions, so the rules leave the point |
 | `@music/playlist` (frontend) | the playlist card disappears | its slot component goes with it, while mood's contributions sit unused |
 | `catalog` (Python) | catalog **and** shop disappear | both React extensions declare `requiredBackendPlugins: ['catalog']` |
+| `playlist` (Python) | the playlist card stays, and says so | the frontend declares it in `optionalBackendPlugins`, which never gates rendering |
 | `mood` (Python) | `GET /api/playlist/rules` returns `[]` | the platform stops counting a disabled plugin's contributions |
+
+Hovering a row opens an overlay with what that plugin says about itself — its
+icon and emoji, display name, identifier, tier, description, and the plugins it
+requires or merely likes on the other side of the wire. Both tiers declare the
+same four presentation fields, which is why one overlay draws either.
 
 The backend half is worth trying with `curl` too, to see that the server really
 changed its mind rather than the browser hiding something:

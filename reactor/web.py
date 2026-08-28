@@ -47,6 +47,26 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
     def list_plugins() -> list[dict]:
         return runtime.list_plugins()
 
+    @app.get("/plugins/frontend-requirements")
+    def frontend_requirements(active: str = "") -> dict[str, dict[str, list[str]]]:
+        """What enabled plugins ask of the frontend, and what is missing.
+
+        `active` is a comma-separated list of the frontend extension names the
+        caller has loaded. The platform cannot see them itself, so the caller
+        supplies them and the platform answers.
+        """
+        names = [name.strip() for name in active.split(",") if name.strip()]
+        return runtime.frontend_requirements(names)
+
+    @app.get("/contributions")
+    def contributions(tenant_id: str | None = None) -> list[dict]:
+        """Every extension point that holds something, and what each holds.
+
+        The other half of the graph a host draws: `/plugins` says who exists
+        and what they depend on, this says who fills whose extension points.
+        """
+        return runtime.describe_contributions(tenant_id)
+
     @app.post("/plugins/{plugin_name}/toggle")
     def toggle_plugin(plugin_name: str, payload: PluginTogglePayload) -> dict[str, str]:
         try:
