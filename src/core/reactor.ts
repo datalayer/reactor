@@ -331,7 +331,14 @@ export function buildReactorFromExtensions(
       }
       current.enabled = true;
       asOneChange(() => {
-        runInitAndBuild(name);
+        // An extension that owns something says so, and keeps it: rebuilding
+        // would hand back a new instance while everything that captured the
+        // old one carries on holding a detached object.
+        const keepsWhatItBuilt =
+          current.extension.preserveOutput && current.outputValue !== undefined;
+        if (!keepsWhatItBuilt) {
+          runInitAndBuild(name);
+        }
         runRegister(name);
       });
     },

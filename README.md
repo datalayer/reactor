@@ -168,18 +168,26 @@ function PluginToggles() {
 }
 ```
 
-**One thing to know before you rely on it.** `enable()` re-runs `init` and
-`build`, so an extension that *owns state* — a connection, a cache, a service
-object — comes back as a **fresh instance**. Anything that captured the previous
-build output is now holding a detached one. Two ways to be safe:
+**Extensions that own something say so.** `enable()` re-runs `init` and `build`,
+which is right for an extension that only contributes records — it comes back
+clean. It is wrong for one that owns a connection, a kernel or a cache: the
+fresh build returns a new instance while everything holding the previous one is
+quietly detached.
 
-- make `build` idempotent for stateful extensions (return the same service from
-	a module-level or closure-held singleton), or
-- have consumers read the service through `reactor.getOutput(name)` at the point
-	of use rather than capturing it once.
+```ts
+defineExtension({
+	name: '@app/sandbox',
+	preserveOutput: true,   // keep what I built across disable/enable
+	build() {
+		return { sandbox: createSandboxService() };   // a live connection
+	},
+});
+```
 
-A stateless extension — one that only contributes records and components — can
-be toggled freely with nothing to think about.
+With `preserveOutput`, enabling an extension that has already built keeps its
+output and only re-runs `register` — so its contributions come back while the
+thing it owns stays where it was. A stateless extension needs none of this and
+can be toggled freely.
 
 ### Disposal, in one place
 

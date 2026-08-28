@@ -223,3 +223,82 @@ describe('extension points', () => {
     expect(reactor.getContributions(ViewPoint)[0]?.value.title).toBe('From base');
   });
 });
+
+describe('extensions that own something', () => {
+  it('are rebuilt on enable by default', () => {
+    let builds = 0;
+    const Extension = defineExtension({
+      name: '@tests/stateless',
+      build() {
+        builds += 1;
+        return { instance: builds };
+      },
+    });
+
+    const reactor = buildReactorFromExtensions([Extension]);
+    reactor.start();
+    reactor.disable('@tests/stateless');
+    reactor.enable('@tests/stateless');
+
+    // Right for an extension that only contributes records: it comes back clean.
+    expect(builds).toBe(2);
+    expect(reactor.getOutput<{ instance: number }>('@tests/stateless')?.instance).toBe(2);
+  });
+
+  it('keep what they built when they ask to', () => {
+    let builds = 0;
+    const Extension = defineExtension({
+      name: '@tests/stateful',
+      preserveOutput: true,
+      build() {
+        builds += 1;
+        return { connection: `connection-${builds}` };
+      },
+    });
+
+    const reactor = buildReactorFromExtensions([Extension]);
+    reactor.start();
+    const before = reactor.getOutput<{ connection: string }>('@tests/stateful');
+
+    reactor.disable('@tests/stateful');
+    reactor.enable('@tests/stateful');
+
+    // The same object, so anything holding it is not left detached.
+    expect(builds).toBe(1);
+    expect(reactor.getOutput('@tests/stateful')).toBe(before);
+  });
+
+  it('still re-register, so their contributions come back', () => {
+    const Extension = defineExtension({
+      name: '@tests/stateful-contributor',
+      preserveOutput: true,
+      build() {
+        return { held: true };
+      },
+      contributes: [contribution(ViewPoint, { title: 'Held' }, { id: 'held' })],
+    });
+
+    const reactor = buildReactorFromExtensions([Extension]);
+    reactor.start();
+    reactor.disable('@tests/stateful-contributor');
+    expect(reactor.getContributions(ViewPoint)).toHaveLength(0);
+
+    reactor.enable('@tests/stateful-contributor');
+    expect(reactor.getContributions(ViewPoint).map(c => c.id)).toEqual(['held']);
+  });
+
+  it('build normally the first time, however they are flagged', () => {
+    const Extension = defineExtension({
+      name: '@tests/first-build',
+      preserveOutput: true,
+      build() {
+        return { built: true };
+      },
+    });
+
+    const reactor = buildReactorFromExtensions([Extension]);
+    reactor.start();
+
+    expect(reactor.getOutput('@tests/first-build')).toEqual({ built: true });
+  });
+});

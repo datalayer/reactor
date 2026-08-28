@@ -63,6 +63,20 @@ export type ReactorExtension<C, I, O> = {
   init?: (ctx: PhaseContext<C, I, O>) => I;
   build?: (ctx: PhaseContext<C, I, O>) => O;
   /**
+   * Keep this extension's build output across a disable/enable cycle.
+   *
+   * `enable()` normally re-runs `init` and `build`, which is right for an
+   * extension that only contributes records: it comes back clean. It is wrong
+   * for one that *owns something* — a connection, a kernel, a cache — because
+   * the fresh build returns a new instance and everything holding the previous
+   * one is quietly detached.
+   *
+   * With this set, enabling an extension that has already built keeps what it
+   * built and only re-runs `register`. Turning a sandbox plugin off and on then
+   * leaves the sandbox where it was.
+   */
+  preserveOutput?: boolean;
+  /**
    * Contributions declared up-front, resolved by the reactor during the
    * register phase — the declarative twin of `ctx.contribute`. Use this when a
    * contribution does not depend on build output; use `ctx.contribute` when it
