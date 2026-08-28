@@ -19,7 +19,7 @@ help:
 	@echo "  make package         Build JS and Python distributables"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
-	@echo "  make music             Run the monorepo music example (catalog backend + app)"
+	@echo "  make music             Run the monorepo music example (plugin backend + app)"
 	@echo "  make example-frontend          Alias for frontend example"
 	@echo "  make example-frontend-backend  Alias for frontend-backend example"
 	@echo "  make example-music             Alias for music example"
@@ -118,9 +118,9 @@ music: build-js
 	kill_port 8799; \
 	kill_port 5179; \
 	echo "[music] Installing Python backends..."; \
-	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin; \
+	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin -e examples/music/playlist-plugin -e examples/music/mood-plugin -e examples/music/backend; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
-	$(PYTHON) -m $(UVICORN) checkout_plugin.app:app --reload --port 8799 & \
+	$(PYTHON) -m $(UVICORN) music_backend.app:app --reload --port 8799 & \
 	PY_PID=$$!; \
 	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music

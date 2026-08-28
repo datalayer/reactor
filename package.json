@@ -47,5 +47,15 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.8.3",
     "vitest": "^2.1.8"
+  },
+  "typesVersions": {
+    "*": {
+      "react": [
+        "dist/react/index.d.ts"
+      ],
+      "*": [
+        "dist/index.d.ts"
+      ]
+    }
   }
 }

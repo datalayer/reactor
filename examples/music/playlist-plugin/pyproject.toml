@@ -1,0 +1,23 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-playlist-plugin"
+version = "0.1.0"
+description = "Playlist backend plugin for the Reactor music example"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "music-catalog-plugin",
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+[tool.setuptools]
+packages = ["playlist_plugin"]
