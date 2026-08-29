@@ -24,7 +24,13 @@
  * @module graph-plugin
  */
 
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Spinner, Text, useTheme } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
@@ -369,6 +375,33 @@ export function PluginGraphView({
     [reactor, revision, backend.plugins, backend.contributions, includeDisabled],
   );
 
+  /**
+   * Keep the canvas the size of its box.
+   *
+   * `echarts-for-react` only listens to *window* resizes. A container that
+   * changes width on its own — a sidebar opening, a two-column layout
+   * collapsing to one — leaves the canvas at its old backing size, and the
+   * browser stretches it to fit: every node becomes an ellipse and every
+   * label leans. Observing the box and calling `resize()` is what keeps a
+   * circle a circle at any width.
+   */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<ReactECharts | null>(null);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    // Absent in jsdom and in older browsers; without it the chart is simply
+    // as correct as it was before, rather than broken.
+    if (!node || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      chartRef.current?.getEchartsInstance().resize();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   const option = useMemo(() => {
     const muted = cssColor('--fgColor-muted', '#8b949e');
     const onEmphasis = cssColor('--fgColor-onEmphasis', '#ffffff');
@@ -483,6 +516,10 @@ export function PluginGraphView({
           data: CATEGORIES.map((category) => category.name),
           textStyle: { color: muted },
           top: 0,
+          // Circles, to match the nodes. Echarts draws legend markers as
+          // rounded rectangles by default, so the key at the top disagreed
+          // with the picture under it about what a plugin looks like.
+          icon: 'circle',
         },
       ],
       graphic: COLUMN_TITLES.map((title, index) => ({
@@ -499,6 +536,11 @@ export function PluginGraphView({
       series: [
         {
           type: 'graph',
+          // Circles, stated rather than inherited. It is the echarts default
+          // for a graph today, but the shape of a node is a decision this
+          // chart makes — a plugin is a thing, not a box — and leaving it to a
+          // library default puts that decision somewhere nobody can see it.
+          symbol: 'circle' as const,
           // Placed, not simulated — see `layoutGraph`.
           layout: 'none' as const,
           roam: true,
@@ -575,13 +617,20 @@ export function PluginGraphView({
           bg: 'canvas.default',
         }}
       >
-        <ReactECharts
-          // Remounting on theme change is what makes the chart re-read the
-          // tokens; echarts keeps its own canvas otherwise.
-          key={`${resolvedColorMode}-${colorScheme}`}
-          option={option}
-          style={{ height, width: '100%' }}
-        />
+        <div ref={containerRef} style={{ width: '100%' }}>
+          <ReactECharts
+            // Remounting on theme change is what makes the chart re-read the
+            // tokens; echarts keeps its own canvas otherwise.
+            key={`${resolvedColorMode}-${colorScheme}`}
+            ref={chartRef}
+            option={option}
+            style={{ height, width: '100%' }}
+            // Belt and braces with the observer above: this catches the window
+            // resize, the observer catches every other way the box changes.
+            notMerge
+            lazyUpdate
+          />
+        </div>
       </Box>
     </Box>
   );
