@@ -69,6 +69,20 @@ export type PluginsManagerConfig = {
   /** Heading above the list. */
   title?: string;
   /**
+   * Plugins to leave out of the list entirely.
+   *
+   * For a plugin that is an implementation detail of another: a thin adapter
+   * and the generic plugin it depends on are one feature to the person reading
+   * the sidebar, and two switches for one feature is a question they cannot
+   * answer. Switching off the one that places it is enough.
+   *
+   * Deliberately a host's decision rather than something inferred from the
+   * dependency graph. A dependency is often worth switching on its own — the
+   * music example asks you to try exactly that — so hiding every one of them
+   * would remove the point.
+   */
+  hidden?: string[];
+  /**
    * How large the switches are.
    *
    * Small by default: a sidebar row is a name, a description and a control,
@@ -138,14 +152,20 @@ export const ManagerPluginSource = defineContributionPoint<PluginSource>(
  * cannot be compared by identity, and enabling a plugin has to redraw the row
  * that did it.
  */
-function usePluginRows(protectedNames: Set<string>): ManagedPlugin[] {
+function usePluginRows(
+  protectedNames: Set<string>,
+  hiddenNames: Set<string>,
+): ManagedPlugin[] {
   const reactor = useReactorPlatform();
   const revision = useSyncExternalStore(reactor.subscribe, () =>
     reactor.getRevision(),
   );
 
   return useMemo(() => {
-    return reactor.listPlugins().map(name => {
+    return reactor
+      .listPlugins()
+      .filter(name => !hiddenNames.has(name))
+      .map(name => {
       const manifest = reactor.getManifest(name);
       return {
         name,
@@ -157,9 +177,9 @@ function usePluginRows(protectedNames: Set<string>): ManagedPlugin[] {
         enabled: reactor.isEnabled(name),
         changeable: !protectedNames.has(name),
       };
-    });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reactor, revision, protectedNames]);
+  }, [reactor, revision, protectedNames, hiddenNames]);
 }
 
 /** Whether a row answers what was typed in the filter. */
@@ -304,6 +324,12 @@ export type PluginsManagerViewProps = {
    */
   protectedPlugins?: readonly string[];
   /**
+   * Plugins to leave out, for a host that mounts this view directly.
+   *
+   * Takes precedence over {@link PluginsManagerConfig.hidden}.
+   */
+  hiddenPlugins?: readonly string[];
+  /**
    * How large the switches are, for a host that mounts this view directly.
    *
    * Takes precedence over {@link PluginsManagerConfig.switchSize}.
@@ -323,6 +349,7 @@ export type PluginsManagerViewProps = {
  */
 export function PluginsManagerView({
   protectedPlugins,
+  hiddenPlugins,
   switchSize,
   ...actions
 }: PluginsManagerViewProps): JSX.Element {
@@ -336,7 +363,12 @@ export function PluginsManagerView({
     [protectedPlugins, config.protected],
   );
 
-  const rows = usePluginRows(protectedNames);
+  const hiddenNames = useMemo(
+    () => new Set(hiddenPlugins ?? config.hidden ?? []),
+    [hiddenPlugins, config.hidden],
+  );
+
+  const rows = usePluginRows(protectedNames, hiddenNames);
   const [query, setQuery] = useState('');
   const size = switchSize ?? config.switchSize ?? 'small';
 

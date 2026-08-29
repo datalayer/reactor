@@ -1,0 +1,29 @@
+{
+  // Typecheck against the reactor's *source*, not its built `lib/`.
+  //
+  // Two reasons, and the second is the one that matters. The build config
+  // resolves `@datalayer/reactor` through its package `types`, which point at
+  // `lib/` — so `npm run typecheck` on a fresh checkout fails before anything
+  // has been built, which is exactly what CI does. And a plugin checked
+  // against a previously built `lib/` is checked against whatever the reactor
+  // looked like last time somebody ran a build: change the core and the plugin
+  // that uses it goes on passing until the artefact is refreshed.
+  //
+  // Separate from the build config because `paths` pulls files from outside
+  // `rootDir` into the program, which `tsc` refuses when it has to emit.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widened to the repository, because the program now legitimately contains
+    // files above this package. `rootDir` is checked when the program is built,
+    // not only when it emits, so inheriting the build config's `src` makes
+    // every reactor source file an error.
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@datalayer/reactor": ["../../src/index.ts"],
+      "@datalayer/reactor/react": ["../../src/react/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

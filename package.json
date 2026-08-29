@@ -1,6 +1,9 @@
 {
   "name": "@datalayer/reactor",
   "version": "1.0.0",
+  "workspaces": [
+    "plugins/*"
+  ],
   "description": "Extension reactor with framework-agnostic core and React bridge",
   "type": "module",
   "main": "lib/index.js",

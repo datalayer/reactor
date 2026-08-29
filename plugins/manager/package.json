@@ -1,7 +1,7 @@
 {
   "name": "@datalayer/reactor-manager",
   "version": "1.0.0",
-  "description": "The plugins manager for a Datalayer Reactor platform — lists every plugin and switches each one on and off while the application runs.",
+  "description": "The plugins manager for a Datalayer Reactor platform \u2014 lists every plugin and switches each one on and off while the application runs.",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -23,18 +23,22 @@
   ],
   "dependencies": {
     "@datalayer/primer-addons": "^1.0.17",
-    "@datalayer/reactor": "^1.0.0",
     "@primer/octicons-react": "^19.9.0",
-    "@primer/react": "^37.31.0",
-    "react": "^18.3.1"
+    "@primer/react": "^37.31.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "^5.8.3"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "clean": "rm -rf lib"
+  },
+  "peerDependencies": {
+    "@datalayer/reactor": "^1.0.0",
+    "react": ">=18"
   }
 }

@@ -184,18 +184,71 @@ const EDGE_STYLES: Record<
   },
 };
 
-/** The kinds of node, as echarts categories — which is also the legend. */
+/**
+ * The kinds of node, as echarts categories — which is also the legend.
+ *
+ * Each kind has a shape as well as a colour, and the shape is the part that
+ * has to carry the meaning. Colour alone excludes the eight percent or so of
+ * readers with a colour vision deficiency — blue against orange is the common
+ * confusion, and this graph puts a frontend plugin next to a backend one —
+ * and it survives neither a greyscale print nor a screenshot pasted into a
+ * ticket. With shapes, the legend is readable when the colours are not.
+ *
+ * The shapes are chosen to mean something rather than merely to differ: a box
+ * for the thing that packages others, a circle for a thing that runs, a
+ * diamond for a meeting place, and a triangle for the tier across the wire.
+ */
 const CATEGORIES = [
-  { key: 'extension', name: 'Extension', token: '--fgColor-sponsors', fallback: '#db61a2' },
-  { key: 'plugin', name: 'Frontend plugin', token: '--fgColor-accent', fallback: '#2f81f7' },
-  { key: 'backend-plugin', name: 'Backend plugin', token: '--fgColor-severe', fallback: '#db6d28' },
+  {
+    key: 'extension',
+    name: 'Extension',
+    // A package, drawn as a package.
+    symbol: 'roundRect',
+    token: '--fgColor-sponsors',
+    fallback: '#db61a2',
+  },
+  {
+    key: 'plugin',
+    name: 'Frontend plugin',
+    symbol: 'circle',
+    token: '--fgColor-accent',
+    fallback: '#2f81f7',
+  },
+  {
+    key: 'backend-plugin',
+    name: 'Backend plugin',
+    symbol: 'triangle',
+    token: '--fgColor-severe',
+    fallback: '#db6d28',
+  },
   {
     key: 'contribution-point',
     name: 'Contribution point',
+    // A junction: the place two plugins meet without knowing each other.
+    symbol: 'diamond',
     token: '--fgColor-done',
     fallback: '#a371f7',
   },
 ] as const;
+
+/** The shape each kind is drawn as, by kind. */
+const SHAPE_OF: Record<PluginGraphNodeKind, string> = Object.fromEntries(
+  CATEGORIES.map((category) => [category.key, category.symbol]),
+) as Record<PluginGraphNodeKind, string>;
+
+/**
+ * How much bigger a shape has to be drawn to read the same size as a circle.
+ *
+ * `symbolSize` is the box the symbol is drawn in, not the ink it puts there. A
+ * diamond covers half that box and a triangle less; at one size they look like
+ * smaller nodes rather than different ones, which is the opposite of the point.
+ */
+const SIZE_SCALE: Record<PluginGraphNodeKind, number> = {
+  extension: 1,
+  plugin: 1,
+  'backend-plugin': 1.25,
+  'contribution-point': 1.3,
+};
 
 /**
  * Which column a node belongs in: what delivers, what needs, what is offered,
@@ -415,8 +468,10 @@ export function PluginGraphView({
       const categoryIndex = CATEGORIES.findIndex((entry) => entry.key === node.kind);
       const pending = node.lazy && !node.loaded;
       // A point is smaller than a plugin: it is a meeting place, not a thing
-      // that runs.
-      const size = node.kind === 'contribution-point' ? 30 : 46;
+      // that runs. Scaled by shape so the difference reads as shape rather
+      // than as size.
+      const base = node.kind === 'contribution-point' ? 30 : 46;
+      const size = Math.round(base * (SIZE_SCALE[node.kind] ?? 1));
       return {
         id: node.id,
         name: node.label,
@@ -424,6 +479,7 @@ export function PluginGraphView({
         x: node.x,
         y: node.y,
         category: categoryIndex < 0 ? 0 : categoryIndex,
+        symbol: SHAPE_OF[node.kind] ?? 'circle',
         symbolSize: size,
         // A disabled plugin is not here at all; only a lazy one still loading
         // is drawn faintly, because it is on its way rather than switched off.
@@ -513,13 +569,17 @@ export function PluginGraphView({
       tooltip: { confine: true, backgroundColor: cssColor('--bgColor-default', '#0d1117') },
       legend: [
         {
-          data: CATEGORIES.map((category) => category.name),
+          // Each marker in the shape of the thing it names. Echarts draws
+          // legend markers as rounded rectangles by default, so the key would
+          // otherwise disagree with the picture under it about what any of
+          // these look like — which matters more now that shape is what
+          // distinguishes them.
+          data: CATEGORIES.map((category) => ({
+            name: category.name,
+            icon: category.symbol,
+          })),
           textStyle: { color: muted },
           top: 0,
-          // Circles, to match the nodes. Echarts draws legend markers as
-          // rounded rectangles by default, so the key at the top disagreed
-          // with the picture under it about what a plugin looks like.
-          icon: 'circle',
         },
       ],
       graphic: COLUMN_TITLES.map((title, index) => ({
@@ -536,10 +596,9 @@ export function PluginGraphView({
       series: [
         {
           type: 'graph',
-          // Circles, stated rather than inherited. It is the echarts default
-          // for a graph today, but the shape of a node is a decision this
-          // chart makes — a plugin is a thing, not a box — and leaving it to a
-          // library default puts that decision somewhere nobody can see it.
+          // The fallback for a node whose kind this chart does not know.
+          // Every node sets its own shape from `SHAPE_OF`; this is what a new
+          // kind gets before anyone has chosen one for it.
           symbol: 'circle' as const,
           // Placed, not simulated — see `layoutGraph`.
           layout: 'none' as const,
@@ -561,6 +620,7 @@ export function PluginGraphView({
           blur: { itemStyle: { opacity: 0.15 }, lineStyle: { opacity: 0.06 } },
           categories: CATEGORIES.map((category, index) => ({
             name: category.name,
+            symbol: category.symbol,
             itemStyle: { color: categoryColor[index] },
           })),
           data: nodes,
