@@ -33,11 +33,16 @@
  */
 
 import { useMemo, useState, useSyncExternalStore } from 'react';
+import type { ComponentType } from 'react';
 import { Text, TextInput, ToggleSwitch } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { SearchIcon } from '@primer/octicons-react';
-import { definePlugin } from '@datalayer/reactor';
-import { ReactorSlot, useReactorPlatform } from '@datalayer/reactor/react';
+import { defineContributionPoint, definePlugin } from '@datalayer/reactor';
+import {
+  ReactorSlot,
+  useContributions,
+  useReactorPlatform,
+} from '@datalayer/reactor/react';
 
 /** This plugin's name, for configuring it and for protecting it. */
 export const MANAGER_PLUGIN_NAME = '@datalayer/reactor-manager';
@@ -63,10 +68,21 @@ export type PluginsManagerConfig = {
   protected?: string[];
   /** Heading above the list. */
   title?: string;
+  /**
+   * How large the switches are.
+   *
+   * Small by default: a sidebar row is a name, a description and a control,
+   * and the control is the least of the three. A host with room, or one whose
+   * switches are the point, can ask for the full size.
+   */
+  switchSize?: ToggleSwitchSize;
 };
 
+/** The sizes Primer's switch offers. */
+export type ToggleSwitchSize = 'small' | 'medium';
+
 /** What the manager needs to draw one row. */
-type PluginRow = {
+export type ManagedPlugin = {
   name: string;
   displayName: string;
   description?: string;
@@ -76,6 +92,45 @@ type PluginRow = {
   changeable: boolean;
 };
 
+/** @deprecated Use {@link ManagedPlugin}. */
+export type PluginRow = ManagedPlugin;
+
+/**
+ * A group of plugins the manager did not find for itself.
+ *
+ * The reactor in this browser is not always the whole system. An application
+ * with plugins on the other side of a wire has a second set to manage, and
+ * nothing generic can know they exist — but a person looking at a sidebar
+ * should not have to learn two different controls because of where a plugin
+ * happens to run.
+ *
+ * So a source contributes a *component* rather than a list: it renders its own
+ * rows with {@link PluginList}, which is the same one the manager uses, and
+ * keeps whatever fetching, polling or caching its tier needs to itself. A list
+ * would have meant the manager calling somebody else's hook, which is not a
+ * thing a component can do conditionally.
+ */
+export type PluginSource = {
+  /** Heading above this group. */
+  title: string;
+  /** Where it sits. The reactor's own plugins are 0; sources default after. */
+  order?: number;
+  /** Renders the group's rows, filtered and sized as the manager asks. */
+  Component: ComponentType<PluginSourceProps>;
+};
+
+export type PluginSourceProps = {
+  /** What is typed in the filter, for the source to apply itself. */
+  query: string;
+  /** How large the switches are, so every group matches. */
+  switchSize: ToggleSwitchSize;
+};
+
+/** Where a plugin adds a group of plugins to the manager's list. */
+export const ManagerPluginSource = defineContributionPoint<PluginSource>(
+  'manager.pluginSource',
+);
+
 /**
  * Re-read the platform whenever anything in it changes.
  *
@@ -83,7 +138,7 @@ type PluginRow = {
  * cannot be compared by identity, and enabling a plugin has to redraw the row
  * that did it.
  */
-function usePluginRows(protectedNames: Set<string>): PluginRow[] {
+function usePluginRows(protectedNames: Set<string>): ManagedPlugin[] {
   const reactor = useReactorPlatform();
   const revision = useSyncExternalStore(reactor.subscribe, () =>
     reactor.getRevision(),
@@ -108,7 +163,7 @@ function usePluginRows(protectedNames: Set<string>): PluginRow[] {
 }
 
 /** Whether a row answers what was typed in the filter. */
-function matches(row: PluginRow, query: string): boolean {
+export function pluginMatches(row: ManagedPlugin, query: string): boolean {
   if (!query) {
     return true;
   }
@@ -120,11 +175,16 @@ function matches(row: PluginRow, query: string): boolean {
 }
 
 type PluginRowViewProps = {
-  row: PluginRow;
+  row: ManagedPlugin;
+  size: ToggleSwitchSize;
   onToggle: (name: string, next: boolean) => void;
 };
 
-function PluginRowView({ row, onToggle }: PluginRowViewProps): JSX.Element {
+function PluginRowView({
+  row,
+  size,
+  onToggle,
+}: PluginRowViewProps): JSX.Element {
   // Primer's switch labels itself by pointing at an element, so the name in
   // the row is the label rather than a string repeated beside it.
   const labelId = `plugin-name-${row.name.replace(/[^a-zA-Z0-9]+/g, '-')}`;
@@ -168,7 +228,7 @@ function PluginRowView({ row, onToggle }: PluginRowViewProps): JSX.Element {
         ) : null}
       </Box>
       <ToggleSwitch
-        size="small"
+        size={size}
         checked={row.enabled}
         disabled={!row.changeable}
         aria-labelledby={labelId}
@@ -182,6 +242,58 @@ function PluginRowView({ row, onToggle }: PluginRowViewProps): JSX.Element {
   );
 }
 
+export type PluginListProps = {
+  plugins: ManagedPlugin[];
+  /** What is typed in the filter. Rows that do not answer it are left out. */
+  query?: string;
+  switchSize?: ToggleSwitchSize;
+  onToggle: (name: string, next: boolean) => void;
+  /** Shown when the filter excludes everything. */
+  emptyMessage?: string;
+};
+
+/**
+ * A list of plugins, with a switch each.
+ *
+ * Exported because the manager is not the only thing that draws one: a
+ * {@link PluginSource} renders its own group with this, which is what makes a
+ * backend plugin look and behave like a frontend one instead of arriving as
+ * somebody else's control.
+ */
+export function PluginList({
+  plugins,
+  query = '',
+  switchSize = 'small',
+  onToggle,
+  emptyMessage,
+}: PluginListProps): JSX.Element {
+  const visible = useMemo(
+    () => plugins.filter(row => pluginMatches(row, query)),
+    [plugins, query],
+  );
+
+  if (visible.length === 0) {
+    return (
+      <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+        {emptyMessage ?? `No plugin matches “${query}”.`}
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {visible.map(row => (
+        <PluginRowView
+          key={row.name}
+          row={row}
+          size={switchSize}
+          onToggle={onToggle}
+        />
+      ))}
+    </>
+  );
+}
+
 export type PluginsManagerViewProps = {
   /**
    * Plugins whose switch is fixed on, for a host that mounts this view
@@ -191,6 +303,12 @@ export type PluginsManagerViewProps = {
    * rendering the view itself has no plugin name to configure.
    */
   protectedPlugins?: readonly string[];
+  /**
+   * How large the switches are, for a host that mounts this view directly.
+   *
+   * Takes precedence over {@link PluginsManagerConfig.switchSize}.
+   */
+  switchSize?: ToggleSwitchSize;
   /**
    * Anything the host wants the sidebar's contributed actions to receive.
    *
@@ -205,6 +323,7 @@ export type PluginsManagerViewProps = {
  */
 export function PluginsManagerView({
   protectedPlugins,
+  switchSize,
   ...actions
 }: PluginsManagerViewProps): JSX.Element {
   const reactor = useReactorPlatform();
@@ -219,9 +338,18 @@ export function PluginsManagerView({
 
   const rows = usePluginRows(protectedNames);
   const [query, setQuery] = useState('');
-  const visible = useMemo(
-    () => rows.filter(row => matches(row, query)),
-    [rows, query],
+  const size = switchSize ?? config.switchSize ?? 'small';
+
+  // Groups other plugins added. Sorted here rather than by the reactor,
+  // because "after the ones we found ourselves" is this component's opinion
+  // about its own list, not a property of the contributions.
+  const sources = useContributions(ManagerPluginSource);
+  const groups = useMemo(
+    () =>
+      [...sources]
+        .map(entry => entry.value)
+        .sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
+    [sources],
   );
 
   return (
@@ -250,22 +378,35 @@ export function PluginsManagerView({
       </Box>
 
       <Box>
-        {visible.length === 0 ? (
-          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
-            No plugin matches “{query}”.
-          </Text>
-        ) : (
-          visible.map(row => (
-            <PluginRowView
-              key={row.name}
-              row={row}
-              onToggle={(name, next) =>
-                next ? reactor.enable(name) : reactor.disable(name)
-              }
-            />
-          ))
-        )}
+        <PluginList
+          plugins={rows}
+          query={query}
+          switchSize={size}
+          onToggle={(name, next) =>
+            next ? reactor.enable(name) : reactor.disable(name)
+          }
+        />
       </Box>
+
+      {/* Everything managed elsewhere, drawn the same way. A heading each,
+          because where a plugin runs is worth knowing even when switching it
+          is not different. */}
+      {groups.map(group => (
+        <Box key={group.title}>
+          <Text
+            as="h3"
+            sx={{
+              fontSize: 1,
+              fontWeight: 'semibold',
+              display: 'block',
+              mb: 2,
+            }}
+          >
+            {group.title}
+          </Text>
+          <group.Component query={query} switchSize={size} />
+        </Box>
+      ))}
     </Box>
   );
 }
@@ -285,6 +426,7 @@ export const PluginsManagerPlugin = definePlugin({
     'Lists every plugin in the platform and switches each one on and off while the application runs.',
   octicon: 'plug',
   emoji: '🔌',
+  contributionPoints: [ManagerPluginSource],
   build() {
     return {
       components: [

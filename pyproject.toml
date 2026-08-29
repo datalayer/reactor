@@ -21,7 +21,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.3.0"
+  "pytest>=8.3.0",
+  # `fastapi.testclient` is a thin wrapper over starlette's, which drives the
+  # app through an HTTP client rather than calling it directly — so the client
+  # is a test dependency of anything that exercises the management API. It is
+  # not pulled in by FastAPI itself, and without it the API test fails at
+  # import with a message about a package nobody asked for.
+  "httpx>=0.27.0"
 ]
 
 [tool.hatch.version]

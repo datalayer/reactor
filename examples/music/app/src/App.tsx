@@ -267,7 +267,10 @@ function Sidebar({ pathname }: { pathname: string }) {
     <Box
       as="aside"
       sx={{
-        width: ['100%', '100%', 280],
+        // Wide enough for a plugin's name, its description and a switch on
+        // one line: at half this the descriptions wrapped to three lines each
+        // and the list stopped being scannable.
+        width: ['100%', '100%', 560],
         flexShrink: 0,
         px: 3,
         py: 4,

@@ -34,6 +34,46 @@ reactor itself. In practice that means:
 | Package | What it does |
 | --- | --- |
 | [`graph`](./graph) — `@datalayer/reactor-graph` | Draws the plugin graph: dependencies, contribution points and their extenders, across the frontend and backend tiers |
+| [`manager`](./manager) — `@datalayer/reactor-manager` | Lists every plugin in the platform and switches each one on and off while the application runs |
+
+## How the two fit together
+
+The manager renders a sidebar, and everything in that sidebar besides the list
+is contributed to its `manager-actions` slot. That is not decoration: the graph
+plugin puts its own "View plugin graph" button there, so switching the graph
+plugin off takes the button with it.
+
+Hosts used to draw that button themselves, beside the plugin list. It then
+outlived the thing it opened — switch the graph off, press the button, land on
+an empty page. A button belongs to whatever it opens.
+
+```tsx
+const reactor = buildReactorFromPlugins([
+  PluginsManagerPlugin,
+  GraphPlugin,
+  /* your own */
+]);
+
+// The manager forwards whatever it is given to the plugins contributing
+// actions. Routing is the usual case: only the application knows its own
+// addresses, and the graph's button reads the two props it recognises.
+<ReactorSlot
+  slot="sidebar"
+  props={{ showingGraph, onToggleGraph }}
+/>;
+```
+
+One list, not two. A host that had its own plugin panel should retire it
+rather than mount both: the music example did briefly, and the sidebar showed
+two identical "Plugins" rows switching the same things. What its panel kept is
+the half nothing generic can know about — the Python plugins on the other side
+of the wire.
+
+Which plugins a person may switch off is the host's call:
+`configurePlugin(PluginsManagerPlugin, { protected: ['@your/shell'] })`. The
+manager protects itself by default — switching off the only way back is a trap
+— and a protected plugin is shown with its switch fixed rather than hidden,
+because someone looking for a plugin should find it either way.
 
 ## Using one
 
