@@ -20,7 +20,10 @@ import { Button } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
-import { useCheckout } from '@datalayer-examples/reactor-music-checkout-plugin';
+import {
+  CheckoutPlugin,
+  useCheckout,
+} from '@datalayer-examples/reactor-music-checkout-plugin';
 import { PlaylistPlugin } from '@datalayer-examples/reactor-music-playlist-plugin';
 import {
   PluginsPanelPlugin,
@@ -97,16 +100,23 @@ const MoodPlugin = defineLazyPlugin({
 /**
  * The store, as one installable thing.
  *
- * Three plugins that are only useful together: the shop view, the playlist
- * beside it, and the moods that fill the playlist. Grouping them says so — the
- * sidebar lists them under one heading and the graph draws one package
- * delivering three plugins — without changing what any of them can do. Each is
- * still switched off on its own, because grouping is about delivery, not
- * governance.
+ * Four plugins that are only useful together: the shop view, the playlist
+ * beside it, the moods that fill the playlist, and the checkout that turns a
+ * cart into an order. Grouping them says so — the sidebar lists them under one
+ * heading and the graph draws one package delivering four plugins — without
+ * changing what any of them can do. Each is still switched off on its own,
+ * because grouping is about delivery, not governance.
  *
- * The catalog and checkout plugins are deliberately *not* here: they arrive as
- * dependencies of the shop, and a package should not claim to deliver
- * something it merely relies on.
+ * The checkout plugin is mounted here rather than arriving as somebody's
+ * dependency. It used to be pulled in by the header, which imported its button
+ * and drew it — so switching checkout off left a button opening a page that
+ * was gone. Now the header offers a `cart-actions` slot and the checkout
+ * plugin fills it, which means nothing depends on checkout, which means the
+ * application has to install it on purpose. That is the right answer: it is a
+ * capability of this store, not an implementation detail of its header.
+ *
+ * The catalog plugin is deliberately *not* here: it arrives as a dependency of
+ * the shop, and a package should not claim to deliver what it merely relies on.
  */
 const StoreExtension = defineExtension({
   name: '@music/store',
@@ -115,7 +125,7 @@ const StoreExtension = defineExtension({
   description: 'The shop view, the playlist beside it, and the moods that fill it.',
   octicon: 'package',
   emoji: '🛍️',
-  plugins: [ShopPlugin, PlaylistPlugin, MoodPlugin],
+  plugins: [ShopPlugin, PlaylistPlugin, MoodPlugin, CheckoutPlugin],
 });
 
 // The app is purely declarative: it only mounts plugins and extensions. The
@@ -145,6 +155,11 @@ function Content({ pathname }: { pathname: string }) {
   // answer: with the shop off there is no first column, and what is left
   // takes the whole width rather than sitting beside a hole.
   const hasShop = useSlotComponents('main').length > 0;
+  // Asked rather than assumed, for the same reason. Switching the checkout
+  // plugin off while its page is open would otherwise leave two empty columns
+  // and no way back to the store — the `open` flag lives in the plugin's
+  // store, but the page that reads it has gone.
+  const hasCheckout = useSlotComponents('checkout').length > 0;
 
   if (pathname === '/graph') {
     // No width cap: the graph is four columns of nodes and every pixel it is
@@ -158,7 +173,7 @@ function Content({ pathname }: { pathname: string }) {
       </Box>
     );
   }
-  if (checkingOut) {
+  if (checkingOut && hasCheckout) {
     // The same two columns as the store, so the page does not jump when the
     // shopper crosses into checkout — but the store's contents are gone from
     // both. Checkout is a decision, and a catalog beside it is a place to lose

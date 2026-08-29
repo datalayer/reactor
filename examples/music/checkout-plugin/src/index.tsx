@@ -32,8 +32,8 @@ type CheckoutState = {
 
 /**
  * Shared checkout store owned by the checkout plugin. The `CheckoutButton`
- * (rendered inside the header cart overlay) flips `open` to reveal the
- * `CheckoutPage`, which is contributed to the `checkout` slot.
+ * flips `open` to reveal the `CheckoutPage`; both are contributed to slots, so
+ * nothing outside this plugin has to know either exists.
  */
 export const useCheckout = create<CheckoutState>((set) => ({
   open: false,
@@ -46,23 +46,31 @@ export const useCheckout = create<CheckoutState>((set) => ({
 }));
 
 /**
- * Checkout trigger. Provided by the checkout plugin and rendered by the header
- * plugin inside its cart overlay. Disabled while the cart is empty; clicking it
- * opens the checkout page.
+ * Checkout trigger, contributed to the `cart-actions` slot.
+ *
+ * Contributed rather than exported for someone else to render, which is the
+ * whole point: the header used to import this component and draw it itself, so
+ * switching the checkout plugin off left a button that opened a page that was
+ * no longer there. Now the button *is* the plugin's contribution — turn the
+ * plugin off and every place that offers cart actions simply has one fewer
+ * thing in it.
+ *
+ * Renders nothing while the cart is empty. A disabled button would be a
+ * promise the shopper cannot act on and cannot fix from here; there is nothing
+ * to check out, so there is nothing to show.
  */
 export function CheckoutButton() {
   const lines = useCart((state) => state.lines);
   const openCheckout = useCheckout((state) => state.openCheckout);
   const itemCount = cartItemCount(lines);
 
+  if (itemCount === 0) {
+    return null;
+  }
+
   return (
-    <Button
-      variant="primary"
-      block
-      disabled={itemCount === 0}
-      onClick={openCheckout}
-    >
-      Checkout
+    <Button variant="primary" block onClick={openCheckout}>
+      Checkout ({itemCount})
     </Button>
   );
 }
@@ -228,12 +236,15 @@ function CheckoutAside() {
 }
 
 /**
- * Checkout plugin: depends on the shop plugin (for the shared `useCart` store and
- * cart helpers). Provides the `CheckoutButton` (rendered by the header plugin in
- * its cart overlay) and contributes two components: the `CheckoutPage` to the
- * `checkout` slot, and the `CheckoutAside` that sits beside it to
- * `checkout-aside`. Two slots rather than one component drawing both columns,
- * so the application decides the layout and the plugin decides the content.
+ * Checkout plugin: depends on the shop plugin (for the shared `useCart` store
+ * and cart helpers).
+ *
+ * Everything checkout-related is contributed, nothing is exported for another
+ * plugin to draw: the `CheckoutButton` to `cart-actions`, the `CheckoutPage` to
+ * `checkout`, and the `CheckoutAside` beside it to `checkout-aside`. That is
+ * what makes switching this plugin off complete — the button disappears from
+ * the header overlay and from under the shop, because neither of them was
+ * drawing it.
  */
 export const CheckoutPlugin = definePlugin({
   name: '@music/checkout',
@@ -247,6 +258,15 @@ export const CheckoutPlugin = definePlugin({
   build() {
     return {
       components: [
+        {
+          // Wherever the application offers actions on the cart — the header's
+          // overlay, under the shop — this is what the checkout plugin puts
+          // there. One slot for both, because "act on the cart" is one idea.
+          slot: 'cart-actions',
+          id: 'checkout-button',
+          Component: CheckoutButton,
+          requiredBackendPlugins: ['catalog'],
+        },
         {
           slot: 'checkout',
           id: 'checkout-page',

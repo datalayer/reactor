@@ -37,25 +37,37 @@ backend/            # music-backend         -> music_backend package (the host)
   and a `catalog` slot UI. Ships the `music-catalog-plugin` Python package
   (`catalog-plugin/`, import `catalog_plugin`) — a reactor plugin
   (`CatalogPlugin`, manifest name `catalog`) serving `GET /api/catalog/songs`.
-- **header-plugin** — declares
-  `dependencies: [CatalogPlugin, ShopPlugin, CheckoutPlugin]` and
+- **header-plugin** — declares `dependencies: [CatalogPlugin, ShopPlugin]` and
   consumes `useCatalogSongs` plus the shared cart store. Contributes the store
   header (with the theme / color-mode chooser at the top right) to the `header`
-  slot, including a cart summary that reveals cart details — plus the checkout
-  plugin's Checkout button — in a Primer overlay on hover.
+  slot, including a cart summary that reveals cart details in a Primer overlay
+  on hover. It *offers* a `cart-actions` slot inside that overlay and does not
+  know or care who fills it — which is why it no longer depends on the checkout
+  plugin.
 - **shop-plugin** — declares `dependencies: [CatalogPlugin]` and consumes
   `useCatalogSongs`. Owns the shared `useCart` store and contributes the
-  purchasable song cards + cart to the `main` slot.
+  purchasable song cards + cart to the `main` slot, offering the same
+  `cart-actions` slot underneath them.
 - **checkout-plugin** — declares `dependencies: [ShopPlugin]` and consumes the
-  shared cart store. Provides the `CheckoutButton` (rendered by the header plugin
-  inside its cart overlay) and contributes two components: the `CheckoutPage` to
-  the `checkout` slot and a `CheckoutAside` to `checkout-aside`, which shows a
-  different emoji for each of the plugin's two views — 🛒 while the cart is
-  being reviewed, 📦 once the order is placed. Two slots rather than one
-  component drawing both columns: the application decides the layout, the plugin
-  decides what goes in it, and the app never learns that "order confirmed" is
-  one of the states this plugin can be in. Opening checkout replaces the main
-  store view with those two columns; placing an order clears the cart. Ships the `music-checkout-plugin` Python
+  shared cart store. Contributes everything it owns, and exports nothing for
+  another plugin to draw: the `CheckoutButton` to `cart-actions`, the
+  `CheckoutPage` to `checkout`, and a `CheckoutAside` to `checkout-aside` which
+  shows a different emoji for each of the plugin's two views — 🛒 while the cart
+  is being reviewed, 📦 once the order is placed. Two slots for the page rather
+  than one component drawing both columns: the application decides the layout,
+  the plugin decides what goes in it, and the app never learns that "order
+  confirmed" is one of the states this plugin can be in. Opening checkout
+  replaces the main store view with those two columns; placing an order clears
+  the cart.
+
+  **This is the plugin to untick first.** The header used to `import` the
+  checkout button and render it itself, so switching this plugin off left a
+  button that opened a page that was no longer there. Now the header and the
+  shop each offer a `cart-actions` slot and this plugin fills both, so unticking
+  it removes the button from the overlay *and* from under the songs, and the
+  rest of the store carries on. Nothing depends on it any more, which is why the
+  app mounts it deliberately in `StoreExtension` — a capability of the store,
+  not an implementation detail of its header. Ships the `music-checkout-plugin` Python
   package (`checkout-plugin/`, import `checkout_plugin`) — a reactor
   plugin (`CheckoutPlugin`, manifest name `checkout`) that both **imports** the
   `catalog_plugin` package to price the cart and declares a reactor
@@ -200,7 +212,8 @@ backend alike. Both kinds are live — nothing restarts, and no page reloads:
 
 | Uncheck | What happens | Why |
 | --- | --- | --- |
-| `@music/mood` (frontend) | the playlist's chooser empties | disabling an extension withdraws its contributions, so the rules leave the point |
+| `@music/mood` (frontend) | the playlist's chooser empties | disabling a plugin withdraws its contributions, so the rules leave the point |
+| `@music/checkout` (frontend) | both Checkout buttons go, and the page with them | nothing draws them but the checkout plugin — the header and the shop only offer the slot |
 | `@music/playlist` (frontend) | the playlist card disappears | its slot component goes with it, while mood's contributions sit unused |
 | `catalog` (Python) | catalog **and** shop disappear | both React plugins declare `requiredBackendPlugins: ['catalog']` |
 | `playlist` (Python) | the playlist card stays, and says so | the frontend declares it in `optionalBackendPlugins`, which never gates rendering |

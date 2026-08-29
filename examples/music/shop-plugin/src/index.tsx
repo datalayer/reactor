@@ -10,6 +10,7 @@ import { Box, Card } from '@datalayer/primer-addons';
 import { BoringAvatar } from '@datalayer/core/lib/components/avatars';
 import { useThemeStore } from '@datalayer/primer-addons';
 import { definePlugin } from '@datalayer/reactor';
+import { ReactorSlot } from '@datalayer/reactor/react';
 import { create } from 'zustand';
 import { CatalogPlugin, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
 
@@ -123,6 +124,12 @@ function Shop() {
           </Card>
         ))}
       </Box>
+
+      {/* Cart actions, under the songs, where the shopper's hands already are.
+          The shop knows nothing about checkout — it offers a place and the
+          checkout plugin fills it. With that plugin switched off there is
+          nothing here, and the shop is otherwise unchanged. */}
+      <ReactorSlot slot="cart-actions" />
     </Box>
   );
 }
