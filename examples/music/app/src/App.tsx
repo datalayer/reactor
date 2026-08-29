@@ -34,6 +34,9 @@ import {
 // music store. The example's own panel keeps the half it cannot know — the
 // Python plugins on the other side of the wire.
 import { PluginsManagerPlugin } from '@datalayer/reactor-manager';
+
+/** How wide the sidebar is, and what the manager truncates to. */
+const SIDEBAR_WIDTH = 420;
 import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 // Not one of this example's plugins: a reusable one from the repo's `plugins/`
 // folder, installed like anything else. It knows nothing about a music store.
@@ -268,9 +271,9 @@ function Sidebar({ pathname }: { pathname: string }) {
       as="aside"
       sx={{
         // Wide enough for a plugin's name, its description and a switch on
-        // one line: at half this the descriptions wrapped to three lines each
-        // and the list stopped being scannable.
-        width: ['100%', '100%', 560],
+        // one line. The manager truncates its descriptions to the width it is
+        // given, so the two are the same number on purpose.
+        width: ['100%', '100%', SIDEBAR_WIDTH],
         flexShrink: 0,
         px: 3,
         py: 4,
@@ -288,6 +291,7 @@ function Sidebar({ pathname }: { pathname: string }) {
       <ReactorSlot
         slot="sidebar"
         props={{
+          width: SIDEBAR_WIDTH,
           showingGraph: onGraph,
           onToggleGraph: () => navigate(onGraph ? '/' : '/graph'),
         }}

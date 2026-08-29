@@ -184,10 +184,26 @@ function BackendPluginSource({ query, switchSize }: PluginSourceProps) {
         displayName: plugin.display_name || plugin.name,
         description: plugin.description,
         emoji: plugin.emoji,
+        version: plugin.version,
         enabled: plugin.enabled,
         // Every backend plugin is switchable: the server is the authority on
         // what may be turned off, and it answers by refusing.
         changeable: true,
+        // What the reactor could never know: these live in another process.
+        details: [
+          {
+            label: 'Depends on backend plugins',
+            values: plugin.dependencies ?? [],
+          },
+          {
+            label: 'Requires frontend plugins',
+            values: plugin.frontend_dependencies ?? [],
+          },
+          {
+            label: 'Uses frontend plugins if present',
+            values: plugin.optional_frontend_dependencies ?? [],
+          },
+        ],
       })),
     [plugins],
   );
