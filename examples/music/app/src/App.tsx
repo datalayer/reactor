@@ -16,7 +16,6 @@ import {
   useReactor,
   useSlotComponents,
 } from '@datalayer/reactor/react';
-import { Button } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
@@ -30,6 +29,11 @@ import {
   useBackendPluginAvailability,
   useBackendPlugins,
 } from '@datalayer-examples/reactor-music-plugins-panel-plugin';
+// The generic manager from the repo's `plugins/` folder: it lists this
+// platform's frontend plugins and switches them, and knows nothing about a
+// music store. The example's own panel keeps the half it cannot know — the
+// Python plugins on the other side of the wire.
+import { PluginsManagerPlugin } from '@datalayer/reactor-manager';
 import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 // Not one of this example's plugins: a reusable one from the repo's `plugins/`
 // folder, installed like anything else. It knows nothing about a music store.
@@ -138,6 +142,7 @@ const StoreExtension = defineExtension({
 const reactor = buildReactorFromPlugins([
   HeaderPlugin,
   StoreExtension,
+  PluginsManagerPlugin,
   PluginsPanelPlugin,
   GraphPlugin,
 ]);
@@ -246,8 +251,15 @@ function Content({ pathname }: { pathname: string }) {
  *
  * Outside the checkout branch on purpose: the sidebar is how a plugin gets
  * switched back on, so it must not be one of the things that disappears. It
- * sticks while the store scrolls, so a checkbox and what it changes stay in
- * the same view.
+ * sticks while the store scrolls, so a switch and what it changes stay in the
+ * same view.
+ *
+ * Its contents are entirely contributed. This application used to draw the
+ * "View plugin graph" button here, which meant the button survived switching
+ * the graph plugin off and led to an empty page; it belongs to that plugin and
+ * now arrives with it. What this still owns is routing — only the application
+ * knows it has a `/graph` address — so it hands that down and the plugins that
+ * need it take what they recognise.
  */
 function Sidebar({ pathname }: { pathname: string }) {
   const onGraph = pathname === '/graph';
@@ -270,15 +282,13 @@ function Sidebar({ pathname }: { pathname: string }) {
         overflowY: ['visible', 'visible', 'auto'],
       }}
     >
-      <Box sx={{ mb: 4 }}>
-        <Button
-          sx={{ width: '100%' }}
-          onClick={() => navigate(onGraph ? '/' : '/graph')}
-        >
-          {onGraph ? 'Back to the store' : 'View plugin graph'}
-        </Button>
-      </Box>
-      <ReactorSlot slot="sidebar" />
+      <ReactorSlot
+        slot="sidebar"
+        props={{
+          showingGraph: onGraph,
+          onToggleGraph: () => navigate(onGraph ? '/' : '/graph'),
+        }}
+      />
     </Box>
   );
 }

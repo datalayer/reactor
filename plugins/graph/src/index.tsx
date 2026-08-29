@@ -32,7 +32,7 @@ import React, {
   useSyncExternalStore,
 } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { Spinner, Text, useTheme } from '@primer/react';
+import { Button, Spinner, Text, useTheme } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import {
   definePlugin,
@@ -648,6 +648,40 @@ export function PluginGraphView({
  * <ReactorSlot slot="graph" props={{ backendUrl, backendPlugins }} />
  * ```
  */
+export type PluginGraphToggleProps = {
+  /** Whether the graph is the thing currently on screen. */
+  showingGraph?: boolean;
+  /** Put the graph on screen, or take it off. */
+  onToggleGraph?: () => void;
+};
+
+/**
+ * The button that opens the graph.
+ *
+ * It belongs to this plugin rather than to the host's sidebar, and that is the
+ * point: a button that opens a view stops existing when the plugin that draws
+ * the view is switched off. Hosts used to hard-code it beside the plugin list,
+ * where it outlived the graph and led to an empty screen.
+ *
+ * What it cannot know is how the host routes, so it does not try: the manager
+ * forwards whatever props the application gave its sidebar, and this reads the
+ * two it needs. Given neither, it renders nothing — a host that has not wired
+ * navigation is better off with no button than a dead one.
+ */
+export function PluginGraphToggle({
+  showingGraph = false,
+  onToggleGraph,
+}: PluginGraphToggleProps): JSX.Element | null {
+  if (!onToggleGraph) {
+    return null;
+  }
+  return (
+    <Button sx={{ width: '100%' }} onClick={onToggleGraph}>
+      {showingGraph ? 'Back to the application' : 'View plugin graph'}
+    </Button>
+  );
+}
+
 export const GraphPlugin = definePlugin({
   name: '@datalayer/reactor-graph',
   version: '0.1.0',
@@ -663,6 +697,14 @@ export const GraphPlugin = definePlugin({
           slot: 'graph',
           id: 'plugin-graph',
           Component: PluginGraphView,
+        },
+        {
+          // The way in, contributed beside the view it opens so the two live
+          // and die together. `manager-actions` is the plugins manager's slot
+          // for exactly this.
+          slot: 'manager-actions',
+          id: 'plugin-graph-toggle',
+          Component: PluginGraphToggle,
         },
       ],
     };

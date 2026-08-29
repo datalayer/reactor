@@ -4,18 +4,29 @@
 
 # ☢️ Reactor
 
+Build extensible frontend (JavaScript) and backend (Python) with a dependency injection solution inpsired by VS Code, Eclipse (OSGI) and other historical solutions.
+
 Reactor provides two sibling packages:
 
-- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular extensibility.
 - `@datalayer/reactor` (TypeScript): Plugin runtime with a framework-agnostic core and separate React integration.
+- `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular extensibility.
 
-Both tiers implement the same architecture, described next. That is the point
-of writing it down once: a host that lists, describes, groups or draws plugins
-should never have to ask which side of the wire one came from.
+Both tiers implement the same architecture, described next. That is the point of writing it down once: a host that lists, describes, groups or draws plugins should never have to ask which side of the wire one came from.0
 
-## The architecture
+## Why Reactor
 
-### The constructs
+This project targets a full plugin platform, not only hook callbacks:
+
+- Platform architecture with lifecycle phases and dependency graph
+- Plugin marketplace metadata and discovery primitives
+- Third-party ecosystem support through explicit manifest contracts
+- Dynamic feature loading and runtime enable/disable
+- Modular app concerns: interdependencies, lifecycle management, compatibility checks
+- SaaS extensibility primitives: tenant-specific plugin activation, sandboxed execution, versioned compatibility
+
+## Architecture
+
+### Constructs
 
 | Construct              | Purpose                                                   | Relationship                                                         |
 | ---------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -124,24 +135,13 @@ answers would have two answers.
 be listed, described, drawn on the graph and switched off while its code has
 never been fetched — and it is why activation events are worth having at all.
 
-## Why Reactor
-
-This project targets a full plugin platform, not only hook callbacks:
-
-- Platform architecture with lifecycle phases and dependency graph
-- Plugin marketplace metadata and discovery primitives
-- Third-party ecosystem support through explicit manifest contracts
-- Dynamic feature loading and runtime enable/disable
-- Modular app concerns: interdependencies, lifecycle management, compatibility checks
-- SaaS extensibility primitives: tenant-specific plugin activation, sandboxed execution, versioned compatibility
-
 ## Repository Layout
 
 - `src/`: TypeScript package source for `@datalayer/reactor`
 - `reactor/`: Python package source
 - `examples/`: Various demos
 
-## TypeScript Package: @datalayer/reactor
+## TypeScript Package `@datalayer/reactor`
 
 ### Design
 
@@ -346,7 +346,7 @@ output and only re-runs `register` — so its contributions come back while the
 thing it owns stays where it was. A stateless plugin needs none of this and
 can be toggled freely.
 
-### Declaring what a plugin needs from the other tier
+### Declaring what a Plugin needs from the other tier
 
 A plugin usually has a counterpart across the wire, and there are two strengths
 of that relationship: one it cannot work without, and one it does more with.
