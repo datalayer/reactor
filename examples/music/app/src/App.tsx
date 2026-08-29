@@ -159,11 +159,34 @@ function Content({ pathname }: { pathname: string }) {
     );
   }
   if (checkingOut) {
-    // One thing at a time: checkout is a decision, and columns of other
-    // things beside it are just places to lose the thread.
+    // The same two columns as the store, so the page does not jump when the
+    // shopper crosses into checkout — but the store's contents are gone from
+    // both. Checkout is a decision, and a catalog beside it is a place to lose
+    // the thread.
     return (
-      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 4 }}>
-        <ReactorSlot slot="checkout" />
+      <Box
+        sx={{
+          px: 3,
+          py: 4,
+          display: 'grid',
+          gridTemplateColumns: ['1fr', '1fr', 'minmax(0, 1fr) minmax(0, 1fr)'],
+          alignItems: 'start',
+          gap: 4,
+        }}
+      >
+        {/* Each column is a box of its own, not a bare slot. `ReactorSlot`
+            renders a fragment, so a slot filled by two plugins would put two
+            children straight into the grid — and the second would land in the
+            next column. Wrapping keeps a slot's contents in one column
+            however many plugins fill it. */}
+        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+          <ReactorSlot slot="checkout" />
+        </Box>
+        {/* Whatever the checkout plugin wants beside its page — which of its
+            two views is on screen is its business, not this layout's. */}
+        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+          <ReactorSlot slot="checkout-aside" />
+        </Box>
       </Box>
     );
   }
@@ -187,7 +210,14 @@ function Content({ pathname }: { pathname: string }) {
       {/* The shop is the thing being used; the catalog and the playlist are
           what it is used on. Giving the shop a column of its own means the
           cart stays in view while you scroll the other two. */}
-      {hasShop ? <ReactorSlot slot="main" /> : null}
+      {hasShop ? (
+        // Boxed for the same reason as the checkout columns: a slot renders a
+        // fragment, and two plugins filling `main` would otherwise become two
+        // grid items in two different columns.
+        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+          <ReactorSlot slot="main" />
+        </Box>
+      ) : null}
       <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
         <ReactorSlot slot="catalog" />
         <ReactorSlot slot="playlist" />

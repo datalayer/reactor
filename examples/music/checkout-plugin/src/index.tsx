@@ -4,7 +4,7 @@
  * Datalayer License
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { definePlugin } from '@datalayer/reactor';
@@ -14,7 +14,19 @@ import { ShopPlugin, useCart, cartItemCount, cartTotal } from '@datalayer-exampl
 type CheckoutState = {
   /** Whether the checkout page is currently shown. */
   open: boolean;
+  /**
+   * Whether the order has been placed — i.e. which of the two checkout views
+   * is on screen.
+   *
+   * In the store rather than in `CheckoutPage`'s own state, because it is no
+   * longer one component's business: the aside beside the page shows a
+   * different emoji for each view, and a `useState` inside the page would be
+   * invisible to it. Two components rendering one plugin's two views need one
+   * place to read that from.
+   */
+  placed: boolean;
   openCheckout: () => void;
+  placeOrder: () => void;
   closeCheckout: () => void;
 };
 
@@ -25,8 +37,12 @@ type CheckoutState = {
  */
 export const useCheckout = create<CheckoutState>((set) => ({
   open: false,
-  openCheckout: () => set({ open: true }),
-  closeCheckout: () => set({ open: false }),
+  placed: false,
+  openCheckout: () => set({ open: true, placed: false }),
+  placeOrder: () => set({ placed: true }),
+  // Leaving resets the confirmation: reopening checkout must start at the
+  // cart, not at somebody's last receipt.
+  closeCheckout: () => set({ open: false, placed: false }),
 }));
 
 /**
@@ -58,22 +74,18 @@ export function CheckoutButton() {
  * order (clearing the shared cart store), and confirms the purchase.
  */
 function CheckoutPage() {
-  const closeCheckout = useCheckout((state) => state.closeCheckout);
+  const close = useCheckout((state) => state.closeCheckout);
+  const placed = useCheckout((state) => state.placed);
+  const confirm = useCheckout((state) => state.placeOrder);
   const lines = useCart((state) => state.lines);
   const clear = useCart((state) => state.clear);
-  const [placed, setPlaced] = useState(false);
 
   const items = Object.values(lines);
   const itemCount = cartItemCount(lines);
   const total = cartTotal(lines);
 
-  const close = () => {
-    setPlaced(false);
-    closeCheckout();
-  };
-
   const placeOrder = () => {
-    setPlaced(true);
+    confirm();
     clear();
   };
 
@@ -165,11 +177,63 @@ function CheckoutPage() {
   );
 }
 
+/** What the aside shows for each of the checkout plugin's two views. */
+const ASIDE = {
+  checkout: {
+    emoji: '\u{1F6D2}',
+    caption: 'Check the cart, then place the order.',
+  },
+  placed: {
+    emoji: '\u{1F4E6}',
+    caption: 'Packed and on its way.',
+  },
+} as const;
+
+/**
+ * The picture beside the checkout, in the second column.
+ *
+ * Contributed by the checkout plugin rather than drawn by the application, so
+ * that which emoji belongs to which view is decided where the views are. The
+ * app knows it has a second column to fill; it does not know that "order
+ * confirmed" is one of the states this plugin can be in, and it should not
+ * have to.
+ */
+function CheckoutAside() {
+  const placed = useCheckout((state) => state.placed);
+  const { emoji, caption } = placed ? ASIDE.placed : ASIDE.checkout;
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 3,
+        justifyItems: 'center',
+        alignContent: 'center',
+        textAlign: 'center',
+        // Tall enough to sit beside the page rather than above its own
+        // whitespace, without stretching to match a long cart.
+        minHeight: 240,
+        p: 4,
+      }}
+    >
+      {/* Decorative: the caption below says the same thing, and a screen
+          reader announcing "shopping trolley" between the two would be
+          repeating the page it sits next to. */}
+      <Box as="span" aria-hidden sx={{ fontSize: 96, lineHeight: 1 }}>
+        {emoji}
+      </Box>
+      <Text sx={{ color: 'fg.muted' }}>{caption}</Text>
+    </Box>
+  );
+}
+
 /**
  * Checkout plugin: depends on the shop plugin (for the shared `useCart` store and
  * cart helpers). Provides the `CheckoutButton` (rendered by the header plugin in
- * its cart overlay) and contributes the `CheckoutPage` modal to the `checkout`
- * slot.
+ * its cart overlay) and contributes two components: the `CheckoutPage` to the
+ * `checkout` slot, and the `CheckoutAside` that sits beside it to
+ * `checkout-aside`. Two slots rather than one component drawing both columns,
+ * so the application decides the layout and the plugin decides the content.
  */
 export const CheckoutPlugin = definePlugin({
   name: '@music/checkout',
@@ -187,6 +251,12 @@ export const CheckoutPlugin = definePlugin({
           slot: 'checkout',
           id: 'checkout-page',
           Component: CheckoutPage,
+          requiredBackendPlugins: ['catalog'],
+        },
+        {
+          slot: 'checkout-aside',
+          id: 'checkout-aside',
+          Component: CheckoutAside,
           requiredBackendPlugins: ['catalog'],
         },
       ],

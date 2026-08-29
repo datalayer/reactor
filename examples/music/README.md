@@ -48,9 +48,14 @@ backend/            # music-backend         -> music_backend package (the host)
   purchasable song cards + cart to the `main` slot.
 - **checkout-plugin** — declares `dependencies: [ShopPlugin]` and consumes the
   shared cart store. Provides the `CheckoutButton` (rendered by the header plugin
-  inside its cart overlay) and contributes the `CheckoutPage` to the `checkout`
-  slot. Opening checkout replaces the main store view with the checkout page;
-  placing an order clears the cart. Ships the `music-checkout-plugin` Python
+  inside its cart overlay) and contributes two components: the `CheckoutPage` to
+  the `checkout` slot and a `CheckoutAside` to `checkout-aside`, which shows a
+  different emoji for each of the plugin's two views — 🛒 while the cart is
+  being reviewed, 📦 once the order is placed. Two slots rather than one
+  component drawing both columns: the application decides the layout, the plugin
+  decides what goes in it, and the app never learns that "order confirmed" is
+  one of the states this plugin can be in. Opening checkout replaces the main
+  store view with those two columns; placing an order clears the cart. Ships the `music-checkout-plugin` Python
   package (`checkout-plugin/`, import `checkout_plugin`) — a reactor
   plugin (`CheckoutPlugin`, manifest name `checkout`) that both **imports** the
   `catalog_plugin` package to price the cart and declares a reactor
