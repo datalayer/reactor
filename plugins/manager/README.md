@@ -48,6 +48,22 @@ export function App() {
 }
 ```
 
+## Hiding an implementation detail
+
+A thin adapter and the generic plugin it depends on are one feature to the
+person reading the sidebar, and two switches for one feature is a question they
+cannot answer. `hidden` (config) or `hiddenPlugins` (prop) leaves one out:
+
+```tsx
+configurePlugin(PluginsManagerPlugin, {
+  hidden: ['@datalayer/reactor-graph'], // the adapter is the switch that matters
+});
+```
+
+A host's decision rather than something inferred from the dependency graph. A
+dependency is often worth switching on its own — the music example asks you to
+try exactly that — so hiding every one of them would remove the point.
+
 ## Plugins the manager cannot find
 
 The reactor in this browser is not always the whole system. An application with
