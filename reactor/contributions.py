@@ -2,11 +2,11 @@
 #
 # Datalayer License
 
-"""Extension points and contributions, on the Python side.
+"""Contribution points and contributions, on the Python side.
 
 The TypeScript runtime grew these first, and the two halves of the reactor
-should not disagree about what an extension *is*. A hook answers "call every
-plugin when this happens". An extension point answers a different question:
+should not disagree about what a plugin *is*. A hook answers "call every
+plugin when this happens". A contribution point answers a different question:
 "what do plugins offer, so the host can choose?" — the views a workspace may
 open, the commands a session may run, the panels an application may show.
 
@@ -36,8 +36,8 @@ Dispose = Callable[[], None]
 
 
 @dataclass(frozen=True)
-class ExtensionPoint(Generic[T]):
-    """A named, typed extension point.
+class ContributionPoint(Generic[T]):
+    """A named, typed contribution point.
 
     The type parameter types the contributions; at runtime a point is its id.
     """
@@ -45,16 +45,16 @@ class ExtensionPoint(Generic[T]):
     id: str
 
 
-def define_extension_point(point_id: str) -> ExtensionPoint[Any]:
-    """Declare an extension point.
+def define_contribution_point(point_id: str) -> ContributionPoint[Any]:
+    """Declare a contribution point.
 
     ::
 
-        VIEW_TYPE = define_extension_point("app.viewType")
+        VIEW_TYPE = define_contribution_point("app.viewType")
     """
     if not point_id:
-        raise ValueError("An extension point needs an id")
-    return ExtensionPoint(id=point_id)
+        raise ValueError("A contribution point needs an id")
+    return ContributionPoint(id=point_id)
 
 
 @dataclass(frozen=True)
@@ -88,7 +88,7 @@ class ContributionRegistry:
     def add(
         self,
         plugin_name: str,
-        point: ExtensionPoint[T],
+        point: ContributionPoint[T],
         value: T,
         *,
         contribution_id: Optional[str] = None,
@@ -122,7 +122,7 @@ class ContributionRegistry:
 
     def get(
         self,
-        point: ExtensionPoint[T],
+        point: ContributionPoint[T],
         *,
         plugins: Optional[Iterable[str]] = None,
     ) -> list[Contribution[T]]:
@@ -181,7 +181,7 @@ class PluginContributions:
 
     def contribute(
         self,
-        point: ExtensionPoint[T],
+        point: ContributionPoint[T],
         value: T,
         *,
         contribution_id: Optional[str] = None,

@@ -7,9 +7,9 @@
 import React, { useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
-import { defineExtension } from '@datalayer/reactor';
+import { definePlugin } from '@datalayer/reactor';
 import { create } from 'zustand';
-import { ShopExtension, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
+import { ShopPlugin, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
 
 type CheckoutState = {
   /** Whether the checkout page is currently shown. */
@@ -171,14 +171,14 @@ function CheckoutPage() {
  * its cart overlay) and contributes the `CheckoutPage` modal to the `checkout`
  * slot.
  */
-export const CheckoutExtension = defineExtension({
+export const CheckoutPlugin = definePlugin({
   name: '@music/checkout',
   version: '1.0.0',
   displayName: 'Checkout',
   description: 'Turns the cart into an order: the Checkout button and the checkout page.',
   octicon: 'credit-card',
   emoji: '💳',
-  dependencies: [ShopExtension],
+  dependencies: [ShopPlugin],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

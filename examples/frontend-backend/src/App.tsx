@@ -7,17 +7,17 @@
 import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
-import { buildReactorFromExtensions } from '../../../src';
+import { buildReactorFromPlugins } from '../../../src';
 import { ReactorSlot, useReactor, useReactorPlatform } from '../../../src/react';
-import { StatusBannerExtension } from './plugins/statusBannerExtension';
-import { WelcomeCardExtension } from './plugins/welcomeCardExtension';
+import { StatusBannerPlugin } from './plugins/statusBannerPlugin';
+import { WelcomeCardPlugin } from './plugins/welcomeCardPlugin';
 
 const BACKEND_PLUGIN_NAMES = ['greeting-plugin', 'status-plugin'] as const;
 
 function RuntimeControls() {
   const reactorPlatform = useReactorPlatform();
   const [enabled, setEnabled] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(reactorPlatform.listExtensions().map((name) => [name, reactorPlatform.isEnabled(name)])),
+    Object.fromEntries(reactorPlatform.listPlugins().map((name) => [name, reactorPlatform.isEnabled(name)])),
   );
 
   const toggle = (name: string) => {
@@ -26,12 +26,12 @@ function RuntimeControls() {
     } else {
       reactorPlatform.enable(name);
     }
-    setEnabled(Object.fromEntries(reactorPlatform.listExtensions().map((n) => [n, reactorPlatform.isEnabled(n)])));
+    setEnabled(Object.fromEntries(reactorPlatform.listPlugins().map((n) => [n, reactorPlatform.isEnabled(n)])));
   };
 
   return (
     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
-      {reactorPlatform.listExtensions().map((name) => (
+      {reactorPlatform.listPlugins().map((name) => (
         <Button key={name} variant={enabled[name] ? 'invisible' : 'primary'} onClick={() => toggle(name)}>
           {enabled[name] ? `Disable ${name}` : `Enable ${name}`}
         </Button>
@@ -73,9 +73,9 @@ export function App() {
 
   const reactor = useMemo(
     () =>
-      buildReactorFromExtensions([
-        WelcomeCardExtension,
-        StatusBannerExtension,
+      buildReactorFromPlugins([
+        WelcomeCardPlugin,
+        StatusBannerPlugin,
       ]),
     [],
   );

@@ -38,7 +38,7 @@ from reactor import (
     PluginManifest,
     PluginPlatform,
     create_reactor_app,
-    define_extension_point,
+    define_contribution_point,
 )
 from reactor.hooks import hookimpl
 
@@ -59,7 +59,7 @@ class PlaylistRule:
 
 #: The extension point. Its id is the contract between plugins — the mood
 #: backend contributes to this exact string.
-PLAYLIST_RULE = define_extension_point("music.playlistRule")
+PLAYLIST_RULE = define_contribution_point("music.playlistRule")
 
 
 class RuleInfo(BaseModel):
@@ -81,7 +81,7 @@ PLAYLIST_MANIFEST = PluginManifest(
     dependencies=["catalog"],
     # The point this plugin opens, declared so a host can draw it even before
     # anything is contributed to it.
-    extension_points=["music.playlistRule"],
+    contribution_points=["music.playlistRule"],
     # Optional: these routes answer `curl` perfectly well on their own. The
     # frontend playlist is what makes them *visible*, not what makes them work.
     optional_frontend_dependencies=["@music/playlist"],

@@ -33,7 +33,7 @@ reactor itself. In practice that means:
 
 | Package | What it does |
 | --- | --- |
-| [`graph`](./graph) — `@datalayer/reactor-graph` | Draws the plugin graph: dependencies, extension points and their extenders, across the frontend and backend tiers |
+| [`graph`](./graph) — `@datalayer/reactor-graph` | Draws the plugin graph: dependencies, contribution points and their extenders, across the frontend and backend tiers |
 
 ## Using one
 
@@ -42,11 +42,11 @@ npm install @datalayer/reactor-graph
 ```
 
 ```tsx
-import { buildReactorFromExtensions } from '@datalayer/reactor';
+import { buildReactorFromPlugins } from '@datalayer/reactor';
 import { ReactorSlot, useReactor } from '@datalayer/reactor/react';
-import { GraphExtension } from '@datalayer/reactor-graph';
+import { GraphPlugin } from '@datalayer/reactor-graph';
 
-const reactor = buildReactorFromExtensions([GraphExtension, /* your own */]);
+const reactor = buildReactorFromPlugins([GraphPlugin, /* your own */]);
 
 export function App() {
 	useReactor(reactor);
@@ -63,7 +63,7 @@ export function App() {
 
 The graph is **derived, not drawn**: every edge comes from something a plugin
 already had to declare in order to work — a dependency, a required backend
-plugin, an extension point it offers, a contribution it makes. There is nothing
+plugin, an contribution point it offers, a contribution it makes. There is nothing
 to keep up to date, which is the only kind of diagram that stays true.
 
 `describePluginGraph` in `@datalayer/reactor` does that derivation and returns
@@ -76,12 +76,12 @@ package entirely.
 ## Adding one
 
 A plugin here is an ordinary npm package whose `main` is a module exporting a
-`ReactorExtension`. Give it:
+`ReactorPlugin`. Give it:
 
 - a `package.json` naming it `@datalayer/reactor-<thing>`, with
   `@datalayer/reactor` as a dependency,
 - a `tsconfig.json` (copy a neighbour's),
-- a `src/index.tsx` exporting the extension and any component or hook a host
+- a `src/index.tsx` exporting the plugin and any component or hook a host
   would reasonably want to use directly.
 
 Declare how it presents itself — `displayName`, `description`, `octicon`,

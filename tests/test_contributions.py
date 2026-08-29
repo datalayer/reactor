@@ -2,7 +2,7 @@
 #
 # Datalayer License
 
-"""Extension points: plugins offer, the host chooses."""
+"""Contribution points: plugins offer, the host chooses."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ from reactor import (
     PluginContributions,
     PluginManifest,
     PluginPlatform,
-    define_extension_point,
+    define_contribution_point,
 )
 
-VIEW = define_extension_point("tests.viewType")
-PANEL = define_extension_point("tests.panel")
+VIEW = define_contribution_point("tests.viewType")
+PANEL = define_contribution_point("tests.panel")
 
 
 class _ViewPlugin:

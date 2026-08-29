@@ -29,7 +29,7 @@ class ReactorHookSpecs:
 
     @hookspec
     def provide_contributions(self, contributions: Any) -> None:
-        """Contribute to the host's extension points.
+        """Contribute to the host's contribution points.
 
         The host passes a :class:`~reactor.contributions.PluginContributions`
         bound to this plugin, and the plugin calls

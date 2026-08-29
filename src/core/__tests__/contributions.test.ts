@@ -6,10 +6,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  buildReactorFromExtensions,
+  buildReactorFromPlugins,
   contribution,
-  defineExtension,
-  defineExtensionPoint,
+  definePlugin,
+  defineContributionPoint,
   type Dispose,
   type PhaseContext,
 } from '../../index';
@@ -17,12 +17,12 @@ import {
 type View = { title: string };
 type Command = { name: string };
 
-const ViewPoint = defineExtensionPoint<View>('tests.view');
-const CommandPoint = defineExtensionPoint<Command>('tests.command');
+const ViewPoint = defineContributionPoint<View>('tests.view');
+const CommandPoint = defineContributionPoint<Command>('tests.command');
 
 describe('extension points', () => {
   it('keeps contributions to different points apart', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/both',
       contributes: [
         contribution(ViewPoint, { title: 'Notebook' }, { id: 'notebook' }),
@@ -30,7 +30,7 @@ describe('extension points', () => {
       ],
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint).map((c) => c.value.title)).toEqual([
@@ -42,21 +42,21 @@ describe('extension points', () => {
   });
 
   it('returns an empty list for a point nobody contributed to', () => {
-    const reactor = buildReactorFromExtensions([defineExtension({ name: '@tests/none' })]);
+    const reactor = buildReactorFromPlugins([definePlugin({ name: '@tests/none' })]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint)).toEqual([]);
   });
 
   it('orders by `order`, then by contribution order', () => {
-    const First = defineExtension({
+    const First = definePlugin({
       name: '@tests/first',
       contributes: [
         contribution(ViewPoint, { title: 'b' }, { id: 'b', order: 10 }),
         contribution(ViewPoint, { title: 'a' }, { id: 'a', order: -5 }),
       ],
     });
-    const Second = defineExtension({
+    const Second = definePlugin({
       name: '@tests/second',
       contributes: [
         // Same order as 'b': registration order decides, and it registers later.
@@ -64,7 +64,7 @@ describe('extension points', () => {
       ],
     });
 
-    const reactor = buildReactorFromExtensions([First, Second]);
+    const reactor = buildReactorFromPlugins([First, Second]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint).map((c) => c.value.title)).toEqual([
@@ -75,28 +75,28 @@ describe('extension points', () => {
   });
 
   it('defaults a contribution id to the extension name', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/anonymous',
       contributes: [contribution(ViewPoint, { title: 'Anonymous' })],
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint)[0]?.id).toBe('@tests/anonymous');
-    expect(reactor.getContributions(ViewPoint)[0]?.extension).toBe('@tests/anonymous');
+    expect(reactor.getContributions(ViewPoint)[0]?.plugin).toBe('@tests/anonymous');
   });
 
   it('accepts contributions made after start and bumps the revision', () => {
     let contribute: PhaseContext<any, any, any>['contribute'] | undefined;
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/late',
       register(ctx) {
         contribute = ctx.contribute;
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint)).toHaveLength(0);
@@ -112,14 +112,14 @@ describe('extension points', () => {
 
   it('withdraws a contribution through its disposer', () => {
     let dispose: Dispose | undefined;
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/disposable',
       register(ctx) {
         dispose = ctx.contribute(ViewPoint, { title: 'Temporary' }, { id: 'tmp' });
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
     expect(reactor.getContributions(ViewPoint)).toHaveLength(1);
 
@@ -139,16 +139,16 @@ describe('extension points', () => {
   });
 
   it('drops an extension’s contributions when it is disabled, and restores them on enable', () => {
-    const Kept = defineExtension({
+    const Kept = definePlugin({
       name: '@tests/kept',
       contributes: [contribution(ViewPoint, { title: 'Kept' }, { id: 'kept' })],
     });
-    const Toggled = defineExtension({
+    const Toggled = definePlugin({
       name: '@tests/toggled',
       contributes: [contribution(ViewPoint, { title: 'Toggled' }, { id: 'toggled' })],
     });
 
-    const reactor = buildReactorFromExtensions([Kept, Toggled]);
+    const reactor = buildReactorFromPlugins([Kept, Toggled]);
     reactor.start();
     expect(reactor.getContributions(ViewPoint)).toHaveLength(2);
 
@@ -163,12 +163,12 @@ describe('extension points', () => {
   });
 
   it('drops every contribution on stop, and does not duplicate them on restart', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/lifecycle',
       contributes: [contribution(ViewPoint, { title: 'View' }, { id: 'view' })],
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
     expect(reactor.getContributions(ViewPoint)).toHaveLength(1);
 
@@ -180,7 +180,7 @@ describe('extension points', () => {
   });
 
   it('emits one change for a start, not one per contribution', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/batched',
       contributes: [
         contribution(ViewPoint, { title: 'one' }, { id: 'one' }),
@@ -189,7 +189,7 @@ describe('extension points', () => {
       ],
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     let notifications = 0;
     reactor.subscribe(() => {
       notifications += 1;
@@ -202,13 +202,13 @@ describe('extension points', () => {
   });
 
   it('lets an extension contribute what a dependency built', () => {
-    const Base = defineExtension({
+    const Base = definePlugin({
       name: '@tests/base',
       build() {
         return { title: 'From base' };
       },
     });
-    const Consumer = defineExtension({
+    const Consumer = definePlugin({
       name: '@tests/consumer',
       dependencies: [Base],
       register(ctx) {
@@ -217,7 +217,7 @@ describe('extension points', () => {
       },
     });
 
-    const reactor = buildReactorFromExtensions([Consumer]);
+    const reactor = buildReactorFromPlugins([Consumer]);
     reactor.start();
 
     expect(reactor.getContributions(ViewPoint)[0]?.value.title).toBe('From base');
@@ -227,7 +227,7 @@ describe('extension points', () => {
 describe('extensions that own something', () => {
   it('are rebuilt on enable by default', () => {
     let builds = 0;
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/stateless',
       build() {
         builds += 1;
@@ -235,7 +235,7 @@ describe('extensions that own something', () => {
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
     reactor.disable('@tests/stateless');
     reactor.enable('@tests/stateless');
@@ -247,7 +247,7 @@ describe('extensions that own something', () => {
 
   it('keep what they built when they ask to', () => {
     let builds = 0;
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/stateful',
       preserveOutput: true,
       build() {
@@ -256,7 +256,7 @@ describe('extensions that own something', () => {
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
     const before = reactor.getOutput<{ connection: string }>('@tests/stateful');
 
@@ -269,7 +269,7 @@ describe('extensions that own something', () => {
   });
 
   it('still re-register, so their contributions come back', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/stateful-contributor',
       preserveOutput: true,
       build() {
@@ -278,7 +278,7 @@ describe('extensions that own something', () => {
       contributes: [contribution(ViewPoint, { title: 'Held' }, { id: 'held' })],
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
     reactor.disable('@tests/stateful-contributor');
     expect(reactor.getContributions(ViewPoint)).toHaveLength(0);
@@ -288,7 +288,7 @@ describe('extensions that own something', () => {
   });
 
   it('build normally the first time, however they are flagged', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/first-build',
       preserveOutput: true,
       build() {
@@ -296,7 +296,7 @@ describe('extensions that own something', () => {
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
     reactor.start();
 
     expect(reactor.getOutput('@tests/first-build')).toEqual({ built: true });

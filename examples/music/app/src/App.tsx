@@ -5,23 +5,32 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { buildReactorFromExtensions, defineLazyExtension } from '@datalayer/reactor';
-import { ReactorSlot, useReactor } from '@datalayer/reactor/react';
+import {
+  buildReactorFromPlugins,
+  defineExtension,
+  defineLazyPlugin,
+  onContributionPoint,
+} from '@datalayer/reactor';
+import {
+  ReactorSlot,
+  useReactor,
+  useSlotComponents,
+} from '@datalayer/reactor/react';
 import { Button } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
-import { HeaderExtension } from '@datalayer-examples/reactor-music-header-plugin';
-import { ShopExtension } from '@datalayer-examples/reactor-music-shop-plugin';
+import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
+import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
 import { useCheckout } from '@datalayer-examples/reactor-music-checkout-plugin';
-import { PlaylistExtension } from '@datalayer-examples/reactor-music-playlist-plugin';
+import { PlaylistPlugin } from '@datalayer-examples/reactor-music-playlist-plugin';
 import {
-  PluginsPanelExtension,
+  PluginsPanelPlugin,
   useBackendPluginAvailability,
   useBackendPlugins,
 } from '@datalayer-examples/reactor-music-plugins-panel-plugin';
 import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 // Not one of this example's plugins: a reusable one from the repo's `plugins/`
 // folder, installed like anything else. It knows nothing about a music store.
-import { GraphExtension } from '@datalayer/reactor-graph';
+import { GraphPlugin } from '@datalayer/reactor-graph';
 
 /**
  * The whole router, because the example needs exactly two addresses.
@@ -55,15 +64,21 @@ function navigate(to: string): void {
  *
  * Nothing on screen waits for it: the store and an empty playlist render, the
  * module arrives, and the playlist's rule chooser fills in. That is the whole
- * point of a lazy extension — and it is a fair candidate because it renders no
+ * point of a lazy plugin — and it is a fair candidate because it renders no
  * UI of its own, so its absence costs a chooser rather than a page.
  *
  * Everything the sidebar needs to list and describe it is declared here, so it
  * appears in the plugin list from the first frame rather than popping in when
  * its module lands. `dependencies` is declared for the same reason: ordering
  * cannot wait for a module to arrive.
+ *
+ * It waits on an activation event rather than loading at startup, and the
+ * event is the playlist's own rule point: the module is fetched the moment
+ * anything reads the rules, which is when the playlist first renders its
+ * chooser. Nobody had to name this plugin to cause that — the playlist asks
+ * what rules exist, and the answer arrives.
  */
-const MoodExtension = defineLazyExtension({
+const MoodPlugin = defineLazyPlugin({
   name: '@music/mood',
   version: '1.0.0',
   displayName: 'Moods',
@@ -71,26 +86,50 @@ const MoodExtension = defineLazyExtension({
     'Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself, and loads after the first paint.',
   octicon: 'sun',
   emoji: '🌤️',
-  dependencies: [PlaylistExtension],
+  dependencies: [PlaylistPlugin],
+  activationEvents: [onContributionPoint('music.playlistRule')],
   load: () =>
     import('@datalayer-examples/reactor-music-mood-plugin').then(
-      (module) => module.MoodExtension,
+      (module) => module.MoodPlugin,
     ),
 });
 
-// The app is purely declarative: it only mounts plugins. The base catalog
-// plugin and the checkout plugin are pulled in automatically as dependencies,
-// and each contributes its own UI to a slot.
+/**
+ * The store, as one installable thing.
+ *
+ * Three plugins that are only useful together: the shop view, the playlist
+ * beside it, and the moods that fill the playlist. Grouping them says so — the
+ * sidebar lists them under one heading and the graph draws one package
+ * delivering three plugins — without changing what any of them can do. Each is
+ * still switched off on its own, because grouping is about delivery, not
+ * governance.
+ *
+ * The catalog and checkout plugins are deliberately *not* here: they arrive as
+ * dependencies of the shop, and a package should not claim to deliver
+ * something it merely relies on.
+ */
+const StoreExtension = defineExtension({
+  name: '@music/store',
+  version: '1.0.0',
+  displayName: 'Store',
+  description: 'The shop view, the playlist beside it, and the moods that fill it.',
+  octicon: 'package',
+  emoji: '🛍️',
+  plugins: [ShopPlugin, PlaylistPlugin, MoodPlugin],
+});
+
+// The app is purely declarative: it only mounts plugins and extensions. The
+// base catalog plugin and the checkout plugin are pulled in automatically as
+// dependencies, and each contributes its own UI to a slot.
 //
-// `MoodExtension` is mounted for its *contributions* rather than for any UI: it
+// `MoodPlugin` is mounted for its *contributions* rather than for any UI: it
 // renders nothing, and everything it offers reaches the screen through the
-// playlist plugin's extension point.
-const reactor = buildReactorFromExtensions([
-  HeaderExtension,
-  ShopExtension,
-  MoodExtension,
-  PluginsPanelExtension,
-  GraphExtension,
+// playlist plugin's contribution point.
+const reactor = buildReactorFromPlugins([
+  HeaderPlugin,
+  StoreExtension,
+  PluginsPanelPlugin,
+  GraphPlugin,
 ]);
 
 function Content({ pathname }: { pathname: string }) {
@@ -101,10 +140,17 @@ function Content({ pathname }: { pathname: string }) {
   // plugins are on. Handing over the panel's own list rather than letting the
   // graph fetch its own is what keeps the graph and the switches in agreement.
   const backendPlugins = useBackendPlugins((state) => state.plugins);
+  // The shop is switchable from the sidebar, so its column is a state this
+  // layout has to have an answer for. Asking the slot what is in it is the
+  // answer: with the shop off there is no first column, and what is left
+  // takes the whole width rather than sitting beside a hole.
+  const hasShop = useSlotComponents('main').length > 0;
 
   if (pathname === '/graph') {
+    // No width cap: the graph is four columns of nodes and every pixel it is
+    // denied is a label that wraps or an edge that crosses another.
     return (
-      <Box sx={{ maxWidth: 1100, px: 3, py: 4, display: 'grid', gap: 3 }}>
+      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 3 }}>
         <ReactorSlot
           slot="graph"
           props={{ backendUrl: CATALOG_BACKEND_URL, backendPlugins }}
@@ -112,25 +158,40 @@ function Content({ pathname }: { pathname: string }) {
       </Box>
     );
   }
+  if (checkingOut) {
+    // One thing at a time: checkout is a decision, and columns of other
+    // things beside it are just places to lose the thread.
+    return (
+      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 4 }}>
+        <ReactorSlot slot="checkout" />
+      </Box>
+    );
+  }
   return (
     <Box
       sx={{
-        maxWidth: 960,
         px: 3,
         py: 4,
         display: 'grid',
+        // One column until there is room for two. `minmax(0, 1fr)` rather than
+        // `1fr`: a grid track's default minimum is its content, so a wide
+        // child — the catalog's own inner grid — would push the column past
+        // its share and the whole page would scroll sideways.
+        gridTemplateColumns: hasShop
+          ? ['1fr', '1fr', 'minmax(0, 1fr) minmax(0, 1fr)']
+          : '1fr',
+        alignItems: 'start',
         gap: 4,
       }}
     >
-      {checkingOut ? (
-        <ReactorSlot slot="checkout" />
-      ) : (
-        <>
-          <ReactorSlot slot="catalog" />
-          <ReactorSlot slot="playlist" />
-          <ReactorSlot slot="main" />
-        </>
-      )}
+      {/* The shop is the thing being used; the catalog and the playlist are
+          what it is used on. Giving the shop a column of its own means the
+          cart stays in view while you scroll the other two. */}
+      {hasShop ? <ReactorSlot slot="main" /> : null}
+      <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+        <ReactorSlot slot="catalog" />
+        <ReactorSlot slot="playlist" />
+      </Box>
     </Box>
   );
 }

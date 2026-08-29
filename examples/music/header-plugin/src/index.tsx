@@ -8,10 +8,10 @@ import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
 import { UnmuteIcon } from '@primer/octicons-react';
-import { defineExtension } from '@datalayer/reactor';
-import { CatalogExtension, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
-import { ShopExtension, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
-import { CheckoutExtension, CheckoutButton } from '@datalayer-examples/reactor-music-checkout-plugin';
+import { definePlugin } from '@datalayer/reactor';
+import { CatalogPlugin, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { ShopPlugin, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
+import { CheckoutPlugin, CheckoutButton } from '@datalayer-examples/reactor-music-checkout-plugin';
 
 /**
  * Cart summary rendered in the header. Shows the live item count + total from the
@@ -169,14 +169,14 @@ function StoreHeader() {
  * appearance controls and a live cart summary — hovering the cart reveals its
  * line items plus a Checkout button in a Primer overlay — to the `header` slot.
  */
-export const HeaderExtension = defineExtension({
+export const HeaderPlugin = definePlugin({
   name: '@music/header',
   version: '1.0.0',
   displayName: 'Header',
   description: 'The store header, with the cart summary and the theme chooser.',
   octicon: 'browser',
   emoji: '🧭',
-  dependencies: [CatalogExtension, ShopExtension, CheckoutExtension],
+  dependencies: [CatalogPlugin, ShopPlugin, CheckoutPlugin],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

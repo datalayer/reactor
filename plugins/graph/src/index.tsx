@@ -19,7 +19,7 @@
  *
  * The backend half is fetched rather than derived, because it lives in another
  * process: `GET /plugins` says who exists and what they depend on,
- * `GET /contributions` says who fills whose extension points.
+ * `GET /contributions` says who fills whose contribution points.
  *
  * @module graph-plugin
  */
@@ -29,7 +29,7 @@ import ReactECharts from 'echarts-for-react';
 import { Spinner, Text, useTheme } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import {
-  defineExtension,
+  definePlugin,
   describePluginGraph,
   type BackendGraphContribution,
   type BackendGraphPlugin,
@@ -159,6 +159,7 @@ const EDGE_STYLES: Record<
   { label: string; token: string; fallback: string; dashed?: boolean }
 > = {
   'depends-on': { label: 'depends on', token: '--fgColor-muted', fallback: '#8b949e' },
+  groups: { label: 'delivers', token: '--fgColor-sponsors', fallback: '#db61a2' },
   'offers-point': { label: 'offers', token: '--fgColor-done', fallback: '#a371f7' },
   'contributes-to': { label: 'contributes', token: '--fgColor-success', fallback: '#3fb950' },
   'requires-backend': { label: 'requires', token: '--fgColor-accent', fallback: '#2f81f7' },
@@ -177,21 +178,41 @@ const EDGE_STYLES: Record<
   },
 };
 
-/** The three kinds of node, as echarts categories — which gives the legend. */
+/** The kinds of node, as echarts categories — which is also the legend. */
 const CATEGORIES = [
-  { key: 'extension', name: 'Frontend plugin', token: '--fgColor-accent', fallback: '#2f81f7' },
+  { key: 'extension', name: 'Extension', token: '--fgColor-sponsors', fallback: '#db61a2' },
+  { key: 'plugin', name: 'Frontend plugin', token: '--fgColor-accent', fallback: '#2f81f7' },
   { key: 'backend-plugin', name: 'Backend plugin', token: '--fgColor-severe', fallback: '#db6d28' },
-  { key: 'extension-point', name: 'Extension point', token: '--fgColor-done', fallback: '#a371f7' },
+  {
+    key: 'contribution-point',
+    name: 'Contribution point',
+    token: '--fgColor-done',
+    fallback: '#a371f7',
+  },
 ] as const;
 
-/** Which column a node belongs in: what needs, what is offered, what serves. */
+/**
+ * Which column a node belongs in: what delivers, what needs, what is offered,
+ * what serves.
+ *
+ * Extensions get a column of their own on the far left rather than sharing the
+ * plugin column. They are a different kind of thing — a package, not a
+ * participant — and mixing them in would make the plugin column read as a flat
+ * list of peers, which is exactly the confusion the grouping exists to remove.
+ */
 const COLUMN_OF: Record<PluginGraphNodeKind, number> = {
   extension: 0,
-  'extension-point': 1,
-  'backend-plugin': 2,
+  plugin: 1,
+  'contribution-point': 2,
+  'backend-plugin': 3,
 };
 
-const COLUMN_TITLES = ['Frontend (TypeScript)', 'Extension points', 'Backend (Python)'];
+const COLUMN_TITLES = [
+  'Extensions',
+  'Frontend (TypeScript)',
+  'Contribution points',
+  'Backend (Python)',
+];
 
 /** Horizontal spacing between columns, in the chart's own units. */
 const COLUMN_GAP = 340;
@@ -208,10 +229,11 @@ type PositionedNode = PluginGraphNode & { x: number; y: number };
  * even spacing rather than for the one structure a reader actually wants —
  * which tier a plugin is on, and which way a dependency points.
  *
- * So: three columns, frontend on the left, backend on the right, and the
- * extension points between them, because a point is exactly the place where
- * the two meet. Within a column, nodes are ordered by dependency depth, so
- * what depends on something sits below it and the arrows mostly run one way.
+ * So: four columns, extensions and the plugins they deliver on the left,
+ * backend on the right, and the contribution points between them, because a
+ * point is exactly the place where the two tiers meet. Within a column, nodes
+ * are ordered by dependency depth, so what depends on something sits below it
+ * and the arrows mostly run one way.
  */
 function layoutGraph(graph: PluginGraph): PositionedNode[] {
   const dependencies = new Map<string, string[]>();
@@ -246,7 +268,10 @@ function layoutGraph(graph: PluginGraph): PositionedNode[] {
     return depth;
   }
 
-  const columns: PluginGraphNode[][] = [[], [], []];
+  // Sized from the titles rather than written out, so adding a column is one
+  // edit: a literal `[[], [], []]` here silently dropped every extension node
+  // into `undefined.push` the moment a fourth column existed.
+  const columns: PluginGraphNode[][] = COLUMN_TITLES.map(() => []);
   for (const node of graph.nodes) {
     columns[COLUMN_OF[node.kind]].push(node);
   }
@@ -277,7 +302,8 @@ function layoutGraph(graph: PluginGraph): PositionedNode[] {
 /** The edge kinds worth spelling out, and how to say them. */
 const EDGE_LEGEND: { kind: PluginGraphEdgeKind; description: string; color: string }[] = [
   { kind: 'depends-on', description: 'depends on', color: 'fg.muted' },
-  { kind: 'offers-point', description: 'offers an extension point', color: 'done.fg' },
+  { kind: 'groups', description: 'delivers a plugin', color: 'sponsors.fg' },
+  { kind: 'offers-point', description: 'offers a contribution point', color: 'done.fg' },
   { kind: 'contributes-to', description: 'contributes to a point', color: 'success.fg' },
   { kind: 'requires-backend', description: 'requires across the wire', color: 'accent.fg' },
   { kind: 'optional-backend', description: 'uses if available', color: 'attention.fg' },
@@ -327,7 +353,7 @@ export function PluginGraphView({
   const { resolvedColorMode, colorScheme } = useTheme();
 
   // Without this the graph is drawn once and never again: enabling or
-  // disabling a frontend extension changes the platform, not this component's
+  // disabling a frontend plugin changes the platform, not this component's
   // props, so nothing here would know to recompute.
   const revision = useSyncExternalStore(reactor.subscribe, () => reactor.getRevision());
 
@@ -357,7 +383,7 @@ export function PluginGraphView({
       const pending = node.lazy && !node.loaded;
       // A point is smaller than a plugin: it is a meeting place, not a thing
       // that runs.
-      const size = node.kind === 'extension-point' ? 30 : 46;
+      const size = node.kind === 'contribution-point' ? 30 : 46;
       return {
         id: node.id,
         name: node.label,
@@ -395,8 +421,10 @@ export function PluginGraphView({
             const lines = [
               `<strong>${node.emoji ? `${node.emoji} ` : ''}${node.label}</strong>`,
               `<code>${node.name}</code>`,
-              node.kind === 'extension-point'
-                ? 'Extension point'
+              node.kind === 'contribution-point'
+                ? 'Contribution point'
+                : node.kind === 'extension'
+                  ? 'Extension'
                 : node.tier === 'backend'
                   ? 'Backend plugin (Python)'
                   : 'Frontend plugin (TypeScript)',
@@ -560,23 +588,23 @@ export function PluginGraphView({
 }
 
 /**
- * Graph extension: contributes the plugin graph to the `graph` slot.
+ * The graph plugin: contributes the plugin graph to the `graph` slot.
  *
- * It depends on no other extension. It reads the frontend platform through the
- * API every extension already has — which is why it can draw plugins it knows
- * nothing about — and takes anything it cannot know, the backend's address and
- * plugin list, as props from whoever renders the slot:
+ * It depends on no other plugin. It reads the platform through the Reactor API
+ * every plugin already has — which is why it can draw plugins it knows nothing
+ * about — and takes anything it cannot know, the backend's address and plugin
+ * list, as props from whoever renders the slot:
  *
  * ```tsx
  * <ReactorSlot slot="graph" props={{ backendUrl, backendPlugins }} />
  * ```
  */
-export const GraphExtension = defineExtension({
+export const GraphPlugin = definePlugin({
   name: '@datalayer/reactor-graph',
   version: '0.1.0',
   displayName: 'Graph',
   description:
-    'Draws the plugin graph — dependencies, extension points and their extenders, across both tiers.',
+    'Draws the plugin graph — extensions, dependencies, contribution points and their contributors, across both tiers.',
   octicon: 'workflow',
   emoji: '🕸️',
   build() {

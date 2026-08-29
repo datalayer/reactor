@@ -16,8 +16,8 @@ music/
   header-plugin/        # depends on catalog-plugin + shop-plugin + checkout-plugin
   shop-plugin/          # depends on catalog-plugin, owns the shared cart store
   checkout-plugin/      # depends on shop-plugin, owns the checkout button + page
-  playlist-plugin/      # OFFERS an extension point; ships no rules of its own
-  mood-plugin/          # USES the playlist's extension point; renders nothing
+  playlist-plugin/      # OFFERS an contribution point; ships no rules of its own
+  mood-plugin/          # USES the playlist's contribution point; renders nothing
   plugins-panel-plugin/ # checkboxes: switch plugins off and on while it runs
   backend/              # the host that runs every Python plugin on one platform
 ```
@@ -38,15 +38,15 @@ backend/            # music-backend         -> music_backend package (the host)
   (`catalog-plugin/`, import `catalog_plugin`) — a reactor plugin
   (`CatalogPlugin`, manifest name `catalog`) serving `GET /api/catalog/songs`.
 - **header-plugin** — declares
-  `dependencies: [CatalogExtension, ShopExtension, CheckoutExtension]` and
+  `dependencies: [CatalogPlugin, ShopPlugin, CheckoutPlugin]` and
   consumes `useCatalogSongs` plus the shared cart store. Contributes the store
   header (with the theme / color-mode chooser at the top right) to the `header`
   slot, including a cart summary that reveals cart details — plus the checkout
   plugin's Checkout button — in a Primer overlay on hover.
-- **shop-plugin** — declares `dependencies: [CatalogExtension]` and consumes
+- **shop-plugin** — declares `dependencies: [CatalogPlugin]` and consumes
   `useCatalogSongs`. Owns the shared `useCart` store and contributes the
   purchasable song cards + cart to the `main` slot.
-- **checkout-plugin** — declares `dependencies: [ShopExtension]` and consumes the
+- **checkout-plugin** — declares `dependencies: [ShopPlugin]` and consumes the
   shared cart store. Provides the `CheckoutButton` (rendered by the header plugin
   inside its cart overlay) and contributes the `CheckoutPage` to the `checkout`
   slot. Opening checkout replaces the main store view with the checkout page;
@@ -56,15 +56,15 @@ backend/            # music-backend         -> music_backend package (the host)
   `catalog_plugin` package to price the cart and declares a reactor
   `dependencies=["catalog"]`, so the reactor refuses to register it unless the
   catalog plugin is registered first. Serves `POST /api/checkout`.
-- **playlist-plugin** — the plugin that **offers an extension point**. It owns a
+- **playlist-plugin** — the plugin that **offers an contribution point**. It owns a
   playlist view and opens `music.playlistRule` for other plugins to fill; it
   ships no rules itself, so on its own it renders a playlist that says so. Its
   `music-playlist-plugin` Python package (`playlist_plugin`, manifest name
   `playlist`) does the same on the server: it defines the
   `music.playlistRule` point and serves `GET /api/playlist/rules` and
   `GET /api/playlist?rule=…` from whatever is contributed to it.
-- **mood-plugin** — the plugin that **uses** that extension point. It declares
-  `dependencies: [PlaylistExtension]` and contributes three rules (Chill,
+- **mood-plugin** — the plugin that **uses** that contribution point. It declares
+  `dependencies: [PlaylistPlugin]` and contributes three rules (Chill,
   Energetic, A to Z); it contributes to no slot and renders nothing of its own.
   Its `music-mood-plugin` Python package (`mood_plugin`, manifest name `mood`,
   reactor `dependencies=["playlist"]`) contributes the same three rules to the
@@ -90,8 +90,8 @@ backend/            # music-backend         -> music_backend package (the host)
   their own standalone `create_app`; this package is what runs them *together*,
   in dependency order, on one `PluginPlatform` — which is the platform the
   Plugins panel talks to.
-- **app** — mounts `HeaderExtension`, `ShopExtension`, `MoodExtension` and
-  `PluginsPanelExtension`; the catalog, checkout and playlist plugins are pulled
+- **app** — mounts `HeaderPlugin`, `ShopPlugin`, `MoodPlugin` and
+  `PluginsPanelPlugin`; the catalog, checkout and playlist plugins are pulled
   in transitively as dependencies. The app swaps the main store view for the
   `checkout` slot while checkout is open.
 
@@ -137,18 +137,18 @@ curl -s localhost:8799/api/checkout \
 
 ## Loaded after the first paint
 
-`@music/mood` is mounted with `defineLazyExtension`, so its module is fetched
+`@music/mood` is mounted with `defineLazyPlugin`, so its module is fetched
 *after* the platform starts rather than before the first paint:
 
 ```ts
-const MoodExtension = defineLazyExtension({
+const MoodPlugin = defineLazyPlugin({
   name: '@music/mood',
   displayName: 'Moods',
   octicon: 'sun',
   emoji: '🌤️',
-  dependencies: [PlaylistExtension],
+  dependencies: [PlaylistPlugin],
   load: () => import('@datalayer-examples/reactor-music-mood-plugin')
-    .then(module => module.MoodExtension),
+    .then(module => module.MoodPlugin),
 });
 ```
 
@@ -161,7 +161,7 @@ reference rather than inside the module, so it appears in the plugin list from
 the first frame with a `loading…` marker rather than popping into existence when
 its module arrives.
 
-## Two plugins, one extension point
+## Two plugins, one contribution point
 
 `playlist-plugin` and `mood-plugin` exist to show the shape that a slot cannot
 express. A **slot** answers "render everything plugins put here". An **extension
@@ -170,19 +170,19 @@ application can choose?" — here, a set of ways to fill a playlist, of which on
 is on screen at a time.
 
 - The playlist plugin **declares** the point and hosts it. It reads the
-  contributions with `useContributions(PlaylistRuleExtension)`, draws a chooser
+  contributions with `useContributions(PlaylistRulePoint)`, draws a chooser
   from them, and applies the chosen rule to the catalog.
 - The mood plugin **contributes** to it, declaratively:
 
   ```ts
   contributes: [
-    contribution(PlaylistRuleExtension, CHILL, { id: 'chill', order: 0 }),
+    contribution(PlaylistRulePoint, CHILL, { id: 'chill', order: 0 }),
     …
   ]
   ```
 
 Nothing points from the playlist plugin to the mood plugin. That is what makes
-this an extension point rather than an import: a fourth plugin can add a rule
+this an contribution point rather than an import: a fourth plugin can add a rule
 tomorrow without the playlist plugin changing.
 
 The same relationship exists on the Python side, between the `playlist` and
@@ -197,7 +197,7 @@ backend alike. Both kinds are live — nothing restarts, and no page reloads:
 | --- | --- | --- |
 | `@music/mood` (frontend) | the playlist's chooser empties | disabling an extension withdraws its contributions, so the rules leave the point |
 | `@music/playlist` (frontend) | the playlist card disappears | its slot component goes with it, while mood's contributions sit unused |
-| `catalog` (Python) | catalog **and** shop disappear | both React extensions declare `requiredBackendPlugins: ['catalog']` |
+| `catalog` (Python) | catalog **and** shop disappear | both React plugins declare `requiredBackendPlugins: ['catalog']` |
 | `playlist` (Python) | the playlist card stays, and says so | the frontend declares it in `optionalBackendPlugins`, which never gates rendering |
 | `mood` (Python) | `GET /api/playlist/rules` returns `[]` | the platform stops counting a disabled plugin's contributions |
 

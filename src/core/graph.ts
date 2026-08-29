@@ -8,10 +8,10 @@
  * The plugin graph, derived rather than drawn.
  *
  * Nothing here asks a plugin to describe its place in the system: every edge
- * comes from something a plugin already had to declare in order to work — a
- * dependency, a required backend plugin, an extension point it offers, a
- * contribution it makes. A graph nobody maintains is a graph that cannot go
- * stale.
+ * comes from something a plugin already had to declare in order to work — the
+ * extension that delivered it, a dependency, a required backend plugin, a
+ * contribution point it offers, a contribution it makes. A graph nobody
+ * maintains is a graph that cannot go stale.
  *
  * The derivation deliberately stops at data. It emits nodes and edges and no
  * geometry, colours or component, because where the picture is drawn — echarts,
@@ -27,8 +27,19 @@
 
 import type { ReactorPlatform } from './reactor';
 
-/** What a node stands for. */
-export type PluginGraphNodeKind = 'extension' | 'backend-plugin' | 'extension-point';
+/**
+ * What a node stands for.
+ *
+ * `plugin` and `extension` are not two names for one thing: a plugin is the
+ * unit that contributes, an extension is the package that delivered it. Both
+ * are drawn, because "which extension do I uninstall to lose this view?" is a
+ * question a graph should be able to answer.
+ */
+export type PluginGraphNodeKind =
+  | 'plugin'
+  | 'extension'
+  | 'backend-plugin'
+  | 'contribution-point';
 
 /** Which side of the wire a node lives on. */
 export type PluginGraphTier = 'frontend' | 'backend';
@@ -46,6 +57,10 @@ export type PluginGraphNode = {
   enabled?: boolean;
   lazy?: boolean;
   loaded?: boolean;
+  /** Whether its phases have run. A plugin can be loaded and still waiting. */
+  activated?: boolean;
+  /** What it is waiting for, when it is waiting. */
+  activationEvents?: string[];
   description?: string;
   octicon?: string;
   emoji?: string;
@@ -54,11 +69,12 @@ export type PluginGraphNode = {
 /**
  * Why two nodes are connected.
  *
- * `offers-point` and `contributes-to` are the two halves of an extension
+ * `offers-point` and `contributes-to` are the two halves of a contribution
  * point: one plugin opens it, others fill it, and neither imports the other.
  */
 export type PluginGraphEdgeKind =
   | 'depends-on'
+  | 'groups'
   | 'offers-point'
   | 'contributes-to'
   | 'requires-backend'
@@ -88,8 +104,14 @@ export type BackendGraphPlugin = {
   octicon?: string;
   emoji?: string;
   enabled?: boolean;
+  /** Whether its activation events have fired. Absent means "assume so". */
+  activated?: boolean;
+  /** The extension that delivered it, when one did. */
+  extension?: string;
+  activation_events?: string[];
+  deactivation_events?: string[];
   dependencies?: string[];
-  extension_points?: string[];
+  contribution_points?: string[];
   frontend_dependencies?: string[];
   optional_frontend_dependencies?: string[];
 };
@@ -128,6 +150,7 @@ export type DescribeGraphOptions = {
 };
 
 /** Node ids are prefixed by kind, so a point and a plugin never collide. */
+export const pluginNodeId = (name: string) => `plugin:${name}`;
 export const extensionNodeId = (name: string) => `extension:${name}`;
 export const backendNodeId = (name: string) => `backend:${name}`;
 export const pointNodeId = (id: string) => `point:${id}`;
@@ -147,38 +170,66 @@ export function describePluginGraph(
   const nodes = new Map<string, PluginGraphNode>();
   const edges: PluginGraphEdge[] = [];
 
+  /**
+   * Extensions are created by whoever mentions one first.
+   *
+   * The presentation is filled in below from `getExtensionManifest` when the
+   * platform knows it; a plugin naming a group nobody registered still gets a
+   * node, labelled by its name.
+   */
+  function ensureExtension(name: string): string {
+    const id = extensionNodeId(name);
+    if (!nodes.has(id)) {
+      nodes.set(id, { id, name, label: name, kind: 'extension', tier: 'frontend' });
+    }
+    return id;
+  }
+
   /** Points are created by whoever mentions them first, and never twice. */
   function ensurePoint(pointId: string): string {
     const id = pointNodeId(pointId);
     if (!nodes.has(id)) {
-      nodes.set(id, { id, name: pointId, label: pointId, kind: 'extension-point' });
+      nodes.set(id, { id, name: pointId, label: pointId, kind: 'contribution-point' });
     }
     return id;
   }
 
   // --- The frontend, from the platform itself ------------------------------
-  for (const name of reactor.listExtensions()) {
-    const metadata = reactor.getMetadata(name);
+  for (const name of reactor.listPlugins()) {
+    const metadata = reactor.getManifest(name);
     if (!metadata) {
       continue;
     }
-    const id = extensionNodeId(name);
+    const id = pluginNodeId(name);
     nodes.set(id, {
       id,
       name,
       label: metadata.displayName ?? name,
-      kind: 'extension',
+      kind: 'plugin',
       tier: 'frontend',
       enabled: reactor.isEnabled(name),
       lazy: metadata.lazy,
       loaded: metadata.loaded,
+      activated: metadata.activated,
+      activationEvents: metadata.activationEvents,
       description: metadata.description,
       octicon: metadata.octicon,
       emoji: metadata.emoji,
     });
 
+    // The extension that delivered it. Drawn from the plugin's manifest rather
+    // than by walking the extensions, so a plugin whose group was declared but
+    // never registered still shows the relationship.
+    if (metadata.extension) {
+      edges.push({
+        source: ensureExtension(metadata.extension),
+        target: id,
+        kind: 'groups',
+      });
+    }
+
     for (const dependency of reactor.getDependencies(name)) {
-      edges.push({ source: id, target: extensionNodeId(dependency), kind: 'depends-on' });
+      edges.push({ source: id, target: pluginNodeId(dependency), kind: 'depends-on' });
     }
     for (const plugin of metadata.requiredBackendPlugins) {
       edges.push({ source: id, target: backendNodeId(plugin), kind: 'requires-backend' });
@@ -191,19 +242,39 @@ export function describePluginGraph(
         optional: true,
       });
     }
-    for (const point of metadata.extensionPoints) {
+    for (const point of metadata.contributionPoints) {
       edges.push({ source: id, target: ensurePoint(point), kind: 'offers-point' });
     }
   }
 
+  // The extensions the platform actually knows, so their presentation is the
+  // one they declared rather than a bare name. Placed after the plugin pass:
+  // a node may already exist from a manifest that named it.
+  for (const name of reactor.listExtensions()) {
+    const manifest = reactor.getExtensionManifest(name);
+    if (!manifest) {
+      continue;
+    }
+    nodes.set(extensionNodeId(name), {
+      id: extensionNodeId(name),
+      name,
+      label: manifest.displayName ?? name,
+      kind: 'extension',
+      tier: 'frontend',
+      description: manifest.description,
+      octicon: manifest.octicon,
+      emoji: manifest.emoji,
+    });
+  }
+
   // Contributions are read from the registry rather than from declarations:
   // a contribution made at runtime is as real as one declared up-front, and
-  // a disabled extension's contributions are already gone from here.
+  // a disabled plugin's contributions are already gone from here.
   for (const { point, contributions } of reactor.describeContributions()) {
     const pointId = ensurePoint(point);
     for (const contribution of contributions) {
       edges.push({
-        source: extensionNodeId(contribution.extension),
+        source: pluginNodeId(contribution.plugin),
         target: pointId,
         kind: 'contributes-to',
       });
@@ -220,28 +291,37 @@ export function describePluginGraph(
       kind: 'backend-plugin',
       tier: 'backend',
       enabled: plugin.enabled ?? true,
+      activated: plugin.activated,
+      activationEvents: plugin.activation_events,
       description: plugin.description,
       octicon: plugin.octicon,
       emoji: plugin.emoji,
     });
 
+    // The same grouping the frontend draws, from the same field name on the
+    // other tier's manifest. An extension node is shared across tiers on
+    // purpose: two packages with one name are one package.
+    if (plugin.extension) {
+      edges.push({ source: ensureExtension(plugin.extension), target: id, kind: 'groups' });
+    }
+
     for (const dependency of plugin.dependencies ?? []) {
       edges.push({ source: id, target: backendNodeId(dependency), kind: 'depends-on' });
     }
-    for (const point of plugin.extension_points ?? []) {
+    for (const point of plugin.contribution_points ?? []) {
       edges.push({ source: id, target: ensurePoint(point), kind: 'offers-point' });
     }
-    for (const extension of plugin.frontend_dependencies ?? []) {
+    for (const frontend of plugin.frontend_dependencies ?? []) {
       edges.push({
         source: id,
-        target: extensionNodeId(extension),
+        target: pluginNodeId(frontend),
         kind: 'requires-frontend',
       });
     }
-    for (const extension of plugin.optional_frontend_dependencies ?? []) {
+    for (const frontend of plugin.optional_frontend_dependencies ?? []) {
       edges.push({
         source: id,
-        target: extensionNodeId(extension),
+        target: pluginNodeId(frontend),
         kind: 'optional-frontend',
         optional: true,
       });
@@ -257,7 +337,7 @@ export function describePluginGraph(
   }
 
   // An edge may name a plugin the other tier declared but this one has never
-  // heard of — a backend that is not running, a frontend extension nobody
+  // heard of — a backend that is not running, a frontend plugin nobody
   // loaded. Those are worth seeing, so they become nodes rather than being
   // dropped: a missing dependency is the most interesting thing on a graph.
   for (const edge of edges) {
@@ -271,7 +351,12 @@ export function describePluginGraph(
         id: endpoint,
         name,
         label: name,
-        kind: kind === 'backend' ? 'backend-plugin' : 'extension',
+        kind:
+          kind === 'backend'
+            ? 'backend-plugin'
+            : kind === 'extension'
+              ? 'extension'
+              : 'plugin',
         tier: kind === 'backend' ? 'backend' : 'frontend',
         enabled: false,
       });

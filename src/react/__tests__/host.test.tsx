@@ -6,34 +6,37 @@
 
 // @vitest-environment jsdom
 
-import React from 'react';
-import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import React from "react";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildReactorFromExtensions,
+  buildReactorFromPlugins,
   contribution,
-  defineExtension,
-  defineExtensionPoint,
+  definePlugin,
+  defineContributionPoint,
+  defineGate,
   type PhaseContext,
   type ReactorPlatform,
-} from '../../index';
-import { registerReactor, useReactor } from '../reactor';
-import { ReactorViewHost, useContributions } from '../host';
+} from "../../index";
+import { registerReactor, useReactor } from "../reactor";
+import { ReactorViewHost, useContributions, useGate } from "../host";
 
 type View = {
   title: string;
   Component?: React.ComponentType<Record<string, unknown>>;
-  load?: () => Promise<{ default: React.ComponentType<Record<string, unknown>> }>;
+  load?: () => Promise<{
+    default: React.ComponentType<Record<string, unknown>>;
+  }>;
 };
 
-const ViewPoint = defineExtensionPoint<View>('tests.host.view');
+const ViewPoint = defineContributionPoint<View>("tests.host.view");
 
 let container: HTMLDivElement;
 let root: Root | null = null;
 
 function mount(node: React.ReactNode) {
-  container = document.createElement('div');
+  container = document.createElement("div");
   document.body.appendChild(container);
   const created = createRoot(container);
   root = created;
@@ -68,20 +71,24 @@ afterEach(() => {
   container?.remove();
 });
 
-describe('useContributions', () => {
-  it('re-renders when a contribution arrives after start', () => {
-    let contribute: PhaseContext<any, any, any>['contribute'] | undefined;
-    const Extension = defineExtension({
-      name: '@tests/late-view',
+describe("useContributions", () => {
+  it("re-renders when a contribution arrives after start", () => {
+    let contribute: PhaseContext<any, any, any>["contribute"] | undefined;
+    const Extension = definePlugin({
+      name: "@tests/late-view",
       register(ctx) {
         contribute = ctx.contribute;
       },
     });
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     function Titles() {
       const views = useContributions(ViewPoint);
-      return <span data-testid="titles">{views.map((v) => v.value.title).join(',')}</span>;
+      return (
+        <span data-testid="titles">
+          {views.map((v) => v.value.title).join(",")}
+        </span>
+      );
     }
 
     mount(
@@ -90,50 +97,103 @@ describe('useContributions', () => {
       </Harness>,
     );
 
-    expect(container.querySelector('[data-testid="titles"]')?.textContent).toBe('');
+    expect(container.querySelector('[data-testid="titles"]')?.textContent).toBe(
+      "",
+    );
 
     act(() => {
-      contribute?.(ViewPoint, { title: 'Notebook' }, { id: 'notebook' });
+      contribute?.(ViewPoint, { title: "Notebook" }, { id: "notebook" });
     });
 
     expect(container.querySelector('[data-testid="titles"]')?.textContent).toBe(
-      'Notebook',
+      "Notebook",
     );
   });
 });
 
-describe('ReactorViewHost', () => {
-  it('renders the active contribution and passes props through', () => {
-    const Extension = defineExtension({
-      name: '@tests/eager',
+describe("useGate", () => {
+  it("re-renders when an answering plugin is disabled", () => {
+    const CanUseChat = defineGate<{ target: string }>(
+      "tests.host.can-use-chat",
+    );
+    const Guard = definePlugin({
+      name: "@tests/chat-guard",
+      contributes: [
+        contribution(CanUseChat, {
+          check: ({ target }) =>
+            target === "browser" ? "No agent in the browser" : true,
+        }),
+      ],
+    });
+    const reactor = buildReactorFromPlugins([Guard]);
+
+    function Verdict() {
+      const verdict = useGate(CanUseChat, { target: "browser" });
+      return (
+        <span data-testid="verdict">
+          {verdict.allowed ? "allowed" : verdict.reason}
+        </span>
+      );
+    }
+
+    mount(
+      <Harness reactor={reactor}>
+        <Verdict />
+      </Harness>,
+    );
+
+    expect(
+      container.querySelector('[data-testid="verdict"]')?.textContent,
+    ).toBe("No agent in the browser");
+
+    act(() => {
+      reactor.disable(Guard.name);
+    });
+
+    expect(
+      container.querySelector('[data-testid="verdict"]')?.textContent,
+    ).toBe("allowed");
+  });
+});
+
+describe("ReactorViewHost", () => {
+  it("renders the active contribution and passes props through", () => {
+    const Extension = definePlugin({
+      name: "@tests/eager",
       contributes: [
         contribution(
           ViewPoint,
           {
-            title: 'Eager',
+            title: "Eager",
             Component: (props: Record<string, unknown>) => (
               <span data-testid="view">eager:{String(props.label)}</span>
             ),
           },
-          { id: 'eager' },
+          { id: "eager" },
         ),
       ],
     });
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     mount(
       <Harness reactor={reactor}>
-        <ReactorViewHost point={ViewPoint} active="eager" props={{ label: 'hello' }} />
+        <ReactorViewHost
+          point={ViewPoint}
+          active="eager"
+          props={{ label: "hello" }}
+        />
       </Harness>,
     );
 
     expect(container.querySelector('[data-testid="view"]')?.textContent).toBe(
-      'eager:hello',
+      "eager:hello",
     );
   });
 
-  it('renders `empty` when the active id matches nothing', () => {
-    const reactor = buildReactorFromExtensions([defineExtension({ name: '@tests/bare' })]);
+  it("renders `empty` when the active id matches nothing", () => {
+    const reactor = buildReactorFromPlugins([
+      definePlugin({ name: "@tests/bare" }),
+    ]);
 
     mount(
       <Harness reactor={reactor}>
@@ -146,28 +206,28 @@ describe('ReactorViewHost', () => {
     );
 
     expect(container.querySelector('[data-testid="empty"]')?.textContent).toBe(
-      'nothing here',
+      "nothing here",
     );
   });
 
-  it('loads a lazy view, showing the fallback until it resolves', async () => {
-    const Extension = defineExtension({
-      name: '@tests/lazy',
+  it("loads a lazy view, showing the fallback until it resolves", async () => {
+    const Extension = definePlugin({
+      name: "@tests/lazy",
       contributes: [
         contribution(
           ViewPoint,
           {
-            title: 'Lazy',
+            title: "Lazy",
             load: () =>
               Promise.resolve({
                 default: () => <span data-testid="view">lazy loaded</span>,
               }),
           },
-          { id: 'lazy' },
+          { id: "lazy" },
         ),
       ],
     });
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     mount(
       <Harness reactor={reactor}>
@@ -186,27 +246,29 @@ describe('ReactorViewHost', () => {
     });
 
     expect(container.querySelector('[data-testid="view"]')?.textContent).toBe(
-      'lazy loaded',
+      "lazy loaded",
     );
   });
 
-  it('keeps the host alive when a lazy view fails to load', async () => {
+  it("keeps the host alive when a lazy view fails to load", async () => {
     // React logs the boundary-caught error; the test asserts recovery, not silence.
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const Extension = defineExtension({
-      name: '@tests/broken',
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const Extension = definePlugin({
+      name: "@tests/broken",
       contributes: [
         contribution(
           ViewPoint,
           {
-            title: 'Broken',
-            load: () => Promise.reject(new Error('module missing')),
+            title: "Broken",
+            load: () => Promise.reject(new Error("module missing")),
           },
-          { id: 'broken' },
+          { id: "broken" },
         ),
       ],
     });
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     mount(
       <Harness reactor={reactor}>
@@ -214,7 +276,9 @@ describe('ReactorViewHost', () => {
           <ReactorViewHost
             point={ViewPoint}
             active="broken"
-            errorFallback={(error) => <span data-testid="error">{error.message}</span>}
+            errorFallback={(error) => (
+              <span data-testid="error">{error.message}</span>
+            )}
           />
         </div>
       </Harness>,
@@ -226,28 +290,28 @@ describe('ReactorViewHost', () => {
     });
 
     expect(container.querySelector('[data-testid="error"]')?.textContent).toBe(
-      'module missing',
+      "module missing",
     );
     // The shell around the broken plugin is still standing.
     expect(container.querySelector('[data-testid="shell"]')).not.toBeNull();
     consoleError.mockRestore();
   });
 
-  it('drops the view when its extension is disabled', () => {
-    const Extension = defineExtension({
-      name: '@tests/toggleable',
+  it("drops the view when its extension is disabled", () => {
+    const Extension = definePlugin({
+      name: "@tests/toggleable",
       contributes: [
         contribution(
           ViewPoint,
           {
-            title: 'Toggleable',
+            title: "Toggleable",
             Component: () => <span data-testid="view">on screen</span>,
           },
-          { id: 'toggleable' },
+          { id: "toggleable" },
         ),
       ],
     });
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     mount(
       <Harness reactor={reactor}>
@@ -262,10 +326,12 @@ describe('ReactorViewHost', () => {
     expect(container.querySelector('[data-testid="view"]')).not.toBeNull();
 
     act(() => {
-      reactor.disable('@tests/toggleable');
+      reactor.disable("@tests/toggleable");
     });
 
     expect(container.querySelector('[data-testid="view"]')).toBeNull();
-    expect(container.querySelector('[data-testid="empty"]')?.textContent).toBe('gone');
+    expect(container.querySelector('[data-testid="empty"]')?.textContent).toBe(
+      "gone",
+    );
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "@datalayer/reactor-graph",
-  "version": "0.1.0",
-  "description": "Renders the plugin graph of a Datalayer Reactor platform \u2014 dependencies, extension points and their extenders, across the frontend and backend tiers.",
+  "version": "1.0.0",
+  "description": "Renders the plugin graph of a Datalayer Reactor platform \u2014 extensions, dependencies, contribution points and their contributors, across the frontend and backend tiers.",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -24,7 +24,7 @@
   ],
   "dependencies": {
     "@datalayer/primer-addons": "^1.0.17",
-    "@datalayer/reactor": "^1.1.0",
+    "@datalayer/reactor": "^2.0.0",
     "@primer/react": "^37.31.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",

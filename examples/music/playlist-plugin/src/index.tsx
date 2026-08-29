@@ -5,12 +5,12 @@
  */
 
 /**
- * Playlist plugin — the plugin that *offers an extension point*.
+ * Playlist plugin — the plugin that *offers an contribution point*.
  *
  * A slot answers "render everything plugins put here". This plugin needs the
  * other kind of answer: it owns a playlist view and asks other plugins "what
  * ways of choosing songs do you know?", then puts one of them on screen at a
- * time. That question is an extension point.
+ * time. That question is an contribution point.
  *
  * The plugin holds no rules of its own on purpose. On its own it renders an
  * empty playlist that says so — which is exactly what you see when the mood
@@ -22,10 +22,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
-import { defineExtension, defineExtensionPoint } from '@datalayer/reactor';
+import { definePlugin, defineContributionPoint } from '@datalayer/reactor';
 import { useBackendPlugin, useContributions } from '@datalayer/reactor/react';
 import {
-  CatalogExtension,
+  CatalogPlugin,
   useCatalogSongs,
   type Song,
 } from '@datalayer-examples/reactor-music-catalog-plugin';
@@ -47,13 +47,13 @@ export type PlaylistRule = {
 };
 
 /**
- * The extension point.
+ * The contribution point.
  *
  * The id is the contract between plugins; the type parameter is what makes
  * contributing to it type-safe. `music.playlistRule` is what the mood plugin
  * contributes to.
  */
-export const PlaylistRuleExtension = defineExtensionPoint<PlaylistRule>(
+export const PlaylistRulePoint = defineContributionPoint<PlaylistRule>(
   'music.playlistRule',
 );
 
@@ -82,7 +82,7 @@ function Playlist() {
   // Everything plugins have offered at the point. This re-renders on its own
   // when a contributing plugin is enabled or disabled, so the chooser is never
   // stale: withdrawing a contribution is part of disabling an extension.
-  const rules = useContributions(PlaylistRuleExtension);
+  const rules = useContributions(PlaylistRulePoint);
 
   const [activeId, setActiveId] = useState<string | undefined>(undefined);
 
@@ -107,7 +107,7 @@ function Playlist() {
     <Card border rounded="medium" shadow="small">
       <Card.Header
         title="Playlist"
-        description="Owned by the playlist plugin. Filled by whatever contributes to its `music.playlistRule` extension point."
+        description="Owned by the playlist plugin. Filled by whatever contributes to its `music.playlistRule` contribution point."
       />
       <Card.Content>
         {loading && <Text sx={{ color: 'fg.muted' }}>Loading catalog…</Text>}
@@ -132,7 +132,7 @@ function Playlist() {
             {active && (
               <Text sx={{ color: 'fg.muted', fontSize: 1 }}>
                 {active.value.description} — contributed by{' '}
-                <strong>{active.extension}</strong>.
+                <strong>{active.plugin}</strong>.
               </Text>
             )}
 
@@ -172,23 +172,23 @@ function Playlist() {
 
 /**
  * Playlist extension: depends on the catalog for songs, and opens the
- * `music.playlistRule` extension point for other plugins to fill.
+ * `music.playlistRule` contribution point for other plugins to fill.
  */
-export const PlaylistExtension = defineExtension({
+export const PlaylistPlugin = definePlugin({
   name: '@music/playlist',
   version: '1.0.0',
   displayName: 'Playlist',
   description:
-    'Owns the playlist and opens the music.playlistRule extension point. Ships no rules of its own.',
+    'Owns the playlist and opens the music.playlistRule contribution point. Ships no rules of its own.',
   octicon: 'list-unordered',
   emoji: '🎧',
-  dependencies: [CatalogExtension],
+  dependencies: [CatalogPlugin],
   requiredBackendPlugins: ['catalog'],
   // Declared so a host can draw the point, and show it even when nothing has
   // been contributed to it yet — the registry only ever knows contributors.
-  extensionPoints: [PlaylistRuleExtension],
+  contributionPoints: [PlaylistRulePoint],
   // The Python `playlist` plugin serves the same rules over HTTP. This view
-  // does not need it — its rules come from the extension point in the browser
+  // does not need it — its rules come from the contribution point in the browser
   // — so it is declared optional: when the backend is there the card says so,
   // and when it is not the card is exactly as useful.
   optionalBackendPlugins: ['playlist'],

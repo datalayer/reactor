@@ -6,14 +6,14 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
-  buildReactorFromExtensions,
-  defineExtension,
-  defineLazyExtension,
-  type ReactorExtension,
+  buildReactorFromPlugins,
+  definePlugin,
+  defineLazyPlugin,
+  type ReactorPlugin,
 } from '../../index';
 
 /** What the platform itself accepts: output types vary per extension. */
-type AnyExtension = ReactorExtension<any, any, any>;
+type AnyExtension = ReactorPlugin<any, any, any>;
 
 /** A promise plus the handle to settle it, so a test can hold a load open. */
 function deferred<T>() {
@@ -26,7 +26,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const Base = defineExtension({
+const Base = definePlugin({
   name: '@test/base',
   displayName: 'Base',
   build: () => ({ value: 'base' }),
@@ -35,34 +35,34 @@ const Base = defineExtension({
 describe('lazy extensions', () => {
   it('starts without waiting for the module, and activates it after', async () => {
     const gate = deferred<{ default: AnyExtension }>();
-    const Lazy = defineLazyExtension({
+    const Lazy = defineLazyPlugin({
       name: '@test/lazy',
       dependencies: [Base],
       load: () => gate.promise,
     });
-    const reactor = buildReactorFromExtensions([Lazy]);
+    const reactor = buildReactorFromPlugins([Lazy]);
 
     reactor.start();
 
     // The eager half is live the moment `start` returns — the whole point.
     expect(reactor.getOutput('@test/base')).toEqual({ value: 'base' });
-    expect(reactor.getMetadata('@test/lazy')?.loaded).toBe(false);
+    expect(reactor.getManifest('@test/lazy')?.loaded).toBe(false);
     expect(reactor.getOutput('@test/lazy')).toBeUndefined();
 
     gate.resolve({
-      default: defineExtension({
+      default: definePlugin({
         name: '@test/lazy',
         build: () => ({ value: 'lazy' }),
       }),
     });
     await reactor.whenReady();
 
-    expect(reactor.getMetadata('@test/lazy')?.loaded).toBe(true);
+    expect(reactor.getManifest('@test/lazy')?.loaded).toBe(true);
     expect(reactor.getOutput('@test/lazy')).toEqual({ value: 'lazy' });
   });
 
   it('describes a lazy extension before its module arrives', async () => {
-    const Lazy = defineLazyExtension({
+    const Lazy = defineLazyPlugin({
       name: '@test/lazy',
       displayName: 'Lazy',
       description: 'Loads late.',
@@ -70,12 +70,12 @@ describe('lazy extensions', () => {
       emoji: '📦',
       requiredBackendPlugins: ['api'],
       optionalBackendPlugins: ['search'],
-      load: () => Promise.resolve(defineExtension({ name: '@test/lazy' })),
+      load: () => Promise.resolve(definePlugin({ name: '@test/lazy' })),
     });
-    const reactor = buildReactorFromExtensions([Lazy]);
+    const reactor = buildReactorFromPlugins([Lazy]);
 
     // Before `start`, so before anything could have been fetched.
-    expect(reactor.getMetadata('@test/lazy')).toMatchObject({
+    expect(reactor.getManifest('@test/lazy')).toMatchObject({
       displayName: 'Lazy',
       description: 'Loads late.',
       octicon: 'package',
@@ -88,14 +88,14 @@ describe('lazy extensions', () => {
 
     reactor.start();
     await reactor.whenReady();
-    expect(reactor.getMetadata('@test/lazy')?.loaded).toBe(true);
+    expect(reactor.getManifest('@test/lazy')?.loaded).toBe(true);
   });
 
   it('accepts a module namespace or the extension itself', async () => {
-    const reactor = buildReactorFromExtensions([
-      defineLazyExtension({
+    const reactor = buildReactorFromPlugins([
+      defineLazyPlugin({
         name: '@test/bare',
-        load: async () => defineExtension({ name: '@test/bare', build: () => 'bare' }),
+        load: async () => definePlugin({ name: '@test/bare', build: () => 'bare' }),
       }),
     ]);
     reactor.start();
@@ -108,24 +108,24 @@ describe('lazy extensions', () => {
     const first = deferred<AnyExtension>();
     const second = deferred<AnyExtension>();
 
-    const First = defineLazyExtension({ name: '@test/first', load: () => first.promise });
-    const Second = defineLazyExtension({
+    const First = defineLazyPlugin({ name: '@test/first', load: () => first.promise });
+    const Second = defineLazyPlugin({
       name: '@test/second',
       dependencies: [First],
       load: () => second.promise,
     });
-    const reactor = buildReactorFromExtensions([Second]);
+    const reactor = buildReactorFromPlugins([Second]);
     reactor.start();
 
     // The dependant's module arrives first; it must still activate second.
     second.resolve(
-      defineExtension({ name: '@test/second', build: () => activated.push('second') }),
+      definePlugin({ name: '@test/second', build: () => activated.push('second') }),
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(activated).toEqual([]);
 
     first.resolve(
-      defineExtension({ name: '@test/first', build: () => activated.push('first') }),
+      definePlugin({ name: '@test/first', build: () => activated.push('first') }),
     );
     await reactor.whenReady();
 
@@ -133,9 +133,9 @@ describe('lazy extensions', () => {
   });
 
   it('survives a module that fails to load', async () => {
-    const reactor = buildReactorFromExtensions([
+    const reactor = buildReactorFromPlugins([
       Base,
-      defineLazyExtension({
+      defineLazyPlugin({
         name: '@test/broken',
         load: () => Promise.reject(new Error('offline')),
       }),
@@ -145,20 +145,20 @@ describe('lazy extensions', () => {
     await expect(reactor.whenReady()).resolves.toBeUndefined();
 
     // One plugin missing, not a dead platform.
-    expect(reactor.getMetadata('@test/broken')?.loaded).toBe(false);
+    expect(reactor.getManifest('@test/broken')?.loaded).toBe(false);
     expect(reactor.getOutput('@test/base')).toEqual({ value: 'base' });
   });
 
   it('does not activate a lazy extension that was disabled while loading', async () => {
     const build = vi.fn(() => 'built');
     const gate = deferred<AnyExtension>();
-    const reactor = buildReactorFromExtensions([
-      defineLazyExtension({ name: '@test/lazy', load: () => gate.promise }),
+    const reactor = buildReactorFromPlugins([
+      defineLazyPlugin({ name: '@test/lazy', load: () => gate.promise }),
     ]);
     reactor.start();
 
     reactor.disable('@test/lazy');
-    gate.resolve(defineExtension({ name: '@test/lazy', build }));
+    gate.resolve(definePlugin({ name: '@test/lazy', build }));
     await reactor.whenReady();
 
     expect(build).not.toHaveBeenCalled();
@@ -174,15 +174,15 @@ describe('lazy extensions', () => {
     const load = vi.fn(() => gateFor.promise);
     const gateFor = deferred<AnyExtension>();
     const contributed = vi.fn();
-    const reactor = buildReactorFromExtensions([
-      defineLazyExtension({ name: '@test/lazy', load }),
+    const reactor = buildReactorFromPlugins([
+      defineLazyPlugin({ name: '@test/lazy', load }),
     ]);
 
     reactor.start();
     reactor.stop();
     reactor.start();
 
-    gateFor.resolve(defineExtension({ name: '@test/lazy', build: contributed }));
+    gateFor.resolve(definePlugin({ name: '@test/lazy', build: contributed }));
     await reactor.whenReady();
 
     // One fetch, and one activation — not one per `start`.
@@ -192,14 +192,14 @@ describe('lazy extensions', () => {
 
   it('notifies subscribers when a module lands', async () => {
     const gate = deferred<AnyExtension>();
-    const reactor = buildReactorFromExtensions([
-      defineLazyExtension({ name: '@test/lazy', load: () => gate.promise }),
+    const reactor = buildReactorFromPlugins([
+      defineLazyPlugin({ name: '@test/lazy', load: () => gate.promise }),
     ]);
     reactor.start();
 
     const seen = vi.fn();
     reactor.subscribe(seen);
-    gate.resolve(defineExtension({ name: '@test/lazy', build: () => 'x' }));
+    gate.resolve(definePlugin({ name: '@test/lazy', build: () => 'x' }));
     await reactor.whenReady();
 
     // Without this the UI would never learn the plugin had arrived.
@@ -209,8 +209,8 @@ describe('lazy extensions', () => {
 
 describe('extension metadata', () => {
   it('falls back to the identifier when no display name is given', () => {
-    const reactor = buildReactorFromExtensions([defineExtension({ name: '@test/plain' })]);
-    expect(reactor.getMetadata('@test/plain')).toMatchObject({
+    const reactor = buildReactorFromPlugins([definePlugin({ name: '@test/plain' })]);
+    expect(reactor.getManifest('@test/plain')).toMatchObject({
       name: '@test/plain',
       displayName: '@test/plain',
       lazy: false,
@@ -219,8 +219,8 @@ describe('extension metadata', () => {
   });
 
   it('reports required and optional backend plugins apart', () => {
-    const reactor = buildReactorFromExtensions([
-      defineExtension({
+    const reactor = buildReactorFromPlugins([
+      definePlugin({
         name: '@test/api',
         requiredBackendPlugins: ['catalog'],
         optionalBackendPlugins: ['search'],
@@ -231,7 +231,7 @@ describe('extension metadata', () => {
   });
 
   it('has nothing to say about an extension it does not have', () => {
-    const reactor = buildReactorFromExtensions([]);
-    expect(reactor.getMetadata('@test/absent')).toBeUndefined();
+    const reactor = buildReactorFromPlugins([]);
+    expect(reactor.getManifest('@test/absent')).toBeUndefined();
   });
 });

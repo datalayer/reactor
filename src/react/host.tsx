@@ -5,10 +5,10 @@
  */
 
 /**
- * React bindings for extension points.
+ * React bindings for contribution points.
  *
  * `ReactorSlot` renders everything contributed to a named slot. A host is the
- * other half: it enumerates what plugins *offer* at an extension point and
+ * other half: it enumerates what plugins *offer* at a contribution point and
  * renders the one the application chose — one view on screen, one page open.
  *
  * @module react/host
@@ -22,7 +22,8 @@ import React, {
   type ComponentType,
   type ReactNode,
 } from 'react';
-import type { Contribution, ExtensionPoint } from '../core/contributions';
+import type { Contribution, ContributionPoint } from '../core/contributions';
+import { resolveGate, type Gate, type GateVerdict } from '../core/gates';
 import { useReactorPlatform } from './reactor';
 
 /** A module loader, as produced by `() => import('./MyView')`. */
@@ -31,11 +32,30 @@ export type LazyLoader<P = Record<string, unknown>> = () => Promise<{
 }>;
 
 /**
- * Subscribe to an extension point and re-render when its contributions change
+ * Subscribe to a contribution point and re-render when its contributions change
  * — including contributions made after `start()`, and those withdrawn when an
- * extension is disabled.
+ * plugin is disabled.
  */
-export function useContributions<T>(point: ExtensionPoint<T>): Contribution<T>[] {
+/**
+ * Ask a gate, and re-render when the answer could change.
+ *
+ * The context is passed on every render rather than captured, so the verdict
+ * follows the caller's own live data — a plugin that answers from the props it
+ * was given stays correct without subscribing to anything.
+ *
+ * ```tsx
+ * const verdict = useGate(CanChat, workspace);
+ * <Input disabled={!verdict.allowed} placeholder={verdict.reason ?? 'Ask…'} />
+ * ```
+ */
+export function useGate<C>(gate: Gate<C>, context: C): GateVerdict {
+  // Subscribes to the point, so enabling or disabling an answering plugin
+  // re-renders the asker.
+  const answers = useContributions(gate);
+  return useMemo(() => resolveGate(answers, context), [answers, context]);
+}
+
+export function useContributions<T>(point: ContributionPoint<T>): Contribution<T>[] {
   const reactorPlatform = useReactorPlatform();
   const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
     reactorPlatform.getRevision(),
@@ -145,10 +165,10 @@ function defaultResolve<T>(value: T): ViewResolution | undefined {
 }
 
 export type ReactorViewHostProps<T> = {
-  point: ExtensionPoint<T>;
+  point: ContributionPoint<T>;
   /**
    * Contribution id to render (see `ContributeOptions.id`). When it matches
-   * nothing — no contribution yet, or its extension was disabled — `empty` is
+   * nothing — no contribution yet, or its plugin was disabled — `empty` is
    * rendered instead.
    */
   active?: string;
@@ -170,7 +190,7 @@ export type ReactorViewHostProps<T> = {
 };
 
 /**
- * Render exactly one contribution from an extension point — the one whose id
+ * Render exactly one contribution from a contribution point — the one whose id
  * is `active`.
  *
  * The reactor holds no opinion about which view should be on screen, or whether

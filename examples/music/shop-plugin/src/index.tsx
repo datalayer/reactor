@@ -9,9 +9,9 @@ import { Button, Heading, Label, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
 import { BoringAvatar } from '@datalayer/core/lib/components/avatars';
 import { useThemeStore } from '@datalayer/primer-addons';
-import { defineExtension } from '@datalayer/reactor';
+import { definePlugin } from '@datalayer/reactor';
 import { create } from 'zustand';
-import { CatalogExtension, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { CatalogPlugin, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 /**
  * A single line in the shopping cart: a catalog song plus the quantity added.
@@ -132,7 +132,7 @@ function Shop() {
  * by consuming its `useCatalogSongs` data service). Contributes the purchasable
  * song cards and cart to the `main` slot.
  */
-export const ShopExtension = defineExtension({
+export const ShopPlugin = definePlugin({
   name: '@music/shop',
   version: '1.0.0',
   displayName: 'Shop',
@@ -140,7 +140,7 @@ export const ShopExtension = defineExtension({
     'Purchasable song cards and the shared cart store the header and checkout read.',
   octicon: 'package',
   emoji: '🛒',
-  dependencies: [CatalogExtension],
+  dependencies: [CatalogPlugin],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

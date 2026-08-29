@@ -9,7 +9,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildReactorFromExtensions, defineExtension } from '../../index';
+import { buildReactorFromPlugins, definePlugin } from '../../index';
 import { registerReactor, useReactor, useReactorStore } from '../reactor';
 
 describe('useReactor', () => {
@@ -18,14 +18,14 @@ describe('useReactor', () => {
   });
 
   it('registers on mount and unregisters on unmount for the same instance', () => {
-    const Extension = defineExtension({
+    const Extension = definePlugin({
       name: '@tests/reactor',
       build() {
         return {};
       },
     });
 
-    const reactor = buildReactorFromExtensions([Extension]);
+    const reactor = buildReactorFromPlugins([Extension]);
 
     function Harness() {
       useReactor(reactor, { autoStart: false });

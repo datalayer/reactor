@@ -13,7 +13,7 @@
  * * **Frontend (TypeScript)** — `reactor.enable(name)` / `reactor.disable(name)`
  *   on the platform in the browser. Disabling withdraws everything the
  *   extension contributed: its slot components stop rendering, and so do its
- *   contributions to other plugins' extension points.
+ *   contributions to other plugins' contribution points.
  * * **Backend (Python)** — `POST /plugins/{name}/toggle` on the reactor's own
  *   management API. The frontend does not decide this; it asks the server and
  *   re-reads `GET /plugins`.
@@ -44,8 +44,8 @@ import {
   WorkflowIcon,
   type Icon,
 } from '@primer/octicons-react';
-import { defineExtension, type ExtensionMetadata } from '@datalayer/reactor';
-import { useExtensionsMetadata, useReactorPlatform } from '@datalayer/reactor/react';
+import { definePlugin, type PluginManifest } from '@datalayer/reactor';
+import { usePluginManifests, useReactorPlatform } from '@datalayer/reactor/react';
 import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 /** One backend plugin, as `GET /plugins` reports it. */
@@ -58,7 +58,7 @@ export type BackendPlugin = {
   octicon?: string;
   emoji?: string;
   dependencies?: string[];
-  /** Frontend extensions this backend plugin needs, and merely likes. */
+  /** Frontend plugins this backend plugin needs, and merely likes. */
   frontend_dependencies?: string[];
   optional_frontend_dependencies?: string[];
   enabled: boolean;
@@ -328,11 +328,11 @@ function PluginOverlay({
 function FrontendPlugins({ control }: { control: OverlayControl }) {
   const reactor = useReactorPlatform();
   // Metadata rather than bare names: it carries how each plugin presents
-  // itself, and it is defined for a lazy extension before its module lands —
+  // itself, and it is defined for a lazy plugin before its module lands —
   // so the list is complete from the first frame.
-  const extensions = useExtensionsMetadata();
+  const plugins = usePluginManifests();
 
-  const detailsFor = (metadata: ExtensionMetadata): PluginDetails => ({
+  const detailsFor = (metadata: PluginManifest): PluginDetails => ({
     name: metadata.name,
     title: metadata.displayName ?? metadata.name,
     version: metadata.version,
@@ -340,23 +340,37 @@ function FrontendPlugins({ control }: { control: OverlayControl }) {
     octicon: metadata.octicon,
     emoji: metadata.emoji,
     tier: 'Frontend (TypeScript)',
-    pending: metadata.lazy && !metadata.loaded,
+    // Waiting counts as pending too: a plugin held back by an activation event
+    // is not yet contributing, and drawing it as live would be a lie.
+    pending: (metadata.lazy && !metadata.loaded) || !metadata.activated,
     relations: [
+      // The package it arrived in, when it arrived in one. First, because it
+      // answers "what would I uninstall to lose this?" before anything else.
+      { label: 'Delivered by', values: metadata.extension ? [metadata.extension] : [] },
       { label: 'Requires backend plugins', values: metadata.requiredBackendPlugins },
       { label: 'Uses if available', values: metadata.optionalBackendPlugins },
-      { label: 'Loading', values: metadata.lazy ? ['lazy — loaded after first paint'] : [] },
+      {
+        label: 'Activates on',
+        // Only worth showing when it is not the default: every plugin that
+        // says nothing activates at startup, and a column of "onStartup" is
+        // noise that hides the one plugin doing something interesting.
+        values: metadata.activated
+          ? []
+          : metadata.activationEvents.filter((event) => event !== 'onStartup'),
+      },
+      { label: 'Loading', values: metadata.lazy ? ['lazy — loaded on demand'] : [] },
     ],
   });
 
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
       <Text sx={{ fontWeight: 'bold' }}>Frontend plugins (TypeScript)</Text>
-      {extensions
+      {plugins
         .filter((metadata) => metadata.name !== PANEL_EXTENSION_NAME)
         .map((metadata) => {
           const enabled = reactor.isEnabled(metadata.name);
           const Icon = metadata.octicon ? OCTICONS[metadata.octicon] : undefined;
-          const pending = metadata.lazy && !metadata.loaded;
+          const pending = (metadata.lazy && !metadata.loaded) || !metadata.activated;
           return (
             <PluginOverlay key={metadata.name} details={detailsFor(metadata)} control={control}>
               <FormControl>
@@ -494,9 +508,9 @@ function PluginsPanel() {
         <Text sx={{ color: 'fg.muted', fontSize: 0, lineHeight: 1.5 }}>
           Try <strong>@music/mood</strong>: switching it off empties the
           playlist's rule chooser, because its rules are contributions to the
-          playlist plugin's extension point and are withdrawn with it. Then try
+          playlist plugin's contribution point and are withdrawn with it. Then try
           the Python <strong>catalog</strong> plugin: the catalog and shop
-          disappear, because those extensions declare it in{' '}
+          disappear, because those plugins declare it in{' '}
           <code>requiredBackendPlugins</code>.
         </Text>
       </Box>
@@ -511,7 +525,7 @@ function PluginsPanel() {
  * every extension already has, and reaches the backend over HTTP. That is why
  * it can list plugins it knows nothing about.
  */
-export const PluginsPanelExtension = defineExtension({
+export const PluginsPanelPlugin = definePlugin({
   name: PANEL_EXTENSION_NAME,
   version: '1.0.0',
   displayName: 'Plugins',

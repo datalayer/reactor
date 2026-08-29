@@ -5,7 +5,7 @@
  */
 
 /**
- * Mood plugin — the plugin that *uses* another plugin's extension point.
+ * Mood plugin — the plugin that *uses* another plugin's contribution point.
  *
  * It contributes nothing to a slot and renders nothing of its own. Everything
  * it offers reaches the screen through the playlist plugin, which owns the
@@ -19,11 +19,11 @@
  * @module mood-plugin
  */
 
-import { contribution, defineExtension } from '@datalayer/reactor';
+import { contribution, definePlugin } from '@datalayer/reactor';
 import type { Song } from '@datalayer-examples/reactor-music-catalog-plugin';
 import {
-  PlaylistExtension,
-  PlaylistRuleExtension,
+  PlaylistPlugin,
+  PlaylistRulePoint,
   type PlaylistRule,
 } from '@datalayer-examples/reactor-music-playlist-plugin';
 
@@ -56,7 +56,7 @@ const ALPHABETICAL: PlaylistRule = {
 };
 
 /**
- * Mood extension: three rules for the playlist plugin's extension point.
+ * Mood extension: three rules for the playlist plugin's contribution point.
  *
  * They are declared with `contributes` rather than contributed imperatively in
  * `register`, because none of them depends on this plugin's build output. The
@@ -64,7 +64,7 @@ const ALPHABETICAL: PlaylistRule = {
  * panel demonstrates — withdraws all three the moment this extension is
  * disabled.
  */
-export const MoodExtension = defineExtension({
+export const MoodPlugin = definePlugin({
   name: '@music/mood',
   version: '1.0.0',
   displayName: 'Moods',
@@ -72,10 +72,10 @@ export const MoodExtension = defineExtension({
     'Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself.',
   octicon: 'sun',
   emoji: '🌤️',
-  dependencies: [PlaylistExtension],
+  dependencies: [PlaylistPlugin],
   contributes: [
-    contribution(PlaylistRuleExtension, CHILL, { id: 'chill', order: 0 }),
-    contribution(PlaylistRuleExtension, ENERGETIC, { id: 'energetic', order: 1 }),
-    contribution(PlaylistRuleExtension, ALPHABETICAL, { id: 'a-to-z', order: 2 }),
+    contribution(PlaylistRulePoint, CHILL, { id: 'chill', order: 0 }),
+    contribution(PlaylistRulePoint, ENERGETIC, { id: 'energetic', order: 1 }),
+    contribution(PlaylistRulePoint, ALPHABETICAL, { id: 'a-to-z', order: 2 }),
   ],
 });
