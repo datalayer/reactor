@@ -40,72 +40,80 @@ This project targets a full plugin platform, not only hook callbacks:
 
 ### 1. Packaging
 
-```text
-Extension
-  └── Plugins
-       └── Plugin
-            ├── Plugin Manifest
-            └── Plugin Code
+An extension is a wrapper. Everything that has a lifecycle is a plugin, and a
+plugin is a manifest plus the code the manifest describes.
+
+```mermaid
+flowchart TD
+  extension["Extension"] -->|groups| plugin["Plugin"]
+  plugin --> manifest["Plugin Manifest"]
+  plugin --> code["Plugin Code"]
 ```
 
 ### 2. Declarative extensibility
 
-```text
-Reactor
-  └── Contribution Point
-          ▲
-          │ targeted by
-          │
-       Plugin
-          └── Contribution
+The arrow points one way. Reactor provides the contribution point; a plugin
+targets it. Nothing on the Reactor side names the plugin, which is what lets a
+plugin be added, removed or replaced without the host knowing.
+
+```mermaid
+flowchart BT
+  subgraph plugin["Plugin"]
+    contribution["Contribution"]
+  end
+  subgraph reactor["Reactor"]
+    point["Contribution Point"]
+  end
+  contribution -->|targets| point
 ```
 
 For example:
 
-```text
-Reactor
-  └── commands
-        ▲
-        │
-   My Plugin
-        └── myCommand
+```mermaid
+flowchart BT
+  subgraph plugin["My Plugin"]
+    mycommand["myCommand"]
+  end
+  subgraph reactor["Reactor"]
+    commands["commands"]
+  end
+  mycommand -->|targets| commands
 ```
 
 ### 3. Complete model
 
-```text
-Extension
-  └── Plugin
-       │
-       ├── Plugin Manifest
-       │    ├── Contributions
-       │    │      │
-       │    │      ▼
-       │    │  Contribution Points
-       │    │      provided by Reactor
-       │    │
-       │    └── Activation Events
-       │
-       └── Plugin Code
-              │
-              └── Reactor API
+The manifest is where the two halves meet: its contributions reach out to the
+points Reactor provides, and its activation events say when the code behind
+them should start.
+
+```mermaid
+flowchart TD
+  subgraph extension["Extension"]
+    subgraph plugin["Plugin"]
+      manifest["Plugin Manifest"]
+      contributions["Contributions"]
+      events["Activation Events"]
+      code["Plugin Code"]
+      manifest --> contributions
+      manifest --> events
+    end
+  end
+  subgraph host["Reactor"]
+    points["Contribution Points"]
+    api["Reactor API"]
+  end
+  contributions -->|target| points
+  code -->|calls| api
 ```
 
 Core mental model:
 
-```text
-Reactor
-  provides
-     ↓
-Contribution Points
-     ↑
-     │ targeted by
-     │
-Plugins
-  └── Contributions
-
-Extensions
-  └── group Plugins
+```mermaid
+flowchart LR
+  reactor["Reactor"] -->|provides| points["Contribution Points"]
+  extensions["Extensions"] -->|group| plugins["Plugins"]
+  plugins -->|declare| contributions["Contributions"]
+  contributions -->|target| points
 ```
 
 ### What each construct is, in this codebase
