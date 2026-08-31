@@ -19,7 +19,8 @@ music/
   playlist-plugin/      # OFFERS an contribution point; ships no rules of its own
   mood-plugin/          # USES the playlist's contribution point; renders nothing
   plugins-panel-plugin/ # checkboxes: switch plugins off and on while it runs
-  backend/              # the host that runs every Python plugin on one platform
+  catalog-core/         # the data contract, with no design system in it
+  backend/              # datalayer_music_example: the host, and the console script
 ```
 
 The Python backends are real installable packages (each with its own
@@ -30,7 +31,7 @@ catalog-plugin/     # music-catalog-plugin  -> catalog_plugin package
 checkout-plugin/    # music-checkout-plugin -> checkout_plugin package
 playlist-plugin/    # music-playlist-plugin -> playlist_plugin package
 mood-plugin/        # music-mood-plugin     -> mood_plugin package
-backend/            # music-backend         -> music_backend package (the host)
+backend/            # datalayer_music_example -> the host, and the console script
 ```
 
 - **catalog-plugin** — the base plugin. Exposes the `useCatalogSongs` data hook
@@ -114,11 +115,22 @@ backend/            # music-backend         -> music_backend package (the host)
 
 ## Run
 
-The app depends on `@datalayer/reactor` via `file:../..`, which resolves to the
-built `lib/`, so reactor must be built first.
+```bash
+# from the reactor repository root
+make music-app          # build the interface, install every plugin
+datalayer-music-example # one server: the store, its API, and all four Python plugins
+```
+
+One command, both tiers, one origin — no npm afterwards, no second server, no
+CORS. `datalayer_music_example` is a real distribution: it depends on the four
+plugin packages, ships the built interface in its wheel, and exposes the console
+script. See `backend/` and the [host documentation](https://reactor.datalayer.tech/python/host).
+
+## Run it the long way
+
+Which is what a developer does, because the frontend wants a dev server:
 
 ```bash
-# from the reactor repo root
 make music
 ```
 
@@ -135,8 +147,8 @@ pip install -e examples/music/catalog-plugin \
               -e examples/music/mood-plugin \
               -e examples/music/backend
 
-# 3. Start the backend host (every Python plugin, one platform) on port 8799
-uvicorn music_backend.app:app --reload --port 8799
+# 3. Start the host on port 8799
+uvicorn datalayer_music_example.app:app --reload --port 8799
 
 # 4. Install workspaces and start the app (port 5179)
 cd examples/music

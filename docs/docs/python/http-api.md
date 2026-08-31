@@ -17,6 +17,10 @@ reactor's own control plane. Your plugins' routers are mounted on top of it.
 | `POST /plugins/{plugin_name}/toggle` | enable or disable one at runtime |
 | `POST /plugins/{plugin_name}/deactivate` | stand a plugin down, dependants first |
 | `POST /events/{event}` | fire an event; answers with what stood down and what woke |
+| `GET /plugins/state` | the revision, and each plugin's `enabled`/`activated` — the cheap poll |
+| `GET /events/stream` | server-sent events: one message whenever the platform changes |
+| `GET /plugins/frontend-extensions` | every installed [extension's](/python/packaging) frontend half, rescanned |
+| `GET /reactor-extensions/{name}/{path}` | that extension's files, out of the installed distribution |
 
 ## Across the tiers
 
@@ -32,6 +36,11 @@ reactor's own control plane. Your plugins' routers are mounted on top of it.
 | `GET /tenants/{tenant_id}/features` | what that tenant may use |
 | `GET /tenants/{tenant_id}/routes` | the routes that follow from it |
 | `GET /marketplace` | what is publishable and published |
+
+## Serving it
+
+`reactor` on the command line serves all of this against whatever extensions
+are installed in the environment — see [the host](/python/host).
 
 ## Trying it
 

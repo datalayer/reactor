@@ -43,6 +43,37 @@ This is what makes a plugin checkbox honest: the list of plugins comes from
 `reactor.listPlugins()`, the state from `reactor.isEnabled(name)`, and the UI
 that follows is one `useSyncExternalStore` away.
 
+### Disabling takes dependants with it
+
+A dependant left running against a disabled dependency is holding an output
+nobody maintains — and it will read `getOutput` and find nothing, which is a
+crash somewhere with no idea why. So `disable` stands dependants down first,
+transitively, exactly as [`deactivate`](/typescript/deactivation) does.
+
+```ts
+reactor.disable('@app/base');   // '@app/top', then '@app/middle', then '@app/base'
+```
+
+`enable` brings back **only what that disabling took down**. The manifest says
+which is which:
+
+```ts
+reactor.getManifest('@app/middle')?.disabledBy;   // 'dependency'
+reactor.getManifest('@app/base')?.disabledBy;     // 'user'
+```
+
+The distinction is what keeps the cascade safe. A plugin somebody switched off
+by hand stays off when its dependency returns — otherwise a switch could be
+undone by an unrelated one three plugins away. It is the same three-state
+argument as [deactivation](/typescript/deactivation), one level up.
+
+A host drawing a switch should draw the two differently: a dependency-disabled
+row cannot usefully be switched on, and offering the control anyway invites
+somebody to try. The [plugins manager](/plugins/manager) greys it and says why.
+
+The whole cascade is one revision bump, so a host re-renders once rather than
+painting a half-finished teardown.
+
 ```tsx
 function PluginToggles() {
   const reactor = useReactorPlatform();

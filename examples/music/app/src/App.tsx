@@ -4,15 +4,17 @@
  * Datalayer License
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   buildReactorFromPlugins,
   defineExtension,
   defineLazyPlugin,
   onContributionPoint,
+  type LazyPluginRef,
 } from '@datalayer/reactor';
 import {
   ReactorSlot,
+  useBackendPluginStream,
   useReactor,
   useSlotComponents,
 } from '@datalayer/reactor/react';
@@ -142,13 +144,24 @@ const StoreExtension = defineExtension({
 // `MoodPlugin` is mounted for its *contributions* rather than for any UI: it
 // renders nothing, and everything it offers reaches the screen through the
 // playlist plugin's contribution point.
-const reactor = buildReactorFromPlugins([
-  HeaderPlugin,
-  StoreExtension,
-  PluginsManagerPlugin,
-  PluginsPanelPlugin,
-  GraphPlugin,
-]);
+/**
+ * The platform, built once the shell knows what is installed on the server.
+ *
+ * `remotes` are the plugins that arrived with a `pip install` rather than with
+ * this application's bundle — see `main.tsx`. They go into the same list as
+ * everything else, because a remote plugin is not a second kind of plugin: it
+ * is a lazy plugin whose module happens to be at a URL.
+ */
+function createReactor(remotes: LazyPluginRef[]) {
+  return buildReactorFromPlugins([
+    HeaderPlugin,
+    StoreExtension,
+    PluginsManagerPlugin,
+    PluginsPanelPlugin,
+    GraphPlugin,
+    ...remotes,
+  ]);
+}
 
 function Content({ pathname }: { pathname: string }) {
   // When checkout is open, the checkout page replaces the main store view.
@@ -300,12 +313,20 @@ function Sidebar({ pathname }: { pathname: string }) {
   );
 }
 
-export default function App() {
+export default function App({ remotes = [] }: { remotes?: LazyPluginRef[] }) {
   // Which backend plugins are available is the server's answer, not a constant:
   // the Plugins panel toggles them over the reactor's management API, and every
   // slot gated on `requiredBackendPlugins` follows.
   const isBackendPluginAvailable = useBackendPluginAvailability();
+  // `remotes` is built once, before the first render, so this memo runs once —
+  // rebuilding the platform on a re-render would restart every plugin in it.
+  const reactor = useMemo(() => createReactor(remotes), [remotes]);
   useReactor(reactor, { isBackendPluginAvailable });
+  // Follow the Python tier, so switching a backend plugin off does not merely
+  // stop its slots drawing — it stands the frontend plugins that need it down,
+  // and brings them back when it returns. Untick `catalog` in the panel and the
+  // shop's rows leave the plugin list as *deactivated*, not merely blank.
+  useBackendPluginStream(CATALOG_BACKEND_URL);
   const pathname = usePathname();
   return (
     <>

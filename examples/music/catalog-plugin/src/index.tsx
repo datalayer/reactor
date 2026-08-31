@@ -4,72 +4,30 @@
  * Datalayer License
  */
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
 import { definePlugin } from '@datalayer/reactor';
+import {
+  CATALOG_BACKEND_URL,
+  useCatalogSongs,
+} from '@datalayer-examples/reactor-music-catalog-core';
 
 /**
- * Default URL of the catalog FastAPI backend (see catalog_plugin package).
+ * The data contract lives in `catalog-core`, which imports no design system.
+ *
+ * It is re-exported here so that a plugin already depending on this one keeps
+ * working — but a plugin that only wants the *songs* should import the core
+ * directly, and pay for React rather than for Primer. The
+ * [shadcn store](../../music-shadcn) does exactly that, which is the reason the
+ * split exists at all.
  */
-export const CATALOG_BACKEND_URL = 'http://localhost:8799';
-
-export type Song = {
-  id: string;
-  title: string;
-  artist: string;
-  price: number;
-};
-
-export type CatalogState = {
-  songs: Song[];
-  loading: boolean;
-  error: string | null;
-};
-
-/**
- * Frontend data hook for the catalog. Fetches the song list from the catalog
- * FastAPI backend. This is the shared service that the header and shop plugins
- * consume.
- */
-export function useCatalogSongs(baseUrl: string = CATALOG_BACKEND_URL): CatalogState {
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    fetch(`${baseUrl}/api/catalog/songs`)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        return (await response.json()) as Song[];
-      })
-      .then((data) => {
-        if (active) {
-          setSongs(data);
-          setError(null);
-        }
-      })
-      .catch((caught) => {
-        if (active) {
-          setError(caught instanceof Error ? caught.message : 'unknown error');
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [baseUrl]);
-
-  return { songs, loading, error };
-}
+export {
+  CATALOG_BACKEND_URL,
+  useCatalogSongs,
+  type CatalogState,
+  type Song,
+} from '@datalayer-examples/reactor-music-catalog-core';
 
 function CatalogList() {
   const { songs, loading, error } = useCatalogSongs();

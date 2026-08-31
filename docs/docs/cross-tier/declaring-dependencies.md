@@ -79,7 +79,41 @@ In the [music example](/examples/music/switching-plugins), unchecking the Python
 `requiredBackendPlugins: ['catalog']` — while unchecking `playlist` leaves its
 card exactly as useful, because the frontend declared that one optional.
 
-## What is not here yet
+## Activation follows, not just rendering
 
-An event fired on one tier activates plugins on that tier only; carrying
-activation across the wire is [on the roadmap](/roadmap/cross-tier-activation).
+`requiredBackendPlugins` gates *rendering*: a slot component whose backend
+plugin is switched off does not draw. On its own that leaves the plugin
+**activated**, holding contributions backed by a server that is no longer
+answering — the plugin list says it is on while nothing it offers works.
+
+`setBackendPlugins` closes that:
+
+```ts
+await reactor.setBackendPlugins(['catalog', 'playlist']);
+// → { deactivated: ['@app/shop', '@app/catalog'], activated: [] }
+```
+
+A plugin whose required backend plugin goes away is stood down, dependants
+first; when it returns, so is the plugin. What crosses the wire is
+**deactivation, never disabling** — a server must not be able to undo somebody's
+checkbox, so a plugin a person switched off stays off.
+
+In React, one line wires it to a running server:
+
+```tsx
+useBackendPluginStream('http://localhost:8799');
+```
+
+It reads `GET /plugins/state` and follows `GET /events/stream`. Two properties
+worth knowing, both deliberate:
+
+- **A dropped connection is not a server saying no.** The last known state is
+  kept and nothing is torn down because the network blinked — the same reason a
+  backend does not refuse to start when no browser has loaded yet.
+- **Polling is correct.** The stream is an optimisation over the state endpoint,
+  and the fallback is the same code path with a timer, so a deployment that
+  cannot hold a connection open loses latency and nothing else.
+
+Direction matters, and only one way propagates: server → browser. A browser
+closing a view is not a reason to stand a plugin down for every other browser
+the server is serving.

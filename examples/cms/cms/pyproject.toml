@@ -1,0 +1,37 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cms"
+version = "0.1.0"
+description = "A Reactor CMS: the application, and the Core extension it ships with"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+]
+
+# The free tier. `cms-pro` advertises itself under the same group, which is the
+# whole point: the host does not know which package is which.
+[project.entry-points."datalayer.reactor.extensions"]
+cms-core = "cms:extension"
+
+[project.scripts]
+datalayer-cms = "cms:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cms"]
+
+# hatchling rather than setuptools, and `shared-data` rather than `data-files`,
+# for one concrete reason: a built interface is a *directory tree* — an
+# `index.html` beside a `static/` folder — and setuptools' `data-files` copies
+# files, not directories. The wheel simply fails to build.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-core" = "share/datalayer/reactor/extensions/cms-core"
+"share/datalayer/reactor/apps/cms" = "share/datalayer/reactor/apps/cms"

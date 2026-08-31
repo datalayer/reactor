@@ -7,6 +7,19 @@ title: Loading extensions via federation
 
 **Tracking: [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9)**
 
+## Status: loading a remote at runtime has landed
+
+:::tip Shipped
+`defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
+adds one to a platform that is already running, and a refused or broken remote
+costs one plugin and says why. See [Remote plugins](/typescript/federation).
+
+What is still open is below: **Module Federation containers** rather than plain
+ES modules — shared-dependency negotiation, remote type hints, and hot updates
+for consumed remotes. The loader is a seam, so that is a swap rather than a
+rewrite.
+:::
+
 ## The problem
 
 Every frontend plugin in Reactor today is an npm dependency of the application
@@ -34,9 +47,10 @@ were designed for it:
 
 So the missing piece is delivery, not lifecycle.
 
-## The build tool question
+## The build tool: Rsbuild on Rspack
 
-The issue's conclusion, recorded here because it is a decision and not a
+Decided, and the repository is migrating to it — the examples and this
+documentation site included. Recorded here because it is a decision and not a
 preference:
 
 > If Module Federation is a core architectural requirement → pick
@@ -67,6 +81,14 @@ New frontend project
                    │
                    └─────► Vite 8
 ```
+
+One thing the choice deliberately does **not** decide: what
+`@datalayer/reactor` itself depends on. Module Federation's runtime is a
+standalone SDK that needs no bundler, so the runtime loads a remote through
+that and stays consumable by a host built with something else. A plugin
+platform that dictated a bundler to third parties would be making the same
+mistake as one that dictated a UI kit — which is the claim
+[the shadcn/ui example](/roadmap/shadcn-ui) exists to test.
 
 ## What has to be designed
 

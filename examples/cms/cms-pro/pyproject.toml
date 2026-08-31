@@ -1,0 +1,29 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cms-pro"
+version = "0.1.0"
+description = "The paid tier of the Reactor CMS: three more plugins, same three points"
+requires-python = ">=3.10"
+# It depends on `cms` for nothing but the application being there to extend.
+# Notably it does *not* import it: a paid extension that had to import the free
+# one would be a fork, not an extension.
+dependencies = ["datalayer-reactor"]
+
+# The same entry-point group the free tier uses. That is the demonstration:
+# packaging and licensing are one question, extensibility is another, and the
+# host cannot tell which package a plugin came from.
+[project.entry-points."datalayer.reactor.extensions"]
+cms-pro = "cms_pro:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cms_pro"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-pro" = "share/datalayer/reactor/extensions/cms-pro"

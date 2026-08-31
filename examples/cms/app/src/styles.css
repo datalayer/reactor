@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
+@import 'tailwindcss';
+
+/*
+ * shadcn/ui's tokens, which are the reason its components can be copied into a
+ * project and still look like it: every component reads these variables rather
+ * than naming a colour. A plugin that draws with the host's kit therefore
+ * inherits the host's theme without knowing it has one.
+ */
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.15 0.01 275);
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.97 0.005 275);
+  --color-muted-foreground: oklch(0.52 0.02 275);
+  --color-primary: oklch(0.45 0.16 275);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-border: oklch(0.92 0.006 275);
+  --color-accent: oklch(0.96 0.01 275);
+  --color-destructive: oklch(0.58 0.21 27);
+  --color-success: oklch(0.6 0.15 150);
+  --radius: 0.6rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: oklch(0.16 0.01 275);
+    --color-foreground: oklch(0.97 0.005 275);
+    --color-card: oklch(0.2 0.012 275);
+    --color-muted: oklch(0.24 0.012 275);
+    --color-muted-foreground: oklch(0.7 0.02 275);
+    --color-primary: oklch(0.72 0.14 275);
+    --color-primary-foreground: oklch(0.16 0.01 275);
+    --color-border: oklch(0.3 0.014 275);
+    --color-accent: oklch(0.26 0.014 275);
+  }
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}

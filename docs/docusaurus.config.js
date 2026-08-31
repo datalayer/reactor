@@ -15,6 +15,8 @@ const path = require('node:path');
 const REPO = path.resolve(__dirname, '..');
 /** Where the music example's plugin packages live. */
 const MUSIC = path.resolve(REPO, 'examples/music');
+/** Where the CMS example lives. */
+const CMS = path.resolve(REPO, 'examples/cms');
 
 /**
  * Everything the embedded music demo needs webpack to know.
@@ -51,7 +53,25 @@ function reactorMusicDemo() {
             '@reactor-music-demo': isServer
               ? false
               : path.resolve(__dirname, 'src/components/MusicDemo/MusicApp.tsx'),
+            // The CMS demo, kept out of the server bundle for the same reason.
+            '@reactor-cms-demo': isServer
+              ? false
+              : path.resolve(__dirname, 'src/components/CmsDemo/CmsApp.tsx'),
+            // The CMS application, from its own source. As with the music
+            // example, there is no forked copy of it in this repository.
+            '@cms-app': path.resolve(CMS, 'app/src'),
+            // The two extensions' browser halves, resolved to the example's
+            // un-built modules and loaded as *text* by the rule below.
+            '@cms-extension/core': path.resolve(
+              CMS,
+              'cms/share/datalayer/reactor/extensions/cms-core/index.js',
+            ),
+            '@cms-extension/pro': path.resolve(
+              CMS,
+              'cms-pro/share/datalayer/reactor/extensions/cms-pro/index.js',
+            ),
             // The example's plugins, from source.
+            '@datalayer-examples/reactor-music-catalog-core': path.resolve(MUSIC, 'catalog-core/src/index.ts'),
             '@datalayer-examples/reactor-music-catalog-plugin': path.resolve(MUSIC, 'catalog-plugin/src/index.tsx'),
             '@datalayer-examples/reactor-music-checkout-plugin': path.resolve(MUSIC, 'checkout-plugin/src/index.tsx'),
             '@datalayer-examples/reactor-music-header-plugin': path.resolve(MUSIC, 'header-plugin/src/index.tsx'),
@@ -67,6 +87,9 @@ function reactorMusicDemo() {
             '@datalayer/reactor$': path.resolve(REPO, 'src/index.ts'),
             '@datalayer/reactor/react': path.resolve(REPO, 'src/react/index.ts'),
             '@datalayer/reactor-manager$': path.resolve(REPO, 'plugins/manager/src/index.tsx'),
+            // From source, like everything else here — which also sidesteps
+            // the extensionless relative imports `tsc` leaves in `lib/`.
+            '@datalayer/reactor-graph$': path.resolve(REPO, 'plugins/graph/src/index.tsx'),
             // One generated avatar is not worth the whole Datalayer client.
             '@datalayer/core/lib/components/avatars': path.resolve(__dirname, 'src/shims/datalayer-core-avatars.tsx'),
             // Exactly one copy of each, whoever asks and from wherever.
@@ -80,7 +103,32 @@ function reactorMusicDemo() {
             '@primer/react$': path.resolve(__dirname, 'node_modules/@primer/react'),
           },
         },
+        module: {
+          rules: [
+            {
+              // The extensions' modules are fetched at runtime in a real
+              // deployment, so they must not be compiled into this bundle as
+              // code. They arrive as source text and are handed to a loader
+              // that imports them from a blob — a genuine runtime import of a
+              // URL the build did not know, which is the thing being shown.
+              test: /index\.js$/,
+              include: [
+                path.resolve(CMS, 'cms/share'),
+                path.resolve(CMS, 'cms-pro/share'),
+              ],
+              type: 'asset/source',
+            },
+          ],
+        },
       };
+    },
+    configurePostCss(options) {
+      // For `src/components/CmsDemo/cms-theme.css`, the only file on this site
+      // containing Tailwind directives. The plugin is a no-op for every other
+      // stylesheet: it expands `@import "tailwindcss/…"` and leaves anything
+      // without them alone.
+      options.plugins.push(require('@tailwindcss/postcss'));
+      return options;
     },
   };
 }
@@ -95,6 +143,14 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'datalayer',
   projectName: 'datalayer',
+  // Rspack, like the rest of the repository (REACTOR.md §2). Docusaurus keeps
+  // this behind `future.faster`, and webpack remains the fallback — so
+  // reverting is deleting these four lines, not a migration.
+  future: {
+    faster: {
+      rspackBundler: true,
+    },
+  },
   markdown: {
     mermaid: true,
     hooks: {

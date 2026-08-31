@@ -144,6 +144,11 @@ class PluginRecord:
     #: collected. Distinct from ``enabled``: a plugin can be enabled and still
     #: waiting for the event it declared.
     activated: bool = True
+    #: Why it is switched off: ``"user"`` or ``"dependency"``, empty when it is
+    #: not. A person's decision sticks; a plugin taken down with something it
+    #: depends on comes back when that does. Collapsing the two would let
+    #: enabling a dependency silently override somebody's switch.
+    disabled_by: str = ""
 
 
 @dataclass(frozen=True)

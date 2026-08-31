@@ -31,6 +31,10 @@ import { buildReactorFromPlugins, defineExtension, defineLazyPlugin, onContribut
 import { ReactorSlot, useReactor, useSlotComponents } from '@datalayer/reactor/react';
 import { Box, ThemedProvider, useThemeStore, setupPrimerPortals } from '@datalayer/primer-addons';
 import { PluginsManagerPlugin } from '@datalayer/reactor-manager';
+// Not one of the example's plugins: a reusable one from the repository's
+// `plugins/` folder, installed like anything else. It knows nothing about a
+// music store — which is why it can draw one.
+import { GraphPlugin } from '@datalayer/reactor-graph';
 import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
 import { CheckoutPlugin, useCheckout } from '@datalayer-examples/reactor-music-checkout-plugin';
@@ -38,7 +42,9 @@ import { PlaylistPlugin } from '@datalayer-examples/reactor-music-playlist-plugi
 import {
   PluginsPanelPlugin,
   useBackendPluginAvailability,
+  useBackendPlugins,
 } from '@datalayer-examples/reactor-music-plugins-panel-plugin';
+import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 import { installMockBackend } from './backend';
 
@@ -50,6 +56,68 @@ installMockBackend();
 // Primer's overlays render in a portal at the document root, which is outside
 // this component's theme provider. This is what themes them.
 setupPrimerPortals();
+
+/**
+ * Declarations the Datalayer theme provider writes onto `<body>`.
+ *
+ * Not the CSS custom properties it writes alongside them — those are named
+ * `--fgColor-…`, `--text-…`, `--bgColor-…`, they collide with nothing
+ * Docusaurus uses, and the portals genuinely need them: an overlay renders at
+ * the document root, outside every provider, and inherits its theme from the
+ * body it lands in.
+ *
+ * These six are the ones that are not tokens but *appearance*, and they change
+ * the page around the demo.
+ */
+const LEAKED_ONTO_BODY = [
+  'font-family',
+  'font-size',
+  'background-color',
+  'color',
+  '-webkit-font-smoothing',
+  'text-rendering',
+];
+
+/**
+ * Keep the store's theme off the documentation around it.
+ *
+ * `DatalayerThemeProvider` pushes its theme onto `document.body` so that
+ * Primer's portals inherit it. That is right for an application that owns the
+ * page — the music store, run on its own, is exactly that — and wrong for one
+ * embedded in somebody else's: the font, background and text colour of every
+ * page on this site changed, and because Docusaurus is a single-page
+ * application, they stayed changed after navigating away.
+ *
+ * So the tokens are left alone and the six appearance declarations are removed
+ * again. An observer rather than a one-off, because the provider rewrites them
+ * whenever the theme is recomputed — including on hover, when the header's
+ * overlay mounts a provider of its own.
+ *
+ * The alternative was to stop using `ThemedProvider` here, which would have
+ * meant the demo no longer running the code the example runs. Better to leave
+ * the example honest and pay for the embedding on this side.
+ */
+function keepTheStoreOutOfTheDocs(): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const strip = () => {
+    for (const property of LEAKED_ONTO_BODY) {
+      if (document.body.style.getPropertyValue(property)) {
+        // Removing mutates the attribute, which wakes this observer again —
+        // and finds nothing left to remove, so it settles after one pass.
+        document.body.style.removeProperty(property);
+      }
+    }
+  };
+  strip();
+  new MutationObserver(strip).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['style'],
+  });
+}
+
+keepTheStoreOutOfTheDocs();
 
 // Pinned, rather than left to the reader.
 //
@@ -146,10 +214,15 @@ const reactor = buildReactorFromPlugins([
   StoreExtension,
   PluginsManagerPlugin,
   PluginsPanelPlugin,
+  GraphPlugin,
 ]);
 
-function Content() {
+function Content({ showingGraph }: { showingGraph: boolean }) {
   const checkingOut = useCheckout(state => state.open);
+  // Handed to the graph rather than left for it to fetch: the panel already
+  // knows which backend plugins are on, and two sources of that answer is two
+  // answers that disagree by one request.
+  const backendPlugins = useBackendPlugins(state => state.plugins);
   // Asked rather than assumed: with the shop switched off there is no shop
   // column, and the rest closes the gap rather than sitting beside a hole.
   const hasShop = useSlotComponents('main').length > 0;
@@ -168,6 +241,20 @@ function Content() {
     alignItems: 'start',
     minWidth: 0,
   } as const;
+
+  if (showingGraph) {
+    // No width cap and no second column: the graph is four columns of nodes,
+    // and every pixel it is denied is a label that wraps or an edge that
+    // crosses another.
+    return (
+      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 3, minWidth: 0 }}>
+        <ReactorSlot
+          slot="graph"
+          props={{ backendUrl: CATALOG_BACKEND_URL, backendPlugins }}
+        />
+      </Box>
+    );
+  }
 
   if (checkingOut && hasCheckout) {
     return (
@@ -205,7 +292,15 @@ function Content() {
  * own list of frontend plugins, and the group of Python ones the example's
  * panel adds to it.
  */
-function Sidebar({ beside }: { beside: boolean }) {
+function Sidebar({
+  beside,
+  showingGraph,
+  onToggleGraph,
+}: {
+  beside: boolean;
+  showingGraph: boolean;
+  onToggleGraph: () => void;
+}) {
   return (
     <Box
       as="aside"
@@ -221,7 +316,15 @@ function Sidebar({ beside }: { beside: boolean }) {
         alignSelf: 'stretch',
       }}
     >
-      <ReactorSlot slot="sidebar" props={{ width: SIDEBAR_WIDTH }} />
+      {/* The graph's own button arrives through here. This application never
+          draws a "View plugin graph" control — it says only that it has a
+          second view and how to get to it, and the plugin that owns that view
+          contributes the button. Switch the graph plugin off in the list below
+          and the button goes with it. */}
+      <ReactorSlot
+        slot="sidebar"
+        props={{ width: SIDEBAR_WIDTH, showingGraph, onToggleGraph }}
+      />
     </Box>
   );
 }
@@ -229,6 +332,12 @@ function Sidebar({ beside }: { beside: boolean }) {
 function Store({ beside }: { beside: boolean }) {
   const isBackendPluginAvailable = useBackendPluginAvailability();
   useReactor(reactor, { isBackendPluginAvailable });
+  // The example routes this: it has a `/graph` address and `pushState` is its
+  // whole router. A page inside a documentation site cannot take the URL bar,
+  // so the same state lives in `useState` here. Everything downstream — the
+  // slot, the button, the plugin that owns both — is unchanged.
+  const [showingGraph, setShowingGraph] = useState(false);
+
   return (
     <>
       <ReactorSlot slot="header" />
@@ -240,9 +349,13 @@ function Store({ beside }: { beside: boolean }) {
         }}
       >
         <Box sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-          <Content />
+          <Content showingGraph={showingGraph} />
         </Box>
-        <Sidebar beside={beside} />
+        <Sidebar
+          beside={beside}
+          showingGraph={showingGraph}
+          onToggleGraph={() => setShowingGraph(value => !value)}
+        />
       </Box>
     </>
   );

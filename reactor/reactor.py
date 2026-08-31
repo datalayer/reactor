@@ -17,6 +17,11 @@ from .contributions import (
     ContributionPoint,
     PluginContributions,
 )
+from .extensions import (
+    EXTENSION_ENTRY_POINT_GROUP,
+    FrontendExtension,
+    ReactorExtension,
+)
 from .hooks import ReactorHookSpecs
 from .marketplace import MarketplaceEntry, PluginMarketplace
 from .sandbox import SandboxExecutor
@@ -38,7 +43,15 @@ class PluginPlatform:
 
     PLATFORM_VERSION = "0.1.0"
 
-    def __init__(self):
+    def __init__(self, *, extension_group: str = EXTENSION_ENTRY_POINT_GROUP):
+        #: The entry-point group this platform discovers extensions from.
+        #:
+        #: Configurable rather than fixed for two reasons that turn out to be
+        #: the same one: a host may want its own namespace, and a *test* must
+        #: have one — a suite that scanned the default group would pass or fail
+        #: depending on what happened to be installed in the environment
+        #: running it, which is not a test.
+        self.extension_group = extension_group
         self._pm = pluggy.PluginManager("reactor")
         self._pm.add_hookspecs(ReactorHookSpecs)
         self._records: dict[str, PluginRecord] = {}
@@ -49,6 +62,38 @@ class PluginPlatform:
         self._extensions: dict[str, ExtensionManifest] = {}
         #: Points already read, so a point's activation event fires once.
         self._fired_points: set[str] = set()
+        #: Discovered extensions' frontend halves, by extension name.
+        self._frontend: dict[str, FrontendExtension] = {}
+        #: Which plugins each discovered extension brought, so an uninstall
+        #: can take exactly those away again.
+        self._discovered: dict[str, list[str]] = {}
+        #: Entry points that failed to load, and the error they failed with.
+        #:
+        #: Kept for log de-duplication, *not* to stop retrying. An extension
+        #: that failed a moment ago is very often one that was installed a
+        #: moment ago — the entry point is written before the module is
+        #: importable — so refusing to try again would make the common case the
+        #: broken one.
+        self._failed: dict[str, str] = {}
+        #: Whether :meth:`start` has run, so a plugin discovered afterwards is
+        #: started too rather than sitting registered and never woken.
+        self._started = False
+        #: Bumped whenever what this platform would answer changes.
+        #:
+        #: A counter rather than a callback fan-out, because the consumer is on
+        #: the other side of an HTTP connection: a browser that has seen
+        #: revision 7 needs one integer to know whether to ask again. It is what
+        #: ``GET /events/stream`` watches, and what makes polling a correct
+        #: fallback rather than a different mechanism.
+        self._revision = 0
+
+    @property
+    def revision(self) -> int:
+        """How many times what this platform answers has changed."""
+        return self._revision
+
+    def _bump(self) -> None:
+        self._revision += 1
 
     @property
     def marketplace(self) -> PluginMarketplace:
@@ -90,6 +135,7 @@ class PluginPlatform:
             activated=False,
         )
         self._records[manifest.name] = record
+        self._bump()
 
         for tenant_scope in manifest.tenant_scopes:
             if tenant_scope == "*":
@@ -157,6 +203,7 @@ class PluginPlatform:
         # Marked before the recursion, so a dependency cycle stops rather than
         # recursing until the interpreter gives up.
         record.activated = True
+        self._bump()
         for dependency in record.manifest.dependencies:
             if dependency in self._records:
                 self.activate_plugin(dependency)
@@ -204,6 +251,7 @@ class PluginPlatform:
                 "Plugin %s could not be unregistered from pluggy: %s", name, error
             )
         record.activated = False
+        self._bump()
         # The points it waits on may fire again. A point fires its activation
         # event once so a plugin is not re-activated on every read; that guard
         # has to be lifted for the plugin standing down, and for nobody else.
@@ -281,7 +329,12 @@ class PluginPlatform:
         Disabling is reversible and keeps contributions in place; unregistering
         is not, so what the plugin offered goes with it.
         """
+        # The lookup first, and the bump after it: `_get_record` raises for a
+        # name that is not here, and bumping before that would tell every SSE
+        # client something changed because somebody asked about a plugin that
+        # does not exist.
         record = self._get_record(name)
+        self._bump()
         self._contributions.dispose_plugin(name)
         try:
             if record.activated:
@@ -363,6 +416,10 @@ class PluginPlatform:
                 "enabled": record.enabled,
                 "activated": record.activated,
                 "sandboxed": record.sandboxed,
+                # Empty when it is on. A host drawing a switch needs to tell a
+                # plugin somebody turned off from one that went with its
+                # dependency — they are not the same fact.
+                "disabled_by": record.disabled_by,
             }
             for record in self._records.values()
         ]
@@ -432,13 +489,73 @@ class PluginPlatform:
             }
         return out
 
-    def enable_plugin(self, name: str) -> None:
-        record = self._get_record(name)
-        record.enabled = True
+    def enable_plugin(self, name: str) -> list[str]:
+        """Switch a plugin on, and bring back what its disabling took down.
 
-    def disable_plugin(self, name: str) -> None:
+        Only what *this* plugin's disabling took down: a dependant somebody
+        switched off by hand stays off, because a person's decision should not
+        be undone by an unrelated switch three plugins away.
+
+        Returns every plugin this enabled, dependencies first.
+        """
         record = self._get_record(name)
+        if record.enabled:
+            return []
+        record.enabled = True
+        record.disabled_by = ""
+        self._bump()
+        enabled = [name]
+
+        # `_dependants_of` is deepest-first, for tearing down. Reversed here:
+        # a dependency has to be running again before what needs it starts.
+        for dependant in reversed(self._dependants_of(name)):
+            candidate = self._records[dependant]
+            if candidate.enabled or candidate.disabled_by != "dependency":
+                continue
+            if not self._dependencies_enabled(dependant):
+                continue
+            candidate.enabled = True
+            candidate.disabled_by = ""
+            enabled.append(dependant)
+        return enabled
+
+    def disable_plugin(self, name: str) -> list[str]:
+        """Switch a plugin off, dependants first, and say what went.
+
+        A dependant left enabled against a disabled dependency is answering for
+        an output nobody maintains. Its contributions are still filtered out on
+        read, so nothing here is destructive — see
+        :meth:`get_contributions`.
+
+        Returns every plugin this disabled, dependants first.
+        """
+        record = self._get_record(name)
+        if not record.enabled:
+            return []
+
+        disabled: list[str] = []
+        for dependant in self._dependants_of(name):
+            candidate = self._records[dependant]
+            if not candidate.enabled:
+                continue
+            candidate.enabled = False
+            candidate.disabled_by = "dependency"
+            disabled.append(dependant)
+
         record.enabled = False
+        record.disabled_by = "user"
+        self._bump()
+        disabled.append(name)
+        return disabled
+
+    def _dependencies_enabled(self, name: str) -> bool:
+        """Whether everything this plugin depends on is switched on."""
+        manifest = self._records[name].manifest
+        return all(
+            self._records[dependency].enabled
+            for dependency in manifest.dependencies
+            if dependency in self._records
+        )
 
     def enable_plugin_for_tenant(self, name: str, tenant_id: str) -> None:
         self._get_record(name)
@@ -458,9 +575,11 @@ class PluginPlatform:
         return names
 
     def start(self, tenant_id: str | None = None) -> None:
+        self._started = True
         self._invoke_enabled_hook("on_reactor_start", tenant_id=tenant_id)
 
     def stop(self, tenant_id: str | None = None) -> None:
+        self._started = False
         self._invoke_enabled_hook("on_reactor_stop", tenant_id=tenant_id)
         self._sandbox.shutdown()
 
@@ -532,6 +651,193 @@ class PluginPlatform:
                     exc_info=True,
                 )
         return registered
+
+    # ------------------------------------------------------------------
+    # Extensions that ship both tiers
+    # ------------------------------------------------------------------
+
+    def discover_extensions(self, group: str | None = None) -> list[str]:
+        """Register every extension advertised under an entry-point group.
+
+        Installing a distribution is publishing its extension; the host names
+        nothing. Returns the extension names registered by *this* call, so a
+        caller can tell what is new from what was already there.
+        """
+        return self.rescan_extensions(group)["added"]
+
+    def rescan_extensions(self, group: str | None = None) -> dict[str, list[str]]:
+        """Bring the registry in line with what is installed *right now*.
+
+        Idempotent, and cheap enough to call per request — which is the point.
+        A server that only scanned at startup would need restarting to see a
+        newly installed extension, and "restart the server" is not an answer
+        for a platform whose whole subject is adding things at runtime. The
+        browser triggers this on refresh, and the refresh *is* the reload.
+
+        Three things have to be defeated for that to work, and all three are
+        the same cache:
+
+        * ``importlib.metadata`` remembers the distributions it found;
+        * ``FileFinder`` remembers the directory listing of ``site-packages``,
+          so a package installed a moment ago will not even import;
+        * both are cleared by :func:`importlib.invalidate_caches`.
+
+        Returns ``{"added": [...], "removed": [...]}``, by extension name.
+        """
+        import importlib
+        from importlib.metadata import entry_points
+
+        group = group or self.extension_group
+
+        # Without this, a distribution installed after this process started is
+        # invisible — the listing it would be found in was cached the first
+        # time anybody looked.
+        importlib.invalidate_caches()
+
+        found: dict[str, Any] = {}
+        for entry_point in entry_points(group=group):
+            found[entry_point.name] = entry_point
+
+        added: list[str] = []
+        for entry_name, entry_point in found.items():
+            if entry_name in self._discovered:
+                continue
+            try:
+                extension = entry_point.load()()
+                self._register_extension_object(entry_name, extension)
+                added.append(extension.name)
+                self._failed.pop(entry_name, None)
+            except Exception as error:  # noqa: BLE001
+                # One broken extension is one missing extension. A host that
+                # refused to answer because something installed next to it was
+                # malformed would be punishing the wrong party.
+                #
+                # Retried on the next scan rather than remembered as hopeless:
+                # the most common failure here is an extension whose entry point
+                # is already advertised while its module is not yet importable,
+                # which fixes itself moments later. The error text is kept only
+                # so the log says it once rather than once per request.
+                reported = f"{type(error).__name__}: {error}"
+                if self._failed.get(entry_name) != reported:
+                    self._failed[entry_name] = reported
+                    logger.warning(
+                        "Extension %r of group %r could not be loaded: %s",
+                        entry_name,
+                        group,
+                        error,
+                        exc_info=True,
+                    )
+
+        removed: list[str] = []
+        for entry_name in list(self._discovered):
+            if entry_name in found:
+                continue
+            removed.extend(self._forget_extension(entry_name))
+        for entry_name in list(self._failed):
+            if entry_name not in found:
+                self._failed.pop(entry_name, None)
+
+        return {"added": added, "removed": removed}
+
+    def _register_extension_object(
+        self, entry_name: str, extension: ReactorExtension
+    ) -> None:
+        """Register both halves of one discovered extension."""
+        registered = self.register_extension(extension.manifest, extension.plugins)
+        self._discovered[entry_name] = registered
+        if extension.frontend is not None:
+            self._frontend[extension.name] = extension.frontend
+        # A plugin discovered after `start()` has missed the hook every other
+        # plugin got. Give it to this one, and to nobody else — re-running the
+        # hook for the whole platform would start everything a second time.
+        if self._started and registered:
+            self._start_late(registered)
+
+    def _start_late(self, names: list[str]) -> None:
+        """Fire ``on_reactor_start`` for these plugins only.
+
+        pluggy calls every registered implementation of a hook, so the way to
+        notify a subset is to build a caller with the others removed.
+        """
+        already_running = [
+            record.implementation
+            for name, record in self._records.items()
+            if name not in names and record.implementation is not None
+        ]
+        try:
+            caller = self._pm.subset_hook_caller(
+                "on_reactor_start", remove_plugins=already_running
+            )
+            caller(tenant_id=None)
+        except Exception as error:  # noqa: BLE001
+            logger.warning(
+                "Late-registered plugins %s could not be started: %s", names, error
+            )
+
+    def _forget_extension(self, entry_name: str) -> list[str]:
+        """Drop an extension that is no longer installed, and say what went.
+
+        The Python modules it imported stay imported — one process cannot
+        unimport, and pretending otherwise would be worse than saying so. What
+        does go is everything the platform was answering *about* it: its
+        plugins, its contributions, its place in the extension list, and its
+        frontend.
+        """
+        names = self._discovered.pop(entry_name, [])
+        gone: list[str] = []
+        for plugin_name in names:
+            if plugin_name in self._records:
+                extension_name = self._records[plugin_name].manifest.extension
+                self.unregister_plugin(plugin_name)
+                gone.append(plugin_name)
+                self._extensions.pop(extension_name, None)
+                self._frontend.pop(extension_name, None)
+        return gone
+
+    def frontend_extensions(
+        self, base_url: str = "/reactor-extensions"
+    ) -> list[dict[str, Any]]:
+        """What a browser needs to list, describe and load every frontend half.
+
+        Every plugin's manifest is in here, which is the whole point: the shell
+        can paint a complete plugin list — names, descriptions, icons,
+        switches — before a single byte of any extension's JavaScript has been
+        fetched.
+        """
+        answer: list[dict[str, Any]] = []
+        for name, frontend in self._frontend.items():
+            manifest = self._extensions.get(name)
+            answer.append(
+                {
+                    "name": name,
+                    "version": manifest.version if manifest else "",
+                    "displayName": manifest.title if manifest else name,
+                    "description": manifest.description if manifest else "",
+                    "octicon": manifest.octicon if manifest else "",
+                    "emoji": manifest.emoji if manifest else "",
+                    "apiVersion": frontend.api_version,
+                    "kind": frontend.kind,
+                    "remoteName": frontend.remote_name,
+                    "module": frontend.module,
+                    "entry": f"{base_url}/{name}/{frontend.entry}",
+                    "plugins": [plugin.to_dict() for plugin in frontend.plugins],
+                    # What this extension's Python half brought, so a host can
+                    # draw the two together rather than as unrelated lists.
+                    "backendPlugins": self._discovered_plugins_of(name),
+                }
+            )
+        return answer
+
+    def _discovered_plugins_of(self, extension_name: str) -> list[str]:
+        return [
+            plugin_name
+            for plugin_name, record in self._records.items()
+            if record.manifest.extension == extension_name
+        ]
+
+    def frontend_extension(self, name: str) -> FrontendExtension | None:
+        """One extension's frontend half, or ``None`` if it has none."""
+        return self._frontend.get(name)
 
     def collect_routes(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
         active = set(self.resolve_tenant_plugins(tenant_id or "*")) if tenant_id else None

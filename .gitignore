@@ -17,3 +17,13 @@ lib
 !**/.env
 !.github
 !.devcontainer
+
+# The music host's built interface: `npm run build` output, staged into the
+# wheel's share/ directory. Built, not authored.
+examples/music/backend/share/
+
+# The CMS host's built interface: `npm run build` output staged for the wheel.
+examples/cms/cms/share/datalayer/reactor/apps/
+
+# Python build artefacts from a wheel build in an example directory.
+examples/**/build/

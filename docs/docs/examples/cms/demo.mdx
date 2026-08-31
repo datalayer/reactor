@@ -1,0 +1,170 @@
+---
+sidebar_position: 1
+title: Live demo
+hide_table_of_contents: true
+---
+
+import CmsDemo from '@site/src/components/CmsDemo';
+
+# The CMS, and the package that extends it
+
+Below is the CMS example, running here. It starts with **one Python package
+installed** — `cms`, the free tier — and three plugins.
+
+Then install the second one.
+
+<CmsDemo />
+
+## What just happened
+
+Press **`pip install cms-pro`**, then **Refresh the browser**. Three plugins
+appear:
+
+| Where | Before | After |
+| --- | --- | --- |
+| Editor toolbar | Heading · Bold · Link | …and **✨ Rewrite** |
+| Content types | Gallery | …and **Product** |
+| Publish lifecycle | SEO | …and **Social** |
+
+Nothing about the application changed. It was not rebuilt, its three
+contribution points are the same three, and no code in it names a plugin. A
+second Python distribution appeared in the environment, and the application
+found it.
+
+The refresh is not a limitation to apologise for — it is the mechanism. The
+shell asks the server what is installed when it starts, so the way to see a new
+package is to ask again.
+
+## How a CMS gets packaged and distributed
+
+The interesting question is what has to be true for that button to work at all.
+
+### One wheel carries both halves
+
+A plugin has a Python half and a browser half, and they are one thing to
+install. So a distribution ships both:
+
+```
+cms-pro/
+  pyproject.toml
+  cms_pro/
+    __init__.py                                   # what the entry point returns
+    plugins.py                                    # the Python plugins
+  share/datalayer/reactor/extensions/cms-pro/
+    index.js                                      # the browser plugins
+```
+
+`share/` is borrowed from JupyterLab rather than invented: it is where the
+Python packaging tools already agree non-Python data belongs.
+
+```toml
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-pro" = "share/datalayer/reactor/extensions/cms-pro"
+```
+
+:::note
+`hatchling`'s `shared-data` rather than setuptools' `data-files`, because a
+built interface is a *directory tree* and `data-files` copies files. The wheel
+does not build otherwise — which is a thing you discover by trying to build it.
+:::
+
+### Installing it is publishing it
+
+The distribution advertises itself under an entry-point group. The host names
+nothing:
+
+```toml
+[project.entry-points."datalayer.reactor.extensions"]
+cms-pro = "cms_pro:extension"
+```
+
+That entry point returns both halves in one object:
+
+```python
+def extension() -> ReactorExtension:
+    return ReactorExtension(
+        manifest=ExtensionManifest(name="Pro", emoji="⭐"),
+        plugins=[(AI_ASSISTANT_MANIFEST, AiWritingAssistantPlugin()), ...],
+        frontend=FrontendExtension(
+            directory=find_extension_frontend(__file__, "cms-pro"),
+            plugins=[FrontendPlugin(name="@cms-pro/ai-writing-assistant", ...), ...],
+        ),
+    )
+```
+
+**The paid tier uses the same group as the free one.** There is no plugin API
+for paid plugins, no capability flag, no tier check. What makes `cms-pro` paid
+is who may download the wheel — a question about distribution, answered entirely
+outside Reactor. That is the separation the example exists to show:
+
+```
+Python package → Extension → Plugin → Contribution → Contribution point
+```
+
+Packaging and licensing sit at the top of that chain. The extension mechanism
+sits at the bottom. Nothing in between knows which package was paid for.
+
+### The browser plugins' manifests are written in Python
+
+Look at `FrontendPlugin` above. Name, description, icon — declared on the Python
+side, so the server can tell a browser what exists **before any JavaScript is
+fetched**. That is why the plugin list on the right of the demo is complete from
+the first frame, and why a plugin that is installed but *unloadable* is a state
+the host can show rather than an absence somebody has to explain.
+
+### The server finds it without restarting
+
+`GET /plugins/frontend-extensions` rescans the entry-point group before it
+answers. Three caches have to be defeated for that to work, and they are all the
+same one — `importlib.invalidate_caches()`. The interface is served by a route
+that resolves the directory *per request*, because `StaticFiles` mounts are
+fixed when the application is built and an extension discovered afterwards would
+have nowhere to be served from.
+
+So against a real host, this is the whole thing:
+
+```bash
+datalayer-cms                          # already serving
+pip install cms-pro                    # in another terminal, while it runs
+# refresh the browser
+```
+
+:::note
+A regular `pip install`, not `pip install -e`. An editable install writes a
+`.pth` file that Python only processes at interpreter startup, so an editable
+package genuinely does need a restart.
+:::
+
+Full detail: [packaging an extension](/python/packaging) and
+[the host](/python/host).
+
+## What is different from `datalayer-cms`
+
+Three things, and no fourth:
+
+- **There is no Python.** A documentation site is a static file, so the host's
+  endpoints — `/plugins/frontend-extensions`, `/plugins`, `/extensions` — are
+  answered in the browser by `src/components/CmsDemo/backend.ts`, and the
+  install button adds a distribution to an in-memory environment. Everything
+  after the answer is the real runtime: the same `bootstrapExtensions`, the same
+  remote plugin references, the same three contribution points.
+- **The extension modules come from a blob.** They are the example's own
+  un-built `index.js` files, bundled into this page as *text* and imported from
+  a `blob:` URL — a genuine dynamic `import()` of a URL the build did not know.
+  Serving them as static files would have meant copying the example into the
+  site, which is the forked-example problem this repository avoids everywhere.
+- **Tailwind's reset is left out.** The CMS's stylesheet begins
+  `@import "tailwindcss"`, which includes Preflight — a *global* reset that
+  would strip the margins and headings off this page. The demo imports the theme
+  and the utilities and not the third part.
+
+That last one is worth more than it looks. The [music store](/examples/music/demo)
+embeds with no such care because Primer draws with CSS-in-JS; Tailwind generates
+a global stylesheet and has to be told where it may reach. **A design system is
+not free of its host** — which is exactly the question
+[#11](https://github.com/datalayer/reactor/issues/11) asked, answered by having
+built both.
+
+The application sources are imported unmodified: the site's webpack
+configuration aliases `@cms-app` to `examples/cms/app/src`, exactly as the
+example's own `rsbuild.config.ts` resolves them.

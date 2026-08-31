@@ -8,6 +8,21 @@ title: shadcn/ui examples
 **Tracking: [datalayer/reactor#11](https://github.com/datalayer/reactor/issues/11)**
 · [ui.shadcn.com](https://ui.shadcn.com)
 
+## Status: shipped, as a different application
+
+:::tip Shipped
+[`examples/cms`](/examples/cms/) is a shadcn/ui application whose every feature
+is a plugin, delivered by two Python packages — and it
+[runs on this site](/examples/cms/demo), including the `pip install` that adds
+the paid tier.
+
+It answers this issue by a different route than "port the music store", and the
+reason is on that page: what needed proving is not that these plugins can be
+redrawn, but that a plugin need not know what kit the host uses — which the CMS
+shows both by contributing records and by having its one drawing plugin borrow
+the host's kit.
+:::
+
 ## The problem
 
 Every frontend example in this repository is written with
