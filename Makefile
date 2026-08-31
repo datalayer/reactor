@@ -9,22 +9,41 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
+	@echo ""
+	@echo "  make all             Build and install everything, then say what to run"
 	@echo ""
 	@echo "  make install         Install JS deps and Python package in editable mode"
 	@echo "  make build           Build the reactor (core + react) and every plugin"
 	@echo "  make typecheck       Typecheck the reactor and every plugin"
 	@echo "  make package         Pack the reactor, its plugins, and the Python package"
+	@echo ""
+	@echo "  reactor              A server that runs whatever is installed beside it"
+	@echo ""
+	@echo "  make cms               Build, install and launch the CMS example"
+	@echo "  make cms-pro           Add the CMS paid tier, while the CMS is running"
+	@echo "  make cms-build         Build and install the CMS without launching it"
+	@echo "  make music-app         Build the music store as one installable app"
+	@echo "  make music             Run the music example with a frontend dev server"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
-	@echo "  make music             Run the monorepo music example (plugin backend + app)"
 	@echo "  make example-frontend          Alias for frontend example"
 	@echo "  make example-frontend-backend  Alias for frontend-backend example"
 	@echo "  make example-music             Alias for music example"
+	@echo ""
 	@echo "  make clean           Remove build artifacts"
+
+all: build install music-app cms-build ## build and install everything
+	@echo
+	@echo "Everything is built and installed. To run something:"
+	@echo "  reactor                 a server that runs whatever is installed"
+	@echo "  make cms                the CMS example, free tier"
+	@echo "  make cms-pro            ...then add the paid tier, while it runs"
+	@echo "  datalayer-music-example the music store"
+	@echo "  make music              the music store, with a frontend dev server"
 
 install: install-js install-py
 
@@ -103,22 +122,27 @@ frontend-backend:
 
 example-frontend-backend: frontend-backend
 
-cms: build-js ## build and install the CMS example (free tier)
+cms-build: build-js ## build and install the CMS example, without launching it
 	@set -e; \
 	npm --prefix examples/cms/app install; \
 	NODE_ENV=production npm --prefix examples/cms/app run build; \
 	mkdir -p examples/cms/cms/share/datalayer/reactor/apps/cms; \
 	rm -rf examples/cms/cms/share/datalayer/reactor/apps/cms/*; \
 	cp -r examples/cms/app/dist/. examples/cms/cms/share/datalayer/reactor/apps/cms/; \
-	$(PIP) install examples/cms/cms; \
-	echo; \
-	echo "Built. Now run: datalayer-cms"; \
-	echo "Then, while it runs: pip install examples/cms/cms-pro"
+	$(PIP) install examples/cms/cms
+
+cms: cms-build ## build, install and launch the CMS example
+	@echo
+	@echo "Serving the CMS on http://localhost:8788"
+	@echo "While it runs, in another terminal:  make cms-pro"
+	@echo
+	datalayer-cms --port 8788
 
 cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
 	$(PIP) install examples/cms/cms-pro
 	@echo
 	@echo "Installed. Refresh the browser — no restart needed."
+	@echo "A regular install, not editable: a .pth file is only read at startup."
 
 music-app: build-js ## build the music store as one installable application
 	@set -e; \

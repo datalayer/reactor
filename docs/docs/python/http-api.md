@@ -37,6 +37,11 @@ reactor's own control plane. Your plugins' routers are mounted on top of it.
 | `GET /tenants/{tenant_id}/routes` | the routes that follow from it |
 | `GET /marketplace` | what is publishable and published |
 
+## Serving it
+
+`reactor` on the command line serves all of this against whatever extensions
+are installed in the environment — see [the host](/python/host).
+
 ## Trying it
 
 The [music example](/examples/music/switching-plugins) drives most of these from

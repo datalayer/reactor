@@ -329,8 +329,12 @@ class PluginPlatform:
         Disabling is reversible and keeps contributions in place; unregistering
         is not, so what the plugin offered goes with it.
         """
-        self._bump()
+        # The lookup first, and the bump after it: `_get_record` raises for a
+        # name that is not here, and bumping before that would tell every SSE
+        # client something changed because somebody asked about a plugin that
+        # does not exist.
         record = self._get_record(name)
+        self._bump()
         self._contributions.dispose_plugin(name)
         try:
             if record.activated:

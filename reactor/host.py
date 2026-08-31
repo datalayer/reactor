@@ -219,6 +219,12 @@ def host_argument_parser(description: str, *, default_port: int = 8799) -> argpa
         action="store_true",
         help="serve the API only, without the built interface",
     )
+    parser.add_argument(
+        "--ui",
+        default=None,
+        metavar="DIR",
+        help="serve a built single-page interface from this directory",
+    )
     parser.add_argument("--reload", action="store_true", help="reload on code changes")
     return parser
 
@@ -232,7 +238,53 @@ def serve(
     **kwargs: Any,
 ) -> None:
     """Parse a host's arguments and serve it. The body of a console script."""
+    import inspect
+
     args = host_argument_parser(description, default_port=default_port).parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    app = build_app(with_ui=not args.no_ui, **kwargs)
+
+    # `--ui` is only meaningful to a host that can be pointed at one. A host
+    # that ships its own interface takes `with_ui` and nothing else, so the
+    # flag is passed to whoever declared a parameter for it rather than to
+    # everybody — which keeps one shared console-script body working for both.
+    call: dict[str, Any] = {"with_ui": not args.no_ui, **kwargs}
+    if "ui" in inspect.signature(build_app).parameters:
+        call["ui"] = args.ui
+
+    app = build_app(**call)
     run_reactor_host(app, host=args.host, port=args.port, reload=args.reload)
+
+
+def create_base_app(*, with_ui: bool = True, ui: str | Path | None = None) -> FastAPI:
+    """A Reactor server with no plugins of its own.
+
+    Everything it runs was installed beside it. That is the whole application:
+    a platform, the management API, and a scan of the entry-point group — so
+    ``pip install`` an extension and this server has it, with no code anywhere
+    naming it.
+
+    It is what `reactor` on the command line launches, and it is worth having
+    as a *product* rather than as a snippet in every example, because it is the
+    smallest thing that demonstrates the claim. A host with plugins compiled
+    into it can always be accused of knowing about them.
+
+    Point it at a built interface with ``--ui`` when you have one; without it,
+    the API is the whole surface, which is what a headless deployment or a
+    separate frontend wants.
+    """
+    app = create_reactor_host(PluginPlatform(), title="Datalayer Reactor", discover=True)
+    if with_ui and ui:
+        mount_reactor_ui(app, ui)
+    return app
+
+
+def main() -> None:
+    """The `reactor` console script: a server that runs what is installed."""
+    serve(
+        create_base_app,
+        description=(
+            "Serve a Datalayer Reactor platform. Every extension installed in "
+            "this environment is discovered and served; none is named here."
+        ),
+        default_port=8787,
+    )

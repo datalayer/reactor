@@ -171,18 +171,33 @@ export type DefineRemoteOptions = {
 class RemoteRefused extends Error {}
 
 function assertAllowed(entry: string, allowed: string[] | undefined): void {
-  // A root-relative URL is same-origin by construction; there is nothing to
-  // check and nothing to resolve it against outside a browser.
-  if (!/^[a-z]+:\/\//i.test(entry)) {
+  const base =
+    typeof location !== 'undefined' && location?.href ? location.href : undefined;
+
+  // Resolved rather than pattern-matched, because "does this look absolute?"
+  // has a wrong answer: `//evil.example/x.js` is *protocol-relative*, and the
+  // browser loads it cross-origin while a `^[a-z]+://` test says it is a local
+  // path. Handing the URL to `new URL` with the page as the base is the only
+  // way to learn where an import would actually go.
+  let origin: string | undefined;
+  try {
+    origin = base
+      ? new URL(entry, base).origin
+      : /^[a-z]+:\/\//i.test(entry)
+        ? new URL(entry).origin
+        : undefined;
+  } catch {
+    throw new RemoteRefused(`Refusing to load a remote from an unreadable URL: ${entry}`);
+  }
+
+  // No page to resolve against — a test, or a server — and a relative entry.
+  // There is no origin to check and nothing a check could protect.
+  if (origin === undefined) {
     return;
   }
-  const origin = new URL(entry).origin;
-  const here =
-    typeof location !== 'undefined' && location?.origin ? location.origin : undefined;
-  if (origin === here) {
-    return;
-  }
-  if (allowed?.includes(origin)) {
+
+  const here = base ? new URL(base).origin : undefined;
+  if (origin === here || allowed?.includes(origin)) {
     return;
   }
   throw new RemoteRefused(
@@ -295,7 +310,11 @@ export async function bootstrapExtensions(
   options: BootstrapOptions = {},
 ): Promise<(LazyPluginRef | ReactorExtension)[]> {
   const { fetchJson, ...remoteOptions } = options;
-  const url = `${backendUrl.replace(/\/$/, '')}/plugins/frontend-extensions`;
+  // Normalised once. A caller that passes `http://host/` and one that passes
+  // `http://host` should not produce two different URLs, two cache entries and
+  // two subtly different origins to compare against.
+  const backend = backendUrl.replace(/\/+$/, '');
+  const url = `${backend}/plugins/frontend-extensions`;
 
   let records: FrontendExtensionRecord[];
   try {
@@ -318,7 +337,7 @@ export async function bootstrapExtensions(
     // server that listed the extension is the server serving it.
     const entry = /^[a-z]+:\/\//i.test(extension.entry)
       ? extension.entry
-      : `${backendUrl.replace(/\/$/, '')}${extension.entry}`;
+      : `${backend}${extension.entry}`;
 
     const plugins = (extension.plugins ?? []).map((plugin) =>
       defineRemotePlugin(

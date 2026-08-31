@@ -115,6 +115,53 @@ describe('defineRemotePlugin', () => {
     expect(reactor.getManifest('@hello/panel')?.loaded).toBe(false);
   });
 
+  it('refuses a protocol-relative URL, which is cross-origin in a browser', async () => {
+    // `//evil.example/x.js` has no scheme, so "does it look absolute?" says
+    // local — and the browser loads it from evil.example anyway. The check has
+    // to resolve the URL rather than pattern-match it.
+    const original = (globalThis as Record<string, unknown>).location;
+    (globalThis as Record<string, unknown>).location = {
+      href: 'https://app.example/page',
+      origin: 'https://app.example',
+    };
+    try {
+      const reactor = buildReactorFromPlugins([
+        defineRemotePlugin(
+          { name: '@hello/panel', entry: '//evil.example/x.js' },
+          { loader: loaderFor({ default: PANEL }) },
+        ),
+      ]);
+      reactor.start();
+      await reactor.whenReady();
+
+      expect(reactor.getManifest('@hello/panel')?.loaded).toBe(false);
+      expect(reactor.getManifest('@hello/panel')?.loadError).toMatch(/evil\.example/);
+    } finally {
+      (globalThis as Record<string, unknown>).location = original;
+    }
+  });
+
+  it('allows a same-origin absolute URL when there is a page to compare with', async () => {
+    const original = (globalThis as Record<string, unknown>).location;
+    (globalThis as Record<string, unknown>).location = {
+      href: 'https://app.example/page',
+      origin: 'https://app.example',
+    };
+    try {
+      const reactor = buildReactorFromPlugins([
+        defineRemotePlugin(
+          { name: '@hello/panel', entry: 'https://app.example/remotes/x.js' },
+          { loader: loaderFor({ default: PANEL }) },
+        ),
+      ]);
+      reactor.start();
+      await reactor.whenReady();
+      expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
+    } finally {
+      (globalThis as Record<string, unknown>).location = original;
+    }
+  });
+
   it('refuses a cross-origin remote unless the origin was named', async () => {
     const reactor = buildReactorFromPlugins([
       defineRemotePlugin(
@@ -212,6 +259,27 @@ describe('bootstrapExtensions', () => {
 
     await reactor.whenReady();
     // A relative entry is resolved against the server that listed it.
+    expect(load).toHaveBeenCalledWith(
+      'http://localhost:8799/reactor-extensions/hello/index.js',
+    );
+  });
+
+  it('normalises a trailing slash rather than building a double one', async () => {
+    let asked = '';
+    const load = loaderFor({ default: PANEL });
+    const remotes = await bootstrapExtensions('http://localhost:8799/', {
+      fetchJson: async (url) => {
+        asked = url;
+        return answer;
+      },
+      loader: load,
+      allowedOrigins: ['http://localhost:8799'],
+    });
+
+    expect(asked).toBe('http://localhost:8799/plugins/frontend-extensions');
+    const reactor = buildReactorFromPlugins(remotes);
+    reactor.start();
+    await reactor.whenReady();
     expect(load).toHaveBeenCalledWith(
       'http://localhost:8799/reactor-extensions/hello/index.js',
     );

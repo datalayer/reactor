@@ -325,6 +325,10 @@ export function useBackendPluginStream(
   options: BackendPluginStreamOptions = {},
 ): void {
   const { pollMs = 5000, onState } = options;
+  // Normalised once, so a caller passing a trailing slash does not produce
+  // `http://host//plugins/state` — which works, and then differs from the
+  // un-slashed form in every log, cache key and comparison downstream.
+  const backend = backendUrl?.replace(/\/+$/, '');
   const reactor = useReactorStore((state) => state.reactor);
   // Read through a ref so that a caller passing an inline `onState` does not
   // tear the connection down on every render.
@@ -332,7 +336,7 @@ export function useBackendPluginStream(
   onStateRef.current = onState;
 
   useEffect(() => {
-    if (!backendUrl || !reactor) {
+    if (!backend || !reactor) {
       return;
     }
     let cancelled = false;
@@ -352,7 +356,7 @@ export function useBackendPluginStream(
     // The first answer comes from a plain request rather than from the stream,
     // so a host is in step even where EventSource is unavailable.
     const poll = () =>
-      fetch(`${backendUrl}/plugins/state`)
+      fetch(`${backend}/plugins/state`)
         .then((response) => (response.ok ? response.json() : undefined))
         .then((state) => state && apply(state as BackendPluginState))
         .catch(() => {
@@ -369,7 +373,7 @@ export function useBackendPluginStream(
       };
     }
 
-    const source = new EventSource(`${backendUrl}/events/stream`);
+    const source = new EventSource(`${backend}/events/stream`);
     source.onmessage = (message) => {
       try {
         apply(JSON.parse(message.data) as BackendPluginState);
@@ -386,7 +390,7 @@ export function useBackendPluginStream(
       clearInterval(timer);
       source.close();
     };
-  }, [backendUrl, reactor, pollMs]);
+  }, [backend, reactor, pollMs]);
 }
 
 export function useReactorEvent(event: string | undefined): void {

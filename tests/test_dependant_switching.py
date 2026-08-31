@@ -89,3 +89,24 @@ def test_disabling_reports_nothing_when_already_off() -> None:
     assert platform.disable_plugin("base") == []
     assert platform.enable_plugin("base") == ["base", "middle", "top"]
     assert platform.enable_plugin("base") == []
+
+
+def test_unregistering_something_absent_changes_no_revision() -> None:
+    """A question is not a change.
+
+    The revision is what an SSE client watches. Bumping it because somebody
+    asked about a plugin that is not here would wake every browser attached to
+    this server to tell them nothing happened.
+    """
+    import pytest
+
+    platform = PluginPlatform()
+    platform.register_plugin(PluginManifest(name="a", version="1.0.0"), object())
+    before = platform.revision
+
+    with pytest.raises(Exception):
+        platform.unregister_plugin("not-here")
+    assert platform.revision == before
+
+    platform.unregister_plugin("a")
+    assert platform.revision > before

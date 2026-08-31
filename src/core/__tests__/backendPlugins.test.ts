@@ -96,6 +96,52 @@ describe('setBackendPlugins', () => {
     expect(reactor.getManifest('@app/shell')?.activated).toBe(false);
   });
 
+  it('does not revive something another cause stood down', async () => {
+    // The invariant the revive list exists to keep. A plugin taken down by the
+    // backend comes back with the backend; one taken down for any other reason
+    // is not the backend's to bring back, and doing so would silently undo a
+    // deactivation the server knew nothing about.
+    const reactor = store();
+    await reactor.setBackendPlugins([]);
+    expect(reactor.getManifest('@app/shop')?.activated).toBe(false);
+
+    // While it is down for the backend, somebody stands it down for good.
+    // `@app/shop` rather than `@app/catalog`, because nothing depends on the
+    // shop — a *dependency* would legitimately come back with its dependant,
+    // and that is a different question from this one.
+    reactor.deactivate('@app/shop');
+
+    const change = await reactor.setBackendPlugins(['catalog']);
+    expect(change.activated).not.toContain('@app/shop');
+    expect(reactor.getManifest('@app/shop')?.activated).toBe(false);
+    // The catalog, which nobody claimed, does come back.
+    expect(reactor.getManifest('@app/catalog')?.activated).toBe(true);
+  });
+
+  it('brings a dependency back with the dependant that needs it', async () => {
+    // The other side of the rule above: reviving `@app/shop` cannot leave the
+    // catalog it depends on switched off, whatever the revive list says.
+    const reactor = store();
+    await reactor.setBackendPlugins([]);
+    await reactor.setBackendPlugins(['catalog']);
+
+    expect(reactor.getManifest('@app/catalog')?.activated).toBe(true);
+    expect(reactor.getManifest('@app/shop')?.activated).toBe(true);
+  });
+
+  it('drops its claim on a plugin that came back another way', async () => {
+    const reactor = store();
+    await reactor.setBackendPlugins([]);
+
+    // It comes up again through an ordinary activation path.
+    await reactor.fire('*');
+    expect(reactor.getManifest('@app/shell')?.activated).toBe(true);
+
+    // The backend list returning must not now "revive" what never left.
+    const change = await reactor.setBackendPlugins(['catalog']);
+    expect(new Set(change.activated).has('@app/shell')).toBe(false);
+  });
+
   it('an unchanged list changes nothing', async () => {
     const reactor = store();
     await reactor.setBackendPlugins(['catalog']);

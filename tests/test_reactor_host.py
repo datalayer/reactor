@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
@@ -139,3 +140,68 @@ def test_discovery_on_boot_beats_waiting_for_a_browser(tmp_path: Path) -> None:
     app = create_reactor_host(platform, discover=True)
     # An empty group is not an error — a host with no extensions still serves.
     assert TestClient(app).get("/plugins/frontend-extensions").json() == []
+
+
+def test_the_base_server_names_no_plugin() -> None:
+    """`reactor` on the command line: a host with nothing compiled into it.
+
+    Worth its own test because it is the claim the whole project makes. A host
+    that registered plugins by name could always be accused of knowing about
+    them; this one has a platform, the API, and a scan.
+    """
+    from reactor import create_base_app
+
+    app = create_base_app(with_ui=False)
+    client = TestClient(app)
+
+    assert client.get("/healthz").json() == {"status": "ok"}
+    # It serves the management API whether or not anything is installed.
+    assert client.get("/plugins").status_code == 200
+    assert client.get("/plugins/frontend-extensions").status_code == 200
+    # No interface was pointed at, so `/` is not the application's.
+    assert client.get("/").status_code == 404
+
+
+def test_the_base_server_serves_a_ui_when_pointed_at_one(tmp_path: Path) -> None:
+    from reactor import create_base_app
+
+    ui = build_ui(tmp_path)
+    client = TestClient(create_base_app(ui=ui))
+    assert "Store" in client.get("/").text
+    # And still answers the API, which is the ordering that matters.
+    assert client.get("/plugins").status_code == 200
+
+
+def test_find_share_looks_where_a_wheel_puts_it_and_where_a_checkout_does(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both, because they are different places and both have to work.
+
+    An installed wheel puts `share/` under `sys.prefix`, nowhere near the
+    package — data files and Python packages are separate destinations. A
+    checkout leaves it beside the package. Looking only beside the package is
+    the bug you get away with until somebody installs the wheel for real.
+    """
+    import sys
+
+    from reactor import find_share
+
+    # A checkout: `share/` beside the package.
+    checkout = tmp_path / "repo"
+    package = checkout / "my_ext"
+    package.mkdir(parents=True)
+    beside = checkout / "share/datalayer/reactor/extensions/mine"
+    beside.mkdir(parents=True)
+    assert find_share(package / "__init__.py", "extensions/mine") == beside.resolve()
+
+    # A wheel: nothing beside the package, everything under `sys.prefix`.
+    installed = tmp_path / "prefix"
+    site = installed / "lib/site-packages/my_ext"
+    site.mkdir(parents=True)
+    shipped = installed / "share/datalayer/reactor/extensions/mine"
+    shipped.mkdir(parents=True)
+    monkeypatch.setattr(sys, "prefix", str(installed))
+    assert find_share(site / "__init__.py", "extensions/mine") == shipped.resolve()
+
+    # Neither: an extension with no frontend, which is a legitimate thing to be.
+    assert find_share(site / "__init__.py", "extensions/absent") is None

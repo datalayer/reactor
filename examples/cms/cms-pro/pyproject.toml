@@ -3,8 +3,8 @@
 # Datalayer License
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "cms-pro"
@@ -22,8 +22,8 @@ dependencies = ["datalayer-reactor"]
 [project.entry-points."datalayer.reactor.extensions"]
 cms-pro = "cms_pro:extension"
 
-[tool.setuptools]
+[tool.hatch.build.targets.wheel]
 packages = ["cms_pro"]
 
-[tool.setuptools.data-files]
-"share/datalayer/reactor/extensions/cms-pro" = ["share/datalayer/reactor/extensions/cms-pro/*"]
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-pro" = "share/datalayer/reactor/extensions/cms-pro"

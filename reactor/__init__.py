@@ -32,6 +32,7 @@ from .types import (
     on_contribution_point,
 )
 from .host import (
+    create_base_app,
     create_reactor_host,
     find_ui,
     mount_reactor_ui,
@@ -57,6 +58,7 @@ __all__ = [
     "on_command",
     "on_contribution_point",
     "create_reactor_app",
+    "create_base_app",
     "create_reactor_host",
     "mount_reactor_ui",
     "run_reactor_host",

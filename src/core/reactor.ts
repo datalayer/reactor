@@ -773,6 +773,10 @@ export function buildReactorFromPlugins(
         await loadModule(name);
       }
       activateLoaded(name);
+      // However it came up — an event, a read, a dependency, a backend plugin
+      // returning — it is up. Holding a claim on reviving it later would mean
+      // reviving something that never went away.
+      standingDownForBackend.delete(name);
     })().finally(() => {
       activating.delete(name);
     });
@@ -875,10 +879,18 @@ export function buildReactorFromPlugins(
    *
    * @returns every plugin this actually deactivated, in the order it happened
    */
-  function deactivatePlugin(name: string): string[] {
+  function deactivatePlugin(name: string, cause: 'backend' | 'other' = 'other'): string[] {
     const current = state.get(name);
     if (!current) {
       throw new Error(`Unknown plugin ${name}`);
+    }
+    if (cause === 'other') {
+      // Before the early return, deliberately. Deactivating a plugin that is
+      // *already* down changes nothing about its state, but it does say
+      // something: this plugin is the caller's now. Dropping the claim only
+      // when there was work to do would leave a server able to revive
+      // something somebody had just stood down by hand.
+      standingDownForBackend.delete(name);
     }
     if (!current.activated) {
       return [];
@@ -900,6 +912,15 @@ export function buildReactorFromPlugins(
       forgetPointsAwaiting(name);
       stoodDown.push(name);
     });
+    if (cause === 'other') {
+      // Somebody else took these down — an event, or a direct call. They are no
+      // longer *this* platform's to bring back when a backend plugin returns,
+      // and leaving them on the list would do exactly that: a server coming
+      // back would silently undo a deactivation it had nothing to do with.
+      for (const stoodDownName of stoodDown) {
+        standingDownForBackend.delete(stoodDownName);
+      }
+    }
     return stoodDown;
   }
 
@@ -1007,7 +1028,7 @@ export function buildReactorFromPlugins(
         if (!current?.activated || satisfied(plugin.name)) {
           continue;
         }
-        const stoodDown = deactivatePlugin(plugin.name);
+        const stoodDown = deactivatePlugin(plugin.name, 'backend');
         for (const name of stoodDown) {
           standingDownForBackend.add(name);
         }

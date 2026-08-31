@@ -2,11 +2,14 @@
 #
 # Datalayer License
 
-from reactor import create_reactor_app
+"""`python -m reactor` — the same server the `reactor` command launches.
 
-app = create_reactor_app()
+Kept as a module entry point too, because a checkout has no console scripts on
+PATH until something is installed, and "run the server" should not be the step
+that needs a working install.
+"""
+
+from .host import main
 
 if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8787)
+    main()

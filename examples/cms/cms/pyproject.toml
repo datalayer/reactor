@@ -3,8 +3,8 @@
 # Datalayer License
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "cms"
@@ -25,9 +25,13 @@ cms-core = "cms:extension"
 [project.scripts]
 datalayer-cms = "cms:main"
 
-[tool.setuptools]
+[tool.hatch.build.targets.wheel]
 packages = ["cms"]
 
-[tool.setuptools.data-files]
-"share/datalayer/reactor/extensions/cms-core" = ["share/datalayer/reactor/extensions/cms-core/*"]
-"share/datalayer/reactor/apps/cms" = ["share/datalayer/reactor/apps/cms/*"]
+# hatchling rather than setuptools, and `shared-data` rather than `data-files`,
+# for one concrete reason: a built interface is a *directory tree* — an
+# `index.html` beside a `static/` folder — and setuptools' `data-files` copies
+# files, not directories. The wheel simply fails to build.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-core" = "share/datalayer/reactor/extensions/cms-core"
+"share/datalayer/reactor/apps/cms" = "share/datalayer/reactor/apps/cms"

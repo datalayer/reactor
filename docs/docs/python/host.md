@@ -30,6 +30,36 @@ is what `provide_cli` extends, a host decides what an octicon id draws. The
 construct is named for the word the vocabulary already had.
 :::
 
+## The one you already have
+
+Before writing a host, note that the package ships one:
+
+```bash
+pip install datalayer_reactor
+reactor
+```
+
+`reactor` serves a platform with **no plugins of its own**. Everything it runs
+was installed beside it: it scans the entry-point group, registers what it
+finds, and serves the management API and every discovered extension's frontend.
+Point it at a built interface with `--ui DIR` when you have one.
+
+It is worth having as a product rather than as a snippet in every example,
+because it is the smallest thing that demonstrates the claim — a host with
+plugins compiled into it can always be accused of knowing about them. This one
+has a platform, the API, and a scan:
+
+```python
+def create_base_app(*, with_ui=True, ui=None):
+    app = create_reactor_host(PluginPlatform(), title="Datalayer Reactor", discover=True)
+    if with_ui and ui:
+        mount_reactor_ui(app, ui)
+    return app
+```
+
+Write your own when the host has routers, a platform composed by hand, or an
+interface of its own to ship — which is what the rest of this page is about.
+
 ## Building one
 
 ```python

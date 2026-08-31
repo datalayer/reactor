@@ -3,8 +3,8 @@
 # Datalayer License
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "datalayer_music_example"
@@ -28,10 +28,12 @@ dependencies = [
 [project.scripts]
 datalayer-music-example = "datalayer_music_example:main"
 
-[tool.setuptools]
+[tool.hatch.build.targets.wheel]
 packages = ["datalayer_music_example"]
 
 # The built interface travels in the wheel, under the same `share/` convention
-# an extension's frontend uses.
-[tool.setuptools.data-files]
-"share/datalayer/reactor/apps/music" = ["share/datalayer/reactor/apps/music/*"]
+# an extension's frontend uses. `shared-data` rather than setuptools'
+# `data-files` because a built interface is a directory tree, and `data-files`
+# copies files — the wheel does not build otherwise.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/apps/music" = "share/datalayer/reactor/apps/music"

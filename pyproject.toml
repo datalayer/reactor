@@ -30,6 +30,10 @@ dev = [
   "httpx>=0.27.0"
 ]
 
+[project.scripts]
+# A server that runs whatever is installed beside it. See `reactor.host`.
+reactor = "reactor.host:main"
+
 [tool.hatch.version]
 source = "nodejs"
 

@@ -555,6 +555,23 @@ buttons": the toolbar draws every contribution, content types draw one, and the
 publish lifecycle *runs* them and lets any one veto. The SEO validator refuses a
 publish; the social publisher only announces one. Both fill the same point.
 
+## 7.4 Review fixes
+
+Six defects found in review of the branch, each fixed with a test:
+
+| Where | What was wrong |
+| --- | --- |
+| `unregister_plugin` | bumped the revision *before* the lookup, so asking about a plugin that does not exist woke every SSE client to say nothing had happened |
+| `rescan_extensions` | remembered a failed load as hopeless. The commonest failure is an entry point advertised before its module is importable — an install still in flight — so the extension stayed invisible until a restart |
+| `assertAllowed` | treated `//evil.example/x.js` as a local path. It is *protocol-relative*, and the browser loads it cross-origin: the check now resolves the URL against the page rather than pattern-matching it |
+| `useBackendPluginStream` | built `${backendUrl}/...`, so a trailing slash produced `//plugins/state` — one URL in two forms, in every log and cache key downstream |
+| `setBackendPlugins` | never cleared its revive list when a plugin was stood down for some *other* reason, so a server coming back could undo a deactivation it had nothing to do with |
+| `cms` / `datalayer_music_example` packaging | setuptools' `data-files` copies files, not directories — and a built interface is `index.html` beside `static/`. The wheels did not build at all. Both are on hatchling's `shared-data` now |
+
+The last one is why `make all` exists: it built the wheels, and they failed. A
+target that installs everything is a test of the packaging that no unit test was
+going to be.
+
 ## 8. Sequencing
 
 ```mermaid
