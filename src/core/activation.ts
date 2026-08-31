@@ -93,6 +93,19 @@ export function onCommand(commandId: string): ActivationEvent {
 }
 
 /**
+ * Fired when a backend plugin on the other tier comes up or goes away.
+ *
+ * Most plugins never need it: declaring `requiredBackendPlugins` is enough,
+ * because `setBackendPlugins` stands those down and brings them back on the
+ * platform's own. This is for the other case — a plugin that wants to *react*
+ * to a backend plugin it does not require, which is what
+ * `optionalBackendPlugins` describes.
+ */
+export function onBackendPlugin(pluginName: string): ActivationEvent {
+  return `onBackendPlugin:${pluginName}`;
+}
+
+/**
  * Whether a plugin declaring these events should activate on this one.
  *
  * `'*'` matches everything, including startup. Everything else is an exact

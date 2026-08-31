@@ -62,6 +62,16 @@ type PluginRuntimeState<C, I, O> = {
    * because the event it waits on has not happened.
    */
   activated: boolean;
+  /**
+   * Why it is switched off, when it is.
+   *
+   * `'user'` — somebody moved a switch, and it stays where they put it.
+   * `'dependency'` — it was taken down with something it depends on, and it
+   * comes back when that does. Collapse the two and enabling a dependency
+   * either silently overrides a person's decision or strands everything that
+   * needed it. Same distinction as deactivated-versus-disabled, one level up.
+   */
+  disabledBy?: 'user' | 'dependency';
   /** The extension that delivered it, when one did. */
   extension?: string;
   /** What went wrong fetching the module, if it did. */
@@ -191,6 +201,26 @@ export type ReactorPlatform = ReactorPlatformView & {
    * against a deactivated dependency is holding an output nobody maintains.
    */
   deactivate: (name: string) => void;
+  /**
+   * Tell the platform which backend plugins are running, and let activation
+   * follow.
+   *
+   * `requiredBackendPlugins` has always gated *rendering*: a slot component
+   * whose backend plugin is switched off does not draw. That leaves the plugin
+   * itself activated, holding contributions backed by a server that is no
+   * longer answering — the plugin list says it is on while nothing it offers
+   * works.
+   *
+   * This closes that. A plugin whose required backend plugin goes away is
+   * stood down, dependants first, exactly as any other deactivation; when the
+   * backend plugin returns, so does it. What crosses the wire is
+   * *deactivation*, never *disabling* — a server must not be able to undo
+   * somebody's checkbox, so a plugin a person switched off stays off.
+   *
+   * Call it whenever the answer changes: from a poll, from an SSE stream, or
+   * once at startup. Firing it with an unchanged list is free.
+   */
+  setBackendPlugins: (available: readonly string[]) => Promise<FiredEvent>;
   stop: () => void;
   enable: (name: string) => void;
   disable: (name: string) => void;
@@ -380,6 +410,16 @@ export function buildReactorFromPlugins(
   const activating = new Map<string, Promise<void>>();
   /** Points already read at least once, so an event is fired once per point. */
   const firedPoints = new Set<string>();
+  /**
+   * Plugins stood down because a backend plugin went away.
+   *
+   * Kept so that only what this took down comes back. A plugin deactivated for
+   * some other reason — an event, a direct call — is not revived by a server
+   * reappearing, for the same reason a disabled one never is.
+   */
+  const standingDownForBackend = new Set<string>();
+  /** The backend plugins last reported as running. */
+  let availableBackendPlugins: ReadonlySet<string> = new Set();
 
   function emitChange() {
     // Inside a batch there is nothing to do: the outermost `asOneChange`
@@ -522,6 +562,7 @@ export function buildReactorFromPlugins(
         loaded: current.loaded,
         lazy: Boolean(current.lazy),
         activated: current.activated,
+        disabledBy: current.enabled ? undefined : current.disabledBy ?? 'user',
         activationEvents: plugin.activationEvents ?? [ON_STARTUP],
         deactivationEvents: plugin.deactivationEvents ?? [],
         contributionPoints: (plugin.contributionPoints ?? []).map((point) => point.id),
@@ -764,6 +805,44 @@ export function buildReactorFromPlugins(
       .reverse();
   }
 
+  /** Whether everything this plugin depends on is switched on. */
+  function dependenciesEnabled(name: string): boolean {
+    const plugin = state.get(name)?.plugin;
+    return (plugin?.dependencies ?? []).every(
+      (dep) => state.get(asConfigured(dep).plugin.name)?.enabled ?? true,
+    );
+  }
+
+  /**
+   * Switch one plugin on, without touching anything around it.
+   *
+   * The cascade lives in `enable`; this is the part that runs the phases, and
+   * it is shared so that a plugin brought back as a dependant comes back the
+   * same way as one somebody switched on by hand.
+   */
+  function enableOne(name: string): void {
+    const current = state.get(name);
+    if (!current || current.enabled) {
+      return;
+    }
+    current.enabled = true;
+    current.disabledBy = undefined;
+    if (!current.loaded || !current.activated) {
+      // Its activation event has not happened, or its module has not landed.
+      // Whichever it is, enabling says only that it may run when it does.
+      return;
+    }
+    // A plugin that owns something says so, and keeps it: rebuilding would
+    // hand back a new instance while everything that captured the old one
+    // carries on holding a detached object.
+    const keepsWhatItBuilt =
+      current.plugin.preserveOutput && current.outputValue !== undefined;
+    if (!keepsWhatItBuilt) {
+      runInitAndBuild(name);
+    }
+    runRegister(name);
+  }
+
   /**
    * Stand one plugin down, dependants first.
    *
@@ -884,6 +963,52 @@ export function buildReactorFromPlugins(
     deactivate(name: string) {
       deactivatePlugin(name);
     },
+    async setBackendPlugins(available: readonly string[]): Promise<FiredEvent> {
+      availableBackendPlugins = new Set(available);
+      const satisfied = (name: string) =>
+        (state.get(name)?.plugin.requiredBackendPlugins ?? []).every((backend) =>
+          availableBackendPlugins.has(backend),
+        );
+
+      // Down first, for the same reason `fire` does it: one change of the
+      // server's mind should retire what can no longer work before bringing up
+      // what now can.
+      const deactivated: string[] = [];
+      for (const plugin of orderedPlugins) {
+        const current = state.get(plugin.name);
+        if (!current?.activated || satisfied(plugin.name)) {
+          continue;
+        }
+        const stoodDown = deactivatePlugin(plugin.name);
+        for (const name of stoodDown) {
+          standingDownForBackend.add(name);
+        }
+        deactivated.push(...stoodDown);
+      }
+
+      const activated: string[] = [];
+      // Topological order, so a dependency is back before its dependant.
+      for (const plugin of orderedPlugins) {
+        const name = plugin.name;
+        if (!standingDownForBackend.has(name) || !satisfied(name)) {
+          continue;
+        }
+        const current = state.get(name);
+        // Never revive what a person switched off. This is the invariant the
+        // whole cross-tier story rests on: an event may say the reason for
+        // running returned, and a checkbox still outranks it.
+        if (!current?.enabled) {
+          continue;
+        }
+        standingDownForBackend.delete(name);
+        await ensureActivated(name);
+        if (state.get(name)?.activated) {
+          activated.push(name);
+        }
+      }
+
+      return { deactivated, activated };
+    },
     stop() {
       asOneChange(() => {
         for (const plugin of [...orderedPlugins].reverse()) {
@@ -906,23 +1031,29 @@ export function buildReactorFromPlugins(
       if (current.enabled) {
         return;
       }
-      current.enabled = true;
-      if (!current.loaded || !current.activated) {
-        // Its activation event has not happened, or its module has not landed.
-        // Whichever it is, enabling says only that it may run when it does.
-        emitChange();
-        return;
-      }
       asOneChange(() => {
-        // A plugin that owns something says so, and keeps it: rebuilding
-        // would hand back a new instance while everything that captured the
-        // old one carries on holding a detached object.
-        const keepsWhatItBuilt =
-          current.plugin.preserveOutput && current.outputValue !== undefined;
-        if (!keepsWhatItBuilt) {
-          runInitAndBuild(name);
+        enableOne(name);
+        // Bring back what *this* plugin's disabling took down, and nothing
+        // else. `dependantsOf` is deepest-first for tearing down, so it is
+        // reversed here: a dependency has to be running again before the thing
+        // that needs it starts.
+        for (const dependant of [...dependantsOf(name)].reverse()) {
+          const dependantState = state.get(dependant);
+          if (!dependantState || dependantState.enabled) {
+            continue;
+          }
+          // Somebody switched this one off by hand. Their decision outlives a
+          // dependency coming back — otherwise a switch could be undone by an
+          // unrelated one three plugins away.
+          if (dependantState.disabledBy !== 'dependency') {
+            continue;
+          }
+          // Still missing something else it needs.
+          if (!dependenciesEnabled(dependant)) {
+            continue;
+          }
+          enableOne(dependant);
         }
-        runRegister(name);
       });
     },
     disable(name: string) {
@@ -933,8 +1064,22 @@ export function buildReactorFromPlugins(
       if (!current.enabled) {
         return;
       }
-      current.enabled = false;
       asOneChange(() => {
+        // Dependants first, transitively. A dependant left running against a
+        // disabled dependency is holding an output nobody maintains — and it
+        // will read `getOutput` and find nothing, which is a crash somewhere
+        // that has no idea why.
+        for (const dependant of dependantsOf(name)) {
+          const dependantState = state.get(dependant);
+          if (!dependantState?.enabled) {
+            continue;
+          }
+          dependantState.enabled = false;
+          dependantState.disabledBy = 'dependency';
+          stopPlugin(dependant);
+        }
+        current.enabled = false;
+        current.disabledBy = 'user';
         stopPlugin(name);
       });
     },

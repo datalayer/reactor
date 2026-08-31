@@ -2,6 +2,13 @@
 #
 # Datalayer License
 
+from .extensions import (
+    EXTENSION_ENTRY_POINT_GROUP,
+    SHARE_DIRECTORY,
+    FrontendExtension,
+    FrontendPlugin,
+    ReactorExtension,
+)
 from .contributions import (
     Contribution,
     ContributionPoint,
@@ -40,4 +47,9 @@ __all__ = [
     "on_command",
     "on_contribution_point",
     "create_reactor_app",
+    "EXTENSION_ENTRY_POINT_GROUP",
+    "SHARE_DIRECTORY",
+    "FrontendExtension",
+    "FrontendPlugin",
+    "ReactorExtension",
 ]

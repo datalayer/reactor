@@ -8,6 +8,18 @@ title: Frontend + backend extensions as one Python package
 **Tracking: [datalayer/reactor#12](https://github.com/datalayer/reactor/issues/12)**
 · related to [#9](/roadmap/federation)
 
+## Status: the packaging and discovery half has landed
+
+:::tip Shipped
+A distribution can ship both halves, a server discovers it by installing it, and
+**installing one while the server runs makes it appear on the next browser
+refresh**. See [Packaging an extension](/python/packaging).
+
+What is still open is on this page below: remotes built as Module Federation
+containers rather than plain ES modules, and a template for people outside this
+repository.
+:::
+
 ## The problem
 
 An [extension](/typescript/extensions) is the unit of delivery — *"what would I

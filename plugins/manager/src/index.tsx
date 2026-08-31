@@ -133,6 +133,15 @@ export type ManagedPlugin = {
   emoji?: string;
   version?: string;
   enabled: boolean;
+  /**
+   * Why it is off, when it is.
+   *
+   * `'dependency'` means it went down with something it depends on and comes
+   * back when that does — so switching *this* row on would do nothing, and the
+   * row says so instead of offering a control that cannot work. `'user'` is
+   * somebody's decision, and the switch is theirs to move.
+   */
+  disabledBy?: 'user' | 'dependency';
   /** Whether this one may be switched off. */
   changeable: boolean;
   /**
@@ -215,6 +224,7 @@ function usePluginRows(
         emoji: manifest?.emoji,
         version: manifest?.version,
         enabled: reactor.isEnabled(name),
+        disabledBy: manifest?.disabledBy,
         changeable: !protectedNames.has(name),
         // What the reactor knows and a row has no room for.
         details: [
@@ -361,6 +371,12 @@ function PluginDetails({ row }: { row: ManagedPlugin }): JSX.Element {
           ))}
         </Box>
       ))}
+      {row.disabledBy === 'dependency' ? (
+        <Text sx={{ fontSize: 0, color: 'attention.fg' }}>
+          Off because something it depends on is off. It comes back when that
+          does.
+        </Text>
+      ) : null}
       {!row.changeable ? (
         <Text sx={{ fontSize: 0, color: 'attention.fg' }}>
           This one cannot be switched off.
@@ -477,10 +493,10 @@ function PluginRowView({
       <ToggleSwitch
         size={size}
         checked={row.enabled}
-        disabled={!row.changeable}
+        disabled={!row.changeable || row.disabledBy === 'dependency'}
         aria-labelledby={labelId}
         onClick={() => {
-          if (row.changeable) {
+          if (row.changeable && row.disabledBy !== 'dependency') {
             onToggle(row.name, !row.enabled);
           }
         }}

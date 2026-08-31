@@ -34,9 +34,10 @@ were designed for it:
 
 So the missing piece is delivery, not lifecycle.
 
-## The build tool question
+## The build tool: Rsbuild on Rspack
 
-The issue's conclusion, recorded here because it is a decision and not a
+Decided, and the repository is migrating to it — the examples and this
+documentation site included. Recorded here because it is a decision and not a
 preference:
 
 > If Module Federation is a core architectural requirement → pick
@@ -67,6 +68,14 @@ New frontend project
                    │
                    └─────► Vite 8
 ```
+
+One thing the choice deliberately does **not** decide: what
+`@datalayer/reactor` itself depends on. Module Federation's runtime is a
+standalone SDK that needs no bundler, so the runtime loads a remote through
+that and stays consumable by a host built with something else. A plugin
+platform that dictated a bundler to third parties would be making the same
+mistake as one that dictated a UI kit — which is the claim
+[the shadcn/ui example](/roadmap/shadcn-ui) exists to test.
 
 ## What has to be designed
 

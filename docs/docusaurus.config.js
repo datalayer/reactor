@@ -95,6 +95,14 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'datalayer',
   projectName: 'datalayer',
+  // Rspack, like the rest of the repository (REACTOR.md §2). Docusaurus keeps
+  // this behind `future.faster`, and webpack remains the fallback — so
+  // reverting is deleting these four lines, not a migration.
+  future: {
+    faster: {
+      rspackBundler: true,
+    },
+  },
   markdown: {
     mermaid: true,
     hooks: {

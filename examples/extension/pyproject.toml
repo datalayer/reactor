@@ -1,0 +1,27 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reactor-extension-hello"
+version = "0.1.0"
+description = "A Reactor extension shipping both a Python plugin and its UI in one wheel"
+requires-python = ">=3.10"
+dependencies = ["datalayer_reactor"]
+
+# Installing this distribution is publishing the extension. The host names
+# nothing; it scans this group and finds whatever is installed beside it.
+[project.entry-points."datalayer.reactor.extensions"]
+hello = "hello_extension:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hello_extension"]
+
+# The built frontend travels in the wheel, under the same `share/` convention
+# JupyterLab uses. `reactor` serves it from there; nothing is copied anywhere.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/hello" = "share/datalayer/reactor/extensions/hello"

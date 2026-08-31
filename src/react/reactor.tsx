@@ -4,7 +4,7 @@
  * Datalayer License
  */
 
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { ReactorPlatform } from '../core/reactor';
 import type { PluginManifest } from '../core/plugin';
@@ -283,6 +283,112 @@ export function useGroupedPluginManifests(): {
  * useReactorEvent(onView(activeViewType));
  * ```
  */
+/** What `GET /plugins/state` answers. */
+export type BackendPluginState = {
+  revision: number;
+  plugins: { name: string; enabled: boolean; activated: boolean }[];
+};
+
+export type BackendPluginStreamOptions = {
+  /** Fall back to polling this often when the stream is unavailable, in ms. */
+  pollMs?: number;
+  /** Called with every snapshot, for a host that draws the backend list. */
+  onState?: (state: BackendPluginState) => void;
+};
+
+/**
+ * Follow a Reactor backend's plugins, and let this platform's activation
+ * follow with them.
+ *
+ * The browser half of cross-tier activation. `requiredBackendPlugins` has
+ * always gated rendering; this is what makes a frontend plugin actually stand
+ * down when the server plugin it needs is switched off, and come back when it
+ * returns — see `setBackendPlugins`.
+ *
+ * ```tsx
+ * useBackendPluginStream('http://localhost:8799');
+ * ```
+ *
+ * Two properties worth knowing, both deliberate:
+ *
+ * - **A dropped connection is not a server saying no.** The last known state is
+ *   kept, and nothing is torn down because the network blinked. Tearing plugins
+ *   down on a disconnect would be the same mistake as a backend refusing to
+ *   start because no browser had loaded yet.
+ * - **Polling is correct.** The stream is an optimisation over
+ *   `GET /plugins/state`, and the fallback is the same code path with a timer,
+ *   so a deployment that cannot hold a connection open loses latency and
+ *   nothing else.
+ */
+export function useBackendPluginStream(
+  backendUrl: string | undefined,
+  options: BackendPluginStreamOptions = {},
+): void {
+  const { pollMs = 5000, onState } = options;
+  const reactor = useReactorStore((state) => state.reactor);
+  // Read through a ref so that a caller passing an inline `onState` does not
+  // tear the connection down on every render.
+  const onStateRef = useRef(onState);
+  onStateRef.current = onState;
+
+  useEffect(() => {
+    if (!backendUrl || !reactor) {
+      return;
+    }
+    let cancelled = false;
+    let lastRevision = -1;
+
+    const apply = (state: BackendPluginState) => {
+      if (cancelled || state.revision === lastRevision) {
+        return;
+      }
+      lastRevision = state.revision;
+      onStateRef.current?.(state);
+      void reactor.setBackendPlugins(
+        state.plugins.filter((plugin) => plugin.enabled).map((plugin) => plugin.name),
+      );
+    };
+
+    // The first answer comes from a plain request rather than from the stream,
+    // so a host is in step even where EventSource is unavailable.
+    const poll = () =>
+      fetch(`${backendUrl}/plugins/state`)
+        .then((response) => (response.ok ? response.json() : undefined))
+        .then((state) => state && apply(state as BackendPluginState))
+        .catch(() => {
+          // Unreachable is not "said no". Keep what we last knew.
+        });
+
+    void poll();
+
+    if (typeof EventSource === 'undefined') {
+      const timer = setInterval(poll, pollMs);
+      return () => {
+        cancelled = true;
+        clearInterval(timer);
+      };
+    }
+
+    const source = new EventSource(`${backendUrl}/events/stream`);
+    source.onmessage = (message) => {
+      try {
+        apply(JSON.parse(message.data) as BackendPluginState);
+      } catch {
+        // A malformed frame is one frame, not a reason to stop listening.
+      }
+    };
+    // EventSource reconnects on its own; the poll is what closes the gap while
+    // it is down, since a change during the outage has no event to replay.
+    const timer = setInterval(poll, pollMs);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      source.close();
+    };
+  }, [backendUrl, reactor, pollMs]);
+}
+
 export function useReactorEvent(event: string | undefined): void {
   const reactorPlatform = useReactorPlatform();
   useEffect(() => {

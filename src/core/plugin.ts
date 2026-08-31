@@ -91,6 +91,16 @@ export type PluginManifest = PluginPresentation & {
    * waiting for the event it declared.
    */
   activated: boolean;
+  /**
+   * Why it is switched off, when it is — and `undefined` when it is not.
+   *
+   * `'user'` is somebody's decision and it sticks. `'dependency'` means it was
+   * taken down with something it needs, and it returns when that does. A host
+   * drawing a switch should say which: a row that a person turned off and a row
+   * that went with its dependency are not the same fact, and offering the same
+   * control for both invites turning one back on to no effect.
+   */
+  disabledBy?: 'user' | 'dependency';
   /** What has to happen for it to activate. Empty means "at startup". */
   activationEvents: ActivationEvent[];
   /** What makes it stand down again. Empty means nothing does. */
