@@ -25,6 +25,21 @@ import { pluginStyledComponents } from '@rsbuild/plugin-styled-components';
 const MUSIC = path.resolve(__dirname, '..');
 const REACTOR = path.resolve(__dirname, '../../..');
 
+/**
+ * Where this application's own copies of the shared UI packages are.
+ *
+ * `require.resolve` rather than a hard-coded path, because npm decides where a
+ * workspace's dependencies land and that answer differs between a fresh
+ * install and a hoisted one.
+ */
+const APP_MODULES = path.dirname(
+  path.dirname(
+    // `styled-components` rather than `@primer/react` as the anchor: Primer's
+    // export map does not expose `./package.json`, so asking for it throws.
+    require.resolve('styled-components/package.json', { paths: [__dirname] }),
+  ),
+);
+
 export default defineConfig({
   plugins: [
     pluginReact(),
@@ -55,14 +70,7 @@ export default defineConfig({
     // Exactly one copy of each, whoever asks. A second React is a broken-hooks
     // error that names none of this, and a second `zustand` is two stores that
     // look like one.
-    //
-    // `@primer/react` is deliberately *not* in this list, though the Vite
-    // config deduped it. Rsbuild implements dedupe as an alias on the bare
-    // specifier, which then swallows `@primer/react/experimental` — a subpath
-    // the Jupyter components reach for. One copy of Primer comes from the
-    // workspace hoisting it; an alias that breaks its export map does not buy
-    // anything the hoist has not already given.
-    dedupe: ['react', 'react-dom', 'styled-components', 'zustand'],
+    dedupe: ['react', 'react-dom', 'zustand'],
     alias: {
       // Exactly one instance of the runtime, and of its React bindings.
       //
@@ -79,6 +87,25 @@ export default defineConfig({
       // manager means the panel contributes to a point nothing is reading.
       '@datalayer/reactor-manager$': path.resolve(REACTOR, 'plugins/manager/lib/index.js'),
       '@datalayer/reactor-graph$': path.resolve(REACTOR, 'plugins/graph/lib/index.js'),
+      // And exactly one copy of the design system.
+      //
+      // This one is not about bundle size either. Primer's `ThemeProvider` puts
+      // the theme into a React context and into styled-components'; `Overlay`
+      // reads it back. Two physical copies of either package means two
+      // contexts, and the reader hovers a plugin row to be told
+      // `Cannot read properties of undefined (reading 'theme')` — from a file
+      // that mentions none of this.
+      //
+      // The copies are real: this app resolves them from
+      // `examples/music/node_modules`, while `plugins/manager/lib` resolves
+      // them from the repository root. `dedupe` is not enough, because it
+      // aliases the bare specifier and Rsbuild then swallows
+      // `@primer/react/experimental` — which the Jupyter components reach for.
+      // Exact (`$`) aliases pin what is imported bare, which is everything
+      // that holds a context, and leave the export map alone.
+      '@primer/react$': path.resolve(APP_MODULES, '@primer/react'),
+      'styled-components$': path.resolve(APP_MODULES, 'styled-components'),
+      '@datalayer/primer-addons$': path.resolve(APP_MODULES, '@datalayer/primer-addons'),
       // The plugin packages ship TSX source with no build step, so they are
       // aliased to their entry points — the same list `docs/docusaurus.config.js`
       // keeps for the embedded demo. The two are separate on purpose (the docs
