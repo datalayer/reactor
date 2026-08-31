@@ -52,6 +52,7 @@ function reactorMusicDemo() {
               ? false
               : path.resolve(__dirname, 'src/components/MusicDemo/MusicApp.tsx'),
             // The example's plugins, from source.
+            '@datalayer-examples/reactor-music-catalog-core': path.resolve(MUSIC, 'catalog-core/src/index.ts'),
             '@datalayer-examples/reactor-music-catalog-plugin': path.resolve(MUSIC, 'catalog-plugin/src/index.tsx'),
             '@datalayer-examples/reactor-music-checkout-plugin': path.resolve(MUSIC, 'checkout-plugin/src/index.tsx'),
             '@datalayer-examples/reactor-music-header-plugin': path.resolve(MUSIC, 'header-plugin/src/index.tsx'),

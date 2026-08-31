@@ -28,6 +28,13 @@ from .types import (
     on_command,
     on_contribution_point,
 )
+from .host import (
+    create_reactor_host,
+    find_ui,
+    mount_reactor_ui,
+    run_reactor_host,
+    serve,
+)
 from .web import create_reactor_app
 
 __all__ = [
@@ -47,6 +54,11 @@ __all__ = [
     "on_command",
     "on_contribution_point",
     "create_reactor_app",
+    "create_reactor_host",
+    "mount_reactor_ui",
+    "run_reactor_host",
+    "find_ui",
+    "serve",
     "EXTENSION_ENTRY_POINT_GROUP",
     "SHARE_DIRECTORY",
     "FrontendExtension",

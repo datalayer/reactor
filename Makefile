@@ -7,6 +7,7 @@ SHELL := /bin/bash
 PYTHON ?= python3
 NPM ?= npm
 UVICORN ?= uvicorn
+PIP ?= $(PYTHON) -m pip
 
 .PHONY: help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
@@ -102,6 +103,20 @@ frontend-backend:
 
 example-frontend-backend: frontend-backend
 
+music-app: build-js ## build the music store as one installable application
+	@set -e; \
+	npm --prefix examples/music/app run build; \
+	mkdir -p examples/music/backend/share/datalayer/reactor/apps/music; \
+	rm -rf examples/music/backend/share/datalayer/reactor/apps/music/*; \
+	cp -r examples/music/app/dist/. examples/music/backend/share/datalayer/reactor/apps/music/; \
+	$(PIP) install -e examples/music/catalog-plugin \
+	                -e examples/music/checkout-plugin \
+	                -e examples/music/playlist-plugin \
+	                -e examples/music/mood-plugin \
+	                -e examples/music/backend; \
+	echo; \
+	echo "Built. Now run: datalayer-music-example"
+
 music: build-js
 	@set -e; \
 	kill_port() { \
@@ -136,7 +151,7 @@ music: build-js
 	echo "[music] Installing Python backends..."; \
 	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin -e examples/music/playlist-plugin -e examples/music/mood-plugin -e examples/music/backend; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
-	$(PYTHON) -m $(UVICORN) music_backend.app:app --reload --port 8799 & \
+	$(PYTHON) -m $(UVICORN) datalayer_music_example.app:app --reload --port 8799 & \
 	PY_PID=$$!; \
 	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music

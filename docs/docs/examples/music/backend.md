@@ -3,13 +3,24 @@ sidebar_position: 4
 title: The Python backend
 ---
 
-# Four packages, one platform
+# Four packages, one platform, one command
 
 A plugin platform is composed by an application, not by its plugins. Each plugin
 package in `examples/music` ships its own standalone `create_app` for running it
-alone; `music_backend` is the host that runs them *together*, in dependency
+alone; `datalayer_music_example` is the host that runs them *together*, in dependency
 order, on one `PluginPlatform` — which is what the frontend's Plugins panel talks
 to.
+
+`datalayer_music_example` is a real distribution — it depends on the four plugin
+packages, ships the built interface in its wheel, and exposes a console script:
+
+```bash
+pip install datalayer_music_example
+datalayer-music-example
+```
+
+See [the host](/python/host) for the construct that makes that one command
+serve both tiers.
 
 ```python
 def create_app() -> FastAPI:

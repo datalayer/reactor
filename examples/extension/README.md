@@ -21,7 +21,7 @@ That is the interesting part, so it is the documented path:
 
 ```bash
 # a Reactor backend, already serving
-uvicorn music_backend.app:app --reload --port 8799
+uvicorn datalayer_music_example.app:app --reload --port 8799
 
 # in another terminal, while it runs
 pip install -e examples/extension

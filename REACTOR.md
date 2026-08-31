@@ -387,7 +387,7 @@ that adds a panel to the music store's sidebar.
 The acceptance test is a script, not a paragraph:
 
 ```bash
-uvicorn music_backend.app:app --port 8799      # already running
+uvicorn datalayer_music_example.app:app --port 8799      # already running
 pip install -e examples/extension               # while it runs
 # refresh the browser → the Hello panel is there, and so is its Python plugin
 ```
@@ -399,24 +399,128 @@ pip install -e examples/extension               # while it runs
 - [ ] `examples/extension-template/` once the shape has stopped moving — the
       real test of this issue is whether somebody outside the repo can do it
 
-## 6. #11 — shadcn/ui
+## 6. The host: a Reactor application you can `pip install`
+
+§5 made an *extension* installable. This makes the **application** installable:
+
+> `pip install datalayer_music_example` and run `datalayer-music-example`. A
+> FastAPI server comes up serving the built UI *and* the plugins — both tiers,
+> one command, no npm and no separate static host.
+
+### 6.1 Why this is a construct and not a script
+
+Every Reactor backend so far has written the same twenty lines: build a
+platform, register plugins, `create_reactor_app`, mount routers, then leave the
+frontend to somebody else. That last part is the gap. A plugin platform whose
+UI has to be deployed separately is not something a person can install — and
+"install it and run it" is the whole claim of
+[#12](https://github.com/datalayer/reactor/issues/12), one level up.
+
+So the base application becomes a construct of its own.
+
+**On the name.** The obvious word is *shell*, and it is the wrong one twice
+over: in this repository the shell is already the browser-side container that
+mounts plugins, and in a terminal it means something else again. The
+documentation has consistently used **host** for "the application that runs
+plugins" — `create_reactor_app` serves a host's management API, `provide_cli`
+extends a host, a *host* decides what an octicon id draws. So:
+`create_reactor_host`. It names the thing the vocabulary already had a word for.
+
+### 6.2 `create_reactor_host` — **done**
+
+```python
+from reactor import PluginPlatform, create_reactor_host
+
+app = create_reactor_host(
+    platform,
+    ui=Path(...) ,                 # a built single-page UI, or None for API-only
+    title="Reactor Music",
+    discover=True,                 # scan the entry-point group on boot
+)
+```
+
+It is `create_reactor_app` plus the two things every host was writing by hand:
+
+- [x] **serve a built UI**, with single-page fallback — unknown paths return
+      `index.html` so a client-side route survives a refresh, while every API
+      path keeps priority. Getting that ordering wrong is the classic way an
+      API starts answering with HTML
+- [x] **discover extensions on boot**, so an installed extension is present from
+      the first request rather than only after a browser asks
+- [x] `run_reactor_host(app, host, port)` — the uvicorn call a console script
+      needs, in one place rather than in every example
+- [x] `ui=None` stays API-only, because a backend-for-frontend is still a host
+
+### 6.3 `datalayer_music_example` — **done**
+
+`examples/music/backend` becomes a real distribution.
+
+```
+examples/music/backend/
+  pyproject.toml                       # name = datalayer_music_example
+  datalayer_music_example/
+    __init__.py
+    host.py                            # composes the platform, serves the UI
+    __main__.py                        # python -m datalayer_music_example
+  share/datalayer/reactor/apps/music/  # the built UI, in the wheel
+```
+
+```toml
+[project.scripts]
+datalayer-music-example = "datalayer_music_example:main"
+```
+
+- [x] the four plugin packages become dependencies, so one `pip install` brings
+      every plugin — they stay separate distributions because that is the lesson
+      (a plugin is its own installable), and this is the host that composes them
+- [x] the built UI travels in the wheel under `share/`, the same convention
+      §5.1 uses for an extension's frontend
+- [x] a source checkout falls back to `examples/music/app/dist`, so
+      `pip install -e` plus `npm run build` is a working development loop
+- [x] `--port`, `--host`, `--no-ui` and `--reload` on the console script; a host
+      that cannot be pointed at a different port is not installable in practice
+- [x] the UI it serves must reach the API on **its own origin**, not
+      `localhost:8799` — which the frontend currently hard-codes. Same-origin is
+      what makes one command work
+
+### 6.4 What this replaces
+
+One thing the build found, worth keeping: a catch-all route does not only answer
+paths nobody claimed — it answers the ones that *nearly* matched. A GET to a
+POST-only endpoint, or a mistyped plugin name, came back as `index.html`, and a
+client expecting JSON fails parsing HTML with no idea why. `mount_reactor_ui`
+now collects the first path segment of everything already registered and refuses
+to serve the interface under any of them. The scan has to recurse: FastAPI 0.141
+does not flatten an included router into `app.routes`, so a plugin's own routes
+live a level down — and missing them fails silently, which is the worst way for
+this particular thing to fail.
+
+
+The four-terminal dance in the README — build reactor, pip install five
+packages, start uvicorn, start vite — becomes one install and one command. The
+long way stays documented, because it is what a *developer* does; the short way
+is what everybody else does.
+
+## 7. #11 — shadcn/ui
 
 Best done **last**, and then it costs almost nothing while proving the most —
 build it as a federated remote and it demonstrates #9, #11 and kit-independence
 in one artefact.
 
-### Phase 11.1 — the headless split (do this first; it is a finding)
+### Phase 7.1 — the headless split (do this first; it is a finding) — **done**
 
 `catalog-plugin` today mixes its data hook (`useCatalogSongs`) with a Primer
 card. A plugin shaped like that cannot be reused across UI kits, and that is
 worth discovering and documenting rather than papering over.
 
-- [ ] split `examples/music/catalog-plugin` into a headless core (types, hook,
-      contribution point ids) and a Primer view plugin
-- [ ] the split is itself documentation: a plugin whose *contract* is a record
+- [x] split `examples/music/catalog-plugin` into a headless core (types, hook,
+      contribution point ids) and a Primer view plugin — `catalog-core`, which
+      imports React and nothing else; `catalog-plugin` re-exports it so nothing
+      that already depended on it had to change
+- [x] the split is itself documentation: a plugin whose *contract* is a record
       travels; one whose contract is a component does not
 
-### Phase 11.2 — `examples/music-shadcn/`
+### Phase 7.2 — `examples/music-shadcn/`
 
 - [ ] Tailwind + shadcn/ui view plugins against the same contribution points
 - [ ] **the interesting build: one shell, both kits at once.** A marketplace
@@ -431,7 +535,7 @@ worth discovering and documenting rather than papering over.
 
 ---
 
-## 7. Sequencing
+## 8. Sequencing
 
 ```mermaid
 flowchart LR
@@ -448,14 +552,15 @@ flowchart LR
 | **M1** ✅ | 9.1, 9.2, 10.1 | a remote plugin loads in `examples/federation`; disable cascades |
 | **M2** ✅ | 9.3, 10.2 | runtime `registerRemotes`; a backend toggle stands a frontend plugin down |
 | **M3** ✅ | 5.1–5.5 | `pip install` an extension into the music backend and it appears in the browser |
-| **M4** | 11.1, 11.2 | the shadcn store loads as a remote beside the Primer one |
+| **M4** ✅ | 6.1–6.4 — the installable host | `pip install` the music example and `datalayer-music-example` serves the store, both tiers, one command |
+| **M5** | 7.1, 7.2 | the shadcn store loads as a remote beside the Primer one |
 
 **10.1 has no dependencies on any of this and fixes a real bug — start there
 while the migration runs.**
 
 ---
 
-## 8. Risks and open questions
+## 9. Risks and open questions
 
 | Risk | Why it bites | Mitigation |
 | --- | --- | --- |
@@ -482,7 +587,7 @@ while the migration runs.**
 
 ---
 
-## 9. Documentation to move as each lands
+## 10. Documentation to move as each lands
 
 Each roadmap page is written to state a problem and what is missing. When a
 milestone lands, its page moves out of `/roadmap/` and becomes a real page —
@@ -494,4 +599,5 @@ described as planned.
 | M1–M2 | `federation.md` → `typescript/federation.md`, linked from `typescript/lazy-loading.md` |
 | M2 | `cross-tier-activation.md` → folded into `cross-tier/declaring-dependencies.md` and `typescript/deactivation.md` |
 | M3 | `python-packaged-extensions.md` → `python/packaging.md` |
-| M4 | `shadcn-ui.md` → `examples/music-shadcn/` |
+| M4 | a new `python/host.md`, and the music example's README rewritten around one command |
+| M5 | `shadcn-ui.md` → `examples/music-shadcn/` |

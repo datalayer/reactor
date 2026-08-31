@@ -7,10 +7,13 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "music-backend"
+name = "datalayer_music_example"
 version = "0.1.0"
-description = "Backend host composing the Reactor music example plugins"
+description = "The Reactor music store: every plugin and its interface, in one install"
 requires-python = ">=3.10"
+# The plugins stay separate distributions — a plugin being its own installable
+# is the lesson — and this is the host that composes them. Installing this one
+# therefore brings all four.
 dependencies = [
   "datalayer-reactor",
   "music-catalog-plugin",
@@ -22,5 +25,13 @@ dependencies = [
   "uvicorn>=0.30.0",
 ]
 
+[project.scripts]
+datalayer-music-example = "datalayer_music_example:main"
+
 [tool.setuptools]
-packages = ["music_backend"]
+packages = ["datalayer_music_example"]
+
+# The built interface travels in the wheel, under the same `share/` convention
+# an extension's frontend uses.
+[tool.setuptools.data-files]
+"share/datalayer/reactor/apps/music" = ["share/datalayer/reactor/apps/music/*"]

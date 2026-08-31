@@ -31,8 +31,20 @@
  * @see /examples/music/backend for the real thing.
  */
 
-/** The port the example's uvicorn host listens on; the plugins hard-code it. */
-const BACKEND_ORIGIN = 'http://localhost:8799';
+/**
+ * The origin the plugins will call.
+ *
+ * Taken from the catalog core rather than hard-coded, because that value is now
+ * resolved at runtime — same origin when a Python host serves the bundle, an
+ * injected URL in development. On this site it resolves to the docs origin, and
+ * this shim has to intercept whatever it resolved to or it intercepts nothing.
+ */
+import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-core';
+
+const BACKEND_ORIGIN = new URL(
+  CATALOG_BACKEND_URL,
+  typeof window !== 'undefined' ? window.location.href : 'http://localhost:8799',
+).origin;
 
 type Song = {
   id: string;
@@ -248,6 +260,32 @@ async function route(request: Request, url: URL): Promise<Response> {
   return json({ detail: 'Not Found' }, 404);
 }
 
+/**
+ * The paths this shim answers, and only these.
+ *
+ * It used to claim a whole origin, which was safe while that origin was
+ * `localhost:8799` and nothing else lived there. Now that the plugins call
+ * their own origin, that origin is this documentation site — so claiming all of
+ * it would swallow Docusaurus's own requests, starting with the search index.
+ * An allowlist of prefixes is the difference between standing in for a backend
+ * and standing in for everything.
+ */
+const BACKEND_PATHS = [
+  '/api/catalog',
+  '/api/checkout',
+  '/api/playlist',
+  '/plugins',
+  '/extensions',
+  '/events',
+  '/reactor-extensions',
+];
+
+function isBackendPath(pathname: string): boolean {
+  return BACKEND_PATHS.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(`${prefix}?`),
+  );
+}
+
 let installed = false;
 
 /**
@@ -268,7 +306,7 @@ export function installMockBackend(): void {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input as RequestInfo, init);
     const url = new URL(request.url, window.location.href);
-    if (url.origin !== BACKEND_ORIGIN) {
+    if (url.origin !== BACKEND_ORIGIN || !isBackendPath(url.pathname)) {
       return original(input as RequestInfo, init);
     }
     return route(request, url);

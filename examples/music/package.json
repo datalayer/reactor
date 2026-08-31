@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "workspaces": [
+    "catalog-core",
     "catalog-plugin",
     "checkout-plugin",
     "playlist-plugin",
