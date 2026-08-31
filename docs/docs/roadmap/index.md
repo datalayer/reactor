@@ -16,7 +16,7 @@ it, and what is still missing, so that a reader can tell the difference between
 | [Loading extensions via federation](/roadmap/federation) — *runtime loading [shipped](/typescript/federation)* | [#9](https://github.com/datalayer/reactor/issues/9) | plugins delivered as remotes at runtime, not bundled at build time |
 | ~~Cross-tier activation and deactivation~~ — **shipped**, see [deactivation](/typescript/deactivation) and [across the tiers](/cross-tier/declaring-dependencies) | [#10](https://github.com/datalayer/reactor/issues/10) | switching a plugin should carry to its dependants, and across the wire |
 | [Frontend + backend extensions as one Python package](/roadmap/python-packaged-extensions) — *packaging and discovery [shipped](/python/packaging)* | [#12](https://github.com/datalayer/reactor/issues/12) | one `pip install` delivering both halves of an extension |
-| ~~shadcn/ui examples~~ — **shipped** as [the CMS example](/examples/cms) | [#11](https://github.com/datalayer/reactor/issues/11) | the same store, on a second design system |
+| ~~shadcn/ui examples~~ — **shipped** as [the CMS example](/examples/cms/) | [#11](https://github.com/datalayer/reactor/issues/11) | the same store, on a second design system |
 
 ## How these fit together
 

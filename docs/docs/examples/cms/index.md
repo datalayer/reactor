@@ -1,6 +1,7 @@
 ---
-sidebar_position: 2
+sidebar_position: 0
 title: CMS (shadcn/ui)
+slug: /examples/cms/
 ---
 
 # 📝 The CMS example
@@ -8,6 +9,9 @@ title: CMS (shadcn/ui)
 A content management system where every feature is a plugin, delivered by two
 Python packages — a free one and a paid one — and drawn with
 [shadcn/ui](https://ui.shadcn.com).
+
+> **[Run it on this site →](/examples/cms/demo)** — including the part that
+> matters: installing the paid package and watching three plugins appear.
 
 ```
 CMS

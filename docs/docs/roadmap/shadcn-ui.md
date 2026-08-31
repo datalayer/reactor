@@ -11,8 +11,10 @@ title: shadcn/ui examples
 ## Status: shipped, as a different application
 
 :::tip Shipped
-[`examples/cms`](/examples/cms) is a shadcn/ui application whose every feature
-is a plugin, delivered by two Python packages.
+[`examples/cms`](/examples/cms/) is a shadcn/ui application whose every feature
+is a plugin, delivered by two Python packages — and it
+[runs on this site](/examples/cms/demo), including the `pip install` that adds
+the paid tier.
 
 It answers this issue by a different route than "port the music store", and the
 reason is on that page: what needed proving is not that these plugins can be

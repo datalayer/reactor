@@ -532,6 +532,15 @@ side.
       nobody generated. Publishing the components is the way out
 - [x] the manifest gains no `uiKit` hint. The plan leaned *no* until a host
       asked, and building it did not produce a host that asked
+- [x] embedded on the docs site at `/examples/cms/demo`, with a **package
+      manager**: the button runs the equivalent of `pip install cms-pro` against
+      an in-browser host, and a refresh brings three plugins into three points
+      that already existed. Two findings came out of embedding it:
+      Tailwind's Preflight is a *global* reset and cannot go on a shared page,
+      so the demo imports theme and utilities and not the third part — and a
+      reset written **outside a cascade layer beats every Tailwind utility**,
+      which is why Preflight lives in `@layer base` and why the demo's did too
+      before it rendered correctly
 
 ### 7.3 And the packaging question it answers
 

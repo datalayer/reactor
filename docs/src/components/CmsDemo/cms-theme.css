@@ -1,0 +1,118 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
+/*
+ * Tailwind for the embedded CMS, with the reset left out.
+ *
+ * The CMS's own stylesheet begins `@import "tailwindcss"`, which includes
+ * Preflight — Tailwind's global reset. That is exactly right for an application
+ * that owns its page, and exactly wrong here: Preflight would strip the
+ * margins, headings and lists off this documentation site around the demo.
+ *
+ * So this imports the two halves that are safe to share a page — the theme
+ * tokens and the utilities — and not the third. Utilities are inert until
+ * something uses the class, and the only things using them are inside the demo.
+ *
+ * It is the clearest illustration of the difference the CMS example is about:
+ * Primer draws with CSS-in-JS and embeds anywhere, while Tailwind generates a
+ * global stylesheet and has to be told where it may reach. A design system is
+ * not free of the host, and this file is the price.
+ */
+
+/*
+ * The layer order, declared before anything uses it.
+ *
+ * This is not decoration. Unlayered CSS beats layered CSS, so a reset written
+ * outside a layer wins against every Tailwind utility — buttons come out
+ * transparent and every `border` draws nothing, which is exactly the bug this
+ * file had before the reset moved into `base`. Preflight lives in a layer for
+ * the same reason.
+ */
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/*
+ * Where to look for classes. Tailwind generates CSS by scanning source at build
+ * time, so a class that exists only in the example's source — or inside a
+ * plugin's un-built module — is a class nobody generated unless it is named
+ * here.
+ */
+@source '../../../../examples/cms/app/src';
+@source '../../../../examples/cms/cms/share/datalayer/reactor/extensions/cms-core';
+@source '../../../../examples/cms/cms-pro/share/datalayer/reactor/extensions/cms-pro';
+
+/* The example's tokens, so the demo is the same colours as the real thing. */
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.15 0.01 275);
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.97 0.005 275);
+  --color-muted-foreground: oklch(0.52 0.02 275);
+  --color-primary: oklch(0.45 0.16 275);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-border: oklch(0.92 0.006 275);
+  --color-accent: oklch(0.96 0.01 275);
+  --color-destructive: oklch(0.58 0.21 27);
+  --color-success: oklch(0.6 0.15 150);
+}
+
+html[data-theme='dark'] {
+  --color-background: oklch(0.18 0.01 275);
+  --color-foreground: oklch(0.97 0.005 275);
+  --color-card: oklch(0.22 0.012 275);
+  --color-muted: oklch(0.26 0.012 275);
+  --color-muted-foreground: oklch(0.7 0.02 275);
+  --color-primary: oklch(0.72 0.14 275);
+  --color-primary-foreground: oklch(0.18 0.01 275);
+  --color-border: oklch(0.32 0.014 275);
+  --color-accent: oklch(0.28 0.014 275);
+}
+
+/*
+ * The parts of Preflight the demo genuinely needs, scoped to the demo — and in
+ * `base`, so that every utility still wins over them.
+ *
+ * `border-style: solid` is the one nobody expects: the browser default is
+ * `none`, so Tailwind's `border` utility sets a width against a style that
+ * draws nothing.
+ */
+@layer base {
+  .reactor-cms-demo *,
+  .reactor-cms-demo *::before,
+  .reactor-cms-demo *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--color-border);
+  }
+
+  .reactor-cms-demo button {
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .reactor-cms-demo input,
+  .reactor-cms-demo textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  .reactor-cms-demo h1,
+  .reactor-cms-demo h3,
+  .reactor-cms-demo p,
+  .reactor-cms-demo ul {
+    margin: 0;
+  }
+
+  .reactor-cms-demo ul {
+    padding: 0;
+    list-style: none;
+  }
+}

@@ -15,6 +15,8 @@ const path = require('node:path');
 const REPO = path.resolve(__dirname, '..');
 /** Where the music example's plugin packages live. */
 const MUSIC = path.resolve(REPO, 'examples/music');
+/** Where the CMS example lives. */
+const CMS = path.resolve(REPO, 'examples/cms');
 
 /**
  * Everything the embedded music demo needs webpack to know.
@@ -51,6 +53,23 @@ function reactorMusicDemo() {
             '@reactor-music-demo': isServer
               ? false
               : path.resolve(__dirname, 'src/components/MusicDemo/MusicApp.tsx'),
+            // The CMS demo, kept out of the server bundle for the same reason.
+            '@reactor-cms-demo': isServer
+              ? false
+              : path.resolve(__dirname, 'src/components/CmsDemo/CmsApp.tsx'),
+            // The CMS application, from its own source. As with the music
+            // example, there is no forked copy of it in this repository.
+            '@cms-app': path.resolve(CMS, 'app/src'),
+            // The two extensions' browser halves, resolved to the example's
+            // un-built modules and loaded as *text* by the rule below.
+            '@cms-extension/core': path.resolve(
+              CMS,
+              'cms/share/datalayer/reactor/extensions/cms-core/index.js',
+            ),
+            '@cms-extension/pro': path.resolve(
+              CMS,
+              'cms-pro/share/datalayer/reactor/extensions/cms-pro/index.js',
+            ),
             // The example's plugins, from source.
             '@datalayer-examples/reactor-music-catalog-core': path.resolve(MUSIC, 'catalog-core/src/index.ts'),
             '@datalayer-examples/reactor-music-catalog-plugin': path.resolve(MUSIC, 'catalog-plugin/src/index.tsx'),
@@ -81,7 +100,32 @@ function reactorMusicDemo() {
             '@primer/react$': path.resolve(__dirname, 'node_modules/@primer/react'),
           },
         },
+        module: {
+          rules: [
+            {
+              // The extensions' modules are fetched at runtime in a real
+              // deployment, so they must not be compiled into this bundle as
+              // code. They arrive as source text and are handed to a loader
+              // that imports them from a blob — a genuine runtime import of a
+              // URL the build did not know, which is the thing being shown.
+              test: /index\.js$/,
+              include: [
+                path.resolve(CMS, 'cms/share'),
+                path.resolve(CMS, 'cms-pro/share'),
+              ],
+              type: 'asset/source',
+            },
+          ],
+        },
       };
+    },
+    configurePostCss(options) {
+      // For `src/components/CmsDemo/cms-theme.css`, the only file on this site
+      // containing Tailwind directives. The plugin is a no-op for every other
+      // stylesheet: it expands `@import "tailwindcss/…"` and leaves anything
+      // without them alone.
+      options.plugins.push(require('@tailwindcss/postcss'));
+      return options;
     },
   };
 }
