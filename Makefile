@@ -103,6 +103,23 @@ frontend-backend:
 
 example-frontend-backend: frontend-backend
 
+cms: build-js ## build and install the CMS example (free tier)
+	@set -e; \
+	npm --prefix examples/cms/app install; \
+	NODE_ENV=production npm --prefix examples/cms/app run build; \
+	mkdir -p examples/cms/cms/share/datalayer/reactor/apps/cms; \
+	rm -rf examples/cms/cms/share/datalayer/reactor/apps/cms/*; \
+	cp -r examples/cms/app/dist/. examples/cms/cms/share/datalayer/reactor/apps/cms/; \
+	$(PIP) install examples/cms/cms; \
+	echo; \
+	echo "Built. Now run: datalayer-cms"; \
+	echo "Then, while it runs: pip install examples/cms/cms-pro"
+
+cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
+	$(PIP) install examples/cms/cms-pro
+	@echo
+	@echo "Installed. Refresh the browser — no restart needed."
+
 music-app: build-js ## build the music store as one installable application
 	@set -e; \
 	npm --prefix examples/music/app run build; \

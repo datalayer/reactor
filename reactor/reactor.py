@@ -43,7 +43,15 @@ class PluginPlatform:
 
     PLATFORM_VERSION = "0.1.0"
 
-    def __init__(self):
+    def __init__(self, *, extension_group: str = EXTENSION_ENTRY_POINT_GROUP):
+        #: The entry-point group this platform discovers extensions from.
+        #:
+        #: Configurable rather than fixed for two reasons that turn out to be
+        #: the same one: a host may want its own namespace, and a *test* must
+        #: have one — a suite that scanned the default group would pass or fail
+        #: depending on what happened to be installed in the environment
+        #: running it, which is not a test.
+        self.extension_group = extension_group
         self._pm = pluggy.PluginManager("reactor")
         self._pm.add_hookspecs(ReactorHookSpecs)
         self._records: dict[str, PluginRecord] = {}
@@ -59,6 +67,14 @@ class PluginPlatform:
         #: Which plugins each discovered extension brought, so an uninstall
         #: can take exactly those away again.
         self._discovered: dict[str, list[str]] = {}
+        #: Entry points that failed to load, and the error they failed with.
+        #:
+        #: Kept for log de-duplication, *not* to stop retrying. An extension
+        #: that failed a moment ago is very often one that was installed a
+        #: moment ago — the entry point is written before the module is
+        #: importable — so refusing to try again would make the common case the
+        #: broken one.
+        self._failed: dict[str, str] = {}
         #: Whether :meth:`start` has run, so a plugin discovered afterwards is
         #: started too rather than sitting registered and never woken.
         self._started = False
@@ -636,9 +652,7 @@ class PluginPlatform:
     # Extensions that ship both tiers
     # ------------------------------------------------------------------
 
-    def discover_extensions(
-        self, group: str = EXTENSION_ENTRY_POINT_GROUP
-    ) -> list[str]:
+    def discover_extensions(self, group: str | None = None) -> list[str]:
         """Register every extension advertised under an entry-point group.
 
         Installing a distribution is publishing its extension; the host names
@@ -647,9 +661,7 @@ class PluginPlatform:
         """
         return self.rescan_extensions(group)["added"]
 
-    def rescan_extensions(
-        self, group: str = EXTENSION_ENTRY_POINT_GROUP
-    ) -> dict[str, list[str]]:
+    def rescan_extensions(self, group: str | None = None) -> dict[str, list[str]]:
         """Bring the registry in line with what is installed *right now*.
 
         Idempotent, and cheap enough to call per request — which is the point.
@@ -671,6 +683,8 @@ class PluginPlatform:
         import importlib
         from importlib.metadata import entry_points
 
+        group = group or self.extension_group
+
         # Without this, a distribution installed after this process started is
         # invisible — the listing it would be found in was cached the first
         # time anybody looked.
@@ -688,26 +702,36 @@ class PluginPlatform:
                 extension = entry_point.load()()
                 self._register_extension_object(entry_name, extension)
                 added.append(extension.name)
+                self._failed.pop(entry_name, None)
             except Exception as error:  # noqa: BLE001
                 # One broken extension is one missing extension. A host that
                 # refused to answer because something installed next to it was
                 # malformed would be punishing the wrong party.
-                logger.warning(
-                    "Extension %r of group %r could not be loaded: %s",
-                    entry_name,
-                    group,
-                    error,
-                    exc_info=True,
-                )
-                # Remembered as seen-and-failed, so a broken extension is not
-                # retried on every single request.
-                self._discovered[entry_name] = []
+                #
+                # Retried on the next scan rather than remembered as hopeless:
+                # the most common failure here is an extension whose entry point
+                # is already advertised while its module is not yet importable,
+                # which fixes itself moments later. The error text is kept only
+                # so the log says it once rather than once per request.
+                reported = f"{type(error).__name__}: {error}"
+                if self._failed.get(entry_name) != reported:
+                    self._failed[entry_name] = reported
+                    logger.warning(
+                        "Extension %r of group %r could not be loaded: %s",
+                        entry_name,
+                        group,
+                        error,
+                        exc_info=True,
+                    )
 
         removed: list[str] = []
         for entry_name in list(self._discovered):
             if entry_name in found:
                 continue
             removed.extend(self._forget_extension(entry_name))
+        for entry_name in list(self._failed):
+            if entry_name not in found:
+                self._failed.pop(entry_name, None)
 
         return {"added": added, "removed": removed}
 

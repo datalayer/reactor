@@ -501,39 +501,59 @@ packages, start uvicorn, start vite — becomes one install and one command. The
 long way stays documented, because it is what a *developer* does; the short way
 is what everybody else does.
 
-## 7. #11 — shadcn/ui
+## 7. #11 — shadcn/ui — **done**, by a different route
 
-Best done **last**, and then it costs almost nothing while proving the most —
-build it as a federated remote and it demonstrates #9, #11 and kit-independence
-in one artefact.
+The plan said "the same store, on a second design system". What was built is a
+**different application** on shadcn/ui — `examples/cms` — and it is a better
+answer to the same question, for a reason worth writing down.
 
-### Phase 7.1 — the headless split (do this first; it is a finding) — **done**
+Porting the music store would have proved that *these plugins* can be redrawn.
+What actually needed proving is that a plugin need not know what kit the host
+uses at all. The CMS proves it two ways at once:
 
-`catalog-plugin` today mixes its data hook (`useCatalogSongs`) with a Primer
-card. A plugin shaped like that cannot be reused across UI kits, and that is
-worth discovering and documenting rather than papering over.
+- almost every contribution is a plain record — a label and a function — so the
+  question never arises;
+- the one plugin that *does* draw (the AI assistant) borrows the host's kit
+  through `setReactorSharedModules`, and inherits its theme without importing
+  anything.
 
-- [x] split `examples/music/catalog-plugin` into a headless core (types, hook,
-      contribution point ids) and a Primer view plugin — `catalog-core`, which
-      imports React and nothing else; `catalog-plugin` re-exports it so nothing
-      that already depended on it had to change
-- [x] the split is itself documentation: a plugin whose *contract* is a record
-      travels; one whose contract is a component does not
+So the claim is not "plugins avoid the design system" — some must draw — but
+**the kit is something the host hands over**. The same plugin shape works in a
+Primer host and a shadcn one, which is what the two examples now show side by
+side.
 
-### Phase 7.2 — `examples/music-shadcn/`
+- [x] 7.1 the headless split — `catalog-core`, the data contract with no design
+      system in it
+- [x] 7.2 a shadcn/ui application: `examples/cms`, on Rsbuild + Tailwind v4 with
+      shadcn components owned rather than installed
+- [x] the awkward cases named rather than avoided: a plugin **cannot** ship
+      Tailwind classes, because Tailwind generates CSS by scanning source at
+      build time and a class that only exists in a runtime module is a class
+      nobody generated. Publishing the components is the way out
+- [x] the manifest gains no `uiKit` hint. The plan leaned *no* until a host
+      asked, and building it did not produce a host that asked
 
-- [ ] Tailwind + shadcn/ui view plugins against the same contribution points
-- [ ] **the interesting build: one shell, both kits at once.** A marketplace
-      cannot dictate a design system, so a mixed platform is the honest demo —
-      and the awkward parts (theming, portals, overlays; the Primer store needs
-      `setupPrimerPortals()`) are the point, not an embarrassment
-- [ ] decide and document: does the manifest gain a `uiKit` hint? A host that
-      wants to warn "this will look out of place" needs it declared; a host that
-      does not care must not have to read it. Lean *no* until a host asks
-- [ ] embed it on the docs site next to the Primer one, same mechanism as the
-      existing [live demo](./docs/docs/examples/music/demo.mdx)
+### 7.3 And the packaging question it answers
 
----
+`examples/cms` is also the sharpest statement of the model this project is
+built on, which is why it has two Python packages:
+
+```
+Python package → Extension → Plugin → Contribution → Contribution point
+cms              Core        Gallery  a content type  cms.contentType
+cms-pro          Pro         Product  a content type  cms.contentType
+```
+
+There is no plugin API for paid plugins. `cms-pro` advertises itself under the
+same entry-point group, registers on the same platform, and fills the same
+point ids; what makes it paid is who may download the wheel. **Packaging and
+licensing sit at the top of that chain and the extension mechanism sits at the
+bottom, and nothing in between knows which package paid for what.**
+
+Three points, three shapes, so that "contribution point" is not read as "list of
+buttons": the toolbar draws every contribution, content types draw one, and the
+publish lifecycle *runs* them and lets any one veto. The SEO validator refuses a
+publish; the social publisher only announces one. Both fill the same point.
 
 ## 8. Sequencing
 
@@ -553,7 +573,7 @@ flowchart LR
 | **M2** ✅ | 9.3, 10.2 | runtime `registerRemotes`; a backend toggle stands a frontend plugin down |
 | **M3** ✅ | 5.1–5.5 | `pip install` an extension into the music backend and it appears in the browser |
 | **M4** ✅ | 6.1–6.4 — the installable host | `pip install` the music example and `datalayer-music-example` serves the store, both tiers, one command |
-| **M5** | 7.1, 7.2 | the shadcn store loads as a remote beside the Primer one |
+| **M5** ✅ | 7.1–7.3 | `examples/cms`: two Python packages, free and paid, filling the same three points on shadcn/ui |
 
 **10.1 has no dependencies on any of this and fixes a real bug — start there
 while the migration runs.**
@@ -600,4 +620,4 @@ described as planned.
 | M2 | `cross-tier-activation.md` → folded into `cross-tier/declaring-dependencies.md` and `typescript/deactivation.md` |
 | M3 | `python-packaged-extensions.md` → `python/packaging.md` |
 | M4 | a new `python/host.md`, and the music example's README rewritten around one command |
-| M5 | `shadcn-ui.md` → `examples/music-shadcn/` |
+| M5 | `shadcn-ui.md` → `examples/cms` |

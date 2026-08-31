@@ -163,6 +163,34 @@ describe('bootstrapExtensions', () => {
     },
   ];
 
+  it('keeps the extension that delivered each plugin', async () => {
+    const remotes = await bootstrapExtensions('http://localhost:8799', {
+      fetchJson: async () => [
+        {
+          name: 'Pro',
+          displayName: 'Pro',
+          emoji: '⭐',
+          entry: '/reactor-extensions/Pro/index.js',
+          plugins: [{ name: '@pro/one' }, { name: '@pro/two' }],
+        },
+      ],
+      loader: loaderFor({ default: PANEL }),
+    });
+
+    const reactor = buildReactorFromPlugins(remotes);
+    reactor.start();
+
+    // The server knew these arrived in one distribution. Flattening them here
+    // would lose the only thing that answers "what would I uninstall to lose
+    // this?" — and it is the hierarchy the whole model rests on.
+    expect(reactor.listExtensions()).toEqual(['Pro']);
+    expect(reactor.getManifest('@pro/one')?.extension).toBe('Pro');
+    expect(reactor.getExtensionManifest('Pro')?.emoji).toBe('⭐');
+    // Grouping is delivery, not governance: each is still switched on its own.
+    reactor.disable('@pro/one');
+    expect(reactor.isEnabled('@pro/two')).toBe(true);
+  });
+
   it('turns the server’s answer into plugins, resolved against the backend', async () => {
     const load = loaderFor({ default: PANEL });
     const remotes = await bootstrapExtensions('http://localhost:8799', {

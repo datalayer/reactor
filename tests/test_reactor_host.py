@@ -36,7 +36,7 @@ def build_ui(tmp_path: Path) -> Path:
 
 def host(tmp_path: Path) -> TestClient:
     """A host shaped like a real one: a platform, a plugin router, then the UI."""
-    platform = PluginPlatform()
+    platform = PluginPlatform(extension_group="nothing.installed.here")
     platform.register_plugin(PluginManifest(name="catalog", version="1.0.0"), object())
     app = create_reactor_host(platform, ui=build_ui(tmp_path), title="Store")
 
@@ -131,6 +131,11 @@ def test_find_ui_looks_where_a_wheel_puts_it(tmp_path: Path) -> None:
 
 def test_discovery_on_boot_beats_waiting_for_a_browser(tmp_path: Path) -> None:
     """`discover=True` means an installed extension is there from request one."""
-    app = create_reactor_host(PluginPlatform(), discover="nothing.installed.here")
+    # The group is set on the platform, not just passed to `discover`: the
+    # frontend-extensions endpoint rescans on its own, and it asks the platform
+    # which group to scan. Overriding only one of the two would leave the
+    # endpoint reading whatever is installed in the environment.
+    platform = PluginPlatform(extension_group="nothing.installed.here")
+    app = create_reactor_host(platform, discover=True)
     # An empty group is not an error — a host with no extensions still serves.
     assert TestClient(app).get("/plugins/frontend-extensions").json() == []

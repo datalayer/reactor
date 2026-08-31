@@ -18,24 +18,24 @@ and change nothing else here.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from reactor import (
     ExtensionManifest,
     FrontendExtension,
     FrontendPlugin,
     ReactorExtension,
+    find_extension_frontend,
 )
 
 from .plugin import HELLO_MANIFEST, HelloPlugin
 
 #: Where the frontend lives.
 #:
-#: Resolved relative to this file so that an editable install works: the wheel
-#: puts it under ``sys.prefix/share``, an editable install leaves it in the
-#: source tree, and looking beside the package finds it either way.
-_HERE = Path(__file__).resolve().parent
-_FRONTEND = _HERE.parent / "share" / "datalayer" / "reactor" / "extensions" / "hello"
+#: Both places have to work and they are different: an installed wheel puts
+#: `share/` under `sys.prefix`, nowhere near the package, while a checkout
+#: leaves it in the source tree beside it. `find_extension_frontend` looks in
+#: both — looking only beside the package is the bug you get away with until
+#: somebody installs the wheel for real.
+_FRONTEND = find_extension_frontend(__file__, "hello")
 
 
 def extension() -> ReactorExtension:

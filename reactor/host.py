@@ -35,7 +35,7 @@ from typing import Any, Callable
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
-from .extensions import EXTENSION_ENTRY_POINT_GROUP
+from .extensions import find_share
 from .reactor import PluginPlatform
 from .web import create_reactor_app
 
@@ -76,7 +76,7 @@ def create_reactor_host(
     runtime = platform or PluginPlatform()
 
     if discover:
-        group = discover if isinstance(discover, str) else EXTENSION_ENTRY_POINT_GROUP
+        group = discover if isinstance(discover, str) else runtime.extension_group
         found = runtime.discover_extensions(group)
         if found:
             logger.info("Discovered extensions: %s", ", ".join(found))
@@ -181,29 +181,14 @@ def _reserved_prefixes(routes: Any, seen: set[int] | None = None) -> set[str]:
 def find_ui(package_file: str | Path, app_name: str) -> Path | None:
     """Locate a host's built UI, in a wheel or in a source checkout.
 
-    Two places, because a host has two lives:
-
-    * ``<sys.prefix>/share/datalayer/reactor/apps/<app_name>`` — where the wheel
-      put it, found by walking up from the installed package;
-    * ``<repo>/examples/.../app/dist`` — where a developer's ``npm run build``
-      put it.
-
-    Returns ``None`` when neither exists, which is a host that can still serve
-    its API and should say so rather than fail to start.
+    The same two places an extension's frontend can be — see
+    :func:`reactor.extensions.find_share` — plus a check that there is actually
+    an ``index.html`` there, because a directory without one is a build that
+    did not happen rather than a UI.
     """
-    here = Path(package_file).resolve().parent
-
-    for parent in [here, *here.parents][:6]:
-        candidate = parent / UI_SHARE_DIRECTORY / app_name
-        if (candidate / "index.html").is_file():
-            return candidate
-
-    import sys
-
-    candidate = Path(sys.prefix) / UI_SHARE_DIRECTORY / app_name
-    if (candidate / "index.html").is_file():
-        return candidate
-
+    directory = find_share(package_file, f"apps/{app_name}")
+    if directory is not None and (directory / "index.html").is_file():
+        return directory
     return None
 
 

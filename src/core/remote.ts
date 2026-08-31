@@ -32,6 +32,7 @@
  * @module core/remote
  */
 
+import { defineExtension, type ReactorExtension } from './extension';
 import { defineLazyPlugin, type LazyPluginRef } from './plugin';
 import type { ActivationEvent } from './activation';
 
@@ -292,7 +293,7 @@ export type BootstrapOptions = DefineRemoteOptions & {
 export async function bootstrapExtensions(
   backendUrl: string,
   options: BootstrapOptions = {},
-): Promise<LazyPluginRef[]> {
+): Promise<(LazyPluginRef | ReactorExtension)[]> {
   const { fetchJson, ...remoteOptions } = options;
   const url = `${backendUrl.replace(/\/$/, '')}/plugins/frontend-extensions`;
 
@@ -312,18 +313,37 @@ export async function bootstrapExtensions(
     return [];
   }
 
-  return records.flatMap((extension) => {
+  return records.map((extension) => {
     // Relative entries are resolved against the backend, not the page: the
     // server that listed the extension is the server serving it.
     const entry = /^[a-z]+:\/\//i.test(extension.entry)
       ? extension.entry
       : `${backendUrl.replace(/\/$/, '')}${extension.entry}`;
 
-    return (extension.plugins ?? []).map((plugin) =>
+    const plugins = (extension.plugins ?? []).map((plugin) =>
       defineRemotePlugin(
         { ...plugin, entry, apiVersion: extension.apiVersion },
         remoteOptions,
       ),
     );
+
+    // Grouped, not flattened. The server knows these plugins arrived together
+    // in one distribution, and dropping that on the way across the wire would
+    // lose the only thing that answers "what would I uninstall to lose this?".
+    // It is also the hierarchy the whole model rests on:
+    //
+    //     Python package  →  Extension  →  Plugin  →  Contribution  →  Point
+    //
+    // An extension still governs nothing — each plugin is switched on its own,
+    // because grouping is about delivery.
+    return defineExtension({
+      name: extension.name,
+      version: extension.version,
+      displayName: extension.displayName,
+      description: extension.description,
+      octicon: extension.octicon,
+      emoji: extension.emoji,
+      plugins,
+    });
   });
 }

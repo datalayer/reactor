@@ -1,0 +1,33 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cms"
+version = "0.1.0"
+description = "A Reactor CMS: the application, and the Core extension it ships with"
+requires-python = ">=3.10"
+dependencies = [
+  "datalayer-reactor",
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+]
+
+# The free tier. `cms-pro` advertises itself under the same group, which is the
+# whole point: the host does not know which package is which.
+[project.entry-points."datalayer.reactor.extensions"]
+cms-core = "cms:extension"
+
+[project.scripts]
+datalayer-cms = "cms:main"
+
+[tool.setuptools]
+packages = ["cms"]
+
+[tool.setuptools.data-files]
+"share/datalayer/reactor/extensions/cms-core" = ["share/datalayer/reactor/extensions/cms-core/*"]
+"share/datalayer/reactor/apps/cms" = ["share/datalayer/reactor/apps/cms/*"]

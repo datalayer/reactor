@@ -95,6 +95,14 @@ def test_assets_are_served_and_traversal_is_refused(tmp_path: Path) -> None:
     assert client.get("/reactor-extensions/nope/index.js").status_code == 404
 
 
+#: A group of this suite's own.
+#:
+#: Scanning the real one would make these tests depend on what is installed in
+#: whatever environment runs them — `pip install cms-pro` in a developer's shell
+#: would fail the suite, which is a test of the shell rather than the code.
+TEST_GROUP = "datalayer.reactor.test-extensions"
+
+
 def _write_distribution(root: Path, name: str) -> None:
     """Write a minimal installed distribution: a package and its metadata.
 
@@ -104,9 +112,9 @@ def _write_distribution(root: Path, name: str) -> None:
     obvious what discovery is actually reading.
     """
     package = root / f"{name}_extension"
-    package.mkdir(parents=True)
+    package.mkdir(parents=True, exist_ok=True)
     share = root / "share" / name
-    share.mkdir(parents=True)
+    share.mkdir(parents=True, exist_ok=True)
     (share / "index.js").write_text(f"export default {{ name: '@{name}/panel' }};")
 
     (package / "__init__.py").write_text(
@@ -136,12 +144,14 @@ def _write_distribution(root: Path, name: str) -> None:
     )
 
     dist_info = root / f"{name}_extension-0.1.0.dist-info"
-    dist_info.mkdir()
+    # `exist_ok`: one test writes the metadata first, on purpose, to reproduce
+    # an entry point that is advertised before its module can be imported.
+    dist_info.mkdir(exist_ok=True)
     (dist_info / "METADATA").write_text(
         f"Metadata-Version: 2.1\nName: {name}-extension\nVersion: 0.1.0\n"
     )
     (dist_info / "entry_points.txt").write_text(
-        f"[{EXTENSION_ENTRY_POINT_GROUP}]\n{name} = {name}_extension:extension\n"
+        f"[{TEST_GROUP}]\n{name} = {name}_extension:extension\n"
     )
 
 
@@ -158,7 +168,7 @@ def test_installed_while_running_appears_on_the_next_request(
     site.mkdir()
     monkeypatch.syspath_prepend(str(site))
 
-    platform = PluginPlatform()
+    platform = PluginPlatform(extension_group=TEST_GROUP)
     platform.start()
     client = TestClient(create_reactor_app(platform))
 
@@ -187,7 +197,7 @@ def test_rescan_is_idempotent_and_notices_removal(
     monkeypatch.syspath_prepend(str(site))
     _write_distribution(site, "gone")
 
-    platform = PluginPlatform()
+    platform = PluginPlatform(extension_group=TEST_GROUP)
     assert platform.rescan_extensions()["added"] == ["gone"]
     # Twice is not an error, and not a duplicate.
     assert platform.rescan_extensions() == {"added": [], "removed": []}
@@ -216,10 +226,10 @@ def test_a_broken_extension_is_one_missing_extension(
     broken.mkdir()
     (broken / "METADATA").write_text("Metadata-Version: 2.1\nName: broken\nVersion: 0.1\n")
     (broken / "entry_points.txt").write_text(
-        f"[{EXTENSION_ENTRY_POINT_GROUP}]\nbroken = no_such_module:extension\n"
+        f"[{TEST_GROUP}]\nbroken = no_such_module:extension\n"
     )
 
-    platform = PluginPlatform()
+    platform = PluginPlatform(extension_group=TEST_GROUP)
     assert platform.rescan_extensions()["added"] == ["good"]
     assert [record["name"] for record in platform.frontend_extensions()] == ["good"]
 
@@ -303,3 +313,36 @@ def test_the_event_stream_answers_and_says_what_changed() -> None:
     # anything happens — and nothing changed, so there is exactly one.
     assert len(frames) == 1
     assert frames[0]["plugins"] == [{"name": "a", "enabled": True, "activated": True}]
+
+
+def test_an_extension_that_failed_once_is_tried_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The common failure is transient, so giving up on it is the wrong default.
+
+    An entry point is advertised the moment its metadata lands, which can be
+    before its module is importable — an editable install, a half-finished
+    write, a package whose dependency arrives a second later. Remembering that
+    as hopeless would make "installed a moment ago" permanently broken.
+    """
+    site = tmp_path / "site-packages"
+    site.mkdir()
+    monkeypatch.syspath_prepend(str(site))
+
+    # Metadata first, module second — the order pip effectively uses.
+    dist_info = site / "later_extension-0.1.0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: later-extension\nVersion: 0.1.0\n"
+    )
+    (dist_info / "entry_points.txt").write_text(
+        f"[{TEST_GROUP}]\nlater = later_extension:extension\n"
+    )
+
+    platform = PluginPlatform(extension_group=TEST_GROUP)
+    assert platform.rescan_extensions() == {"added": [], "removed": []}
+
+    _write_distribution(site, "later")
+
+    assert platform.rescan_extensions()["added"] == ["later"]
+    assert [record["name"] for record in platform.frontend_extensions()] == ["later"]

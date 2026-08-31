@@ -103,10 +103,18 @@ platform.start()
 This works, and it is designed for rather than accidental:
 
 ```bash
-datalayer-music-example            # a host, already serving
-pip install -e examples/extension  # while it runs
+datalayer-music-example         # a host, already serving
+pip install examples/extension  # while it runs
 # refresh the browser
 ```
+
+:::note
+Use a regular `pip install`, not `pip install -e`. An editable install writes a
+`.pth` file that Python only processes at interpreter startup, so an *editable*
+package genuinely does need a restart. A normal install lands in `site-packages`,
+which a running process can be made to re-read — which is what the rescan does.
+:::
+
 
 Three things break if you do it naively, and the runtime handles all three:
 

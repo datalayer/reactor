@@ -42,12 +42,47 @@ from .types import ExtensionManifest, PluginManifest
 #: absent rather than living somewhere else.
 EXTENSION_ENTRY_POINT_GROUP = "datalayer.reactor.extensions"
 
-#: Where a wheel puts its built frontend, relative to ``sys.prefix``.
+#: Where a wheel puts data Reactor serves, relative to ``sys.prefix``.
 #:
 #: Borrowed from JupyterLab rather than invented: ``share/`` is where the
 #: Python packaging tools already agree that non-Python data belongs, and a
 #: convention somebody has already debugged is worth more than a better one.
-SHARE_DIRECTORY = "share/datalayer/reactor/extensions"
+SHARE_ROOT = "share/datalayer/reactor"
+
+#: Where a wheel puts an extension's built frontend.
+SHARE_DIRECTORY = f"{SHARE_ROOT}/extensions"
+
+
+def find_share(package_file: str | Path, relative: str) -> Path | None:
+    """Find a ``share/`` directory, in a wheel *or* in a source checkout.
+
+    Both have to work, and they put it in different places:
+
+    * an **installed wheel** puts it under ``sys.prefix/share/...``, nowhere
+      near the package — data files and Python packages are separate
+      destinations, which is exactly the trap this function exists to spring;
+    * an **editable install or a checkout** leaves it in the source tree, beside
+      the package.
+
+    Looking only beside the package is the bug you get away with until somebody
+    installs the wheel for real. Returns ``None`` when neither exists, which is
+    an extension with no frontend — a legitimate thing to be.
+    """
+    import sys
+
+    here = Path(package_file).resolve().parent
+    for parent in [here, *here.parents][:6]:
+        candidate = parent / SHARE_ROOT / relative
+        if candidate.is_dir():
+            return candidate
+
+    candidate = Path(sys.prefix) / SHARE_ROOT / relative
+    return candidate if candidate.is_dir() else None
+
+
+def find_extension_frontend(package_file: str | Path, name: str) -> Path | None:
+    """Where this extension's built frontend is. See :func:`find_share`."""
+    return find_share(package_file, f"extensions/{name}")
 
 
 @dataclass(frozen=True)

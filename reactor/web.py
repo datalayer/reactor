@@ -13,7 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from .extensions import EXTENSION_ENTRY_POINT_GROUP
 from .reactor import PluginPlatform
 
 #: Content types for what a frontend extension is allowed to serve.
@@ -191,7 +190,7 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
         a deployment that installs extensions only at boot should do.
         """
         if refresh:
-            runtime.rescan_extensions(EXTENSION_ENTRY_POINT_GROUP)
+            runtime.rescan_extensions()
         return runtime.frontend_extensions()
 
     @app.get("/reactor-extensions/{extension_name}/{asset_path:path}")

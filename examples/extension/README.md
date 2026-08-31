@@ -24,10 +24,15 @@ That is the interesting part, so it is the documented path:
 datalayer-music-example
 
 # in another terminal, while it runs
-pip install -e examples/extension
+pip install examples/extension
 
 # refresh the browser
 ```
+
+A regular `pip install`, not `pip install -e`: an editable install writes a
+`.pth` file that Python only processes at interpreter startup, so an editable
+package genuinely does need a restart. A normal install lands in
+`site-packages`, which a running process can be made to re-read.
 
 The panel is there, and so is its Python plugin. Nothing restarted.
 
