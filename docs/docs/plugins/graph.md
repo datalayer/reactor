@@ -45,8 +45,11 @@ two answers that disagree by one request.
 `groups` is what makes *"what would I uninstall to lose this view?"* answerable
 by following arrows — see [Extensions](/typescript/extensions).
 
-:::note
-The graph is not part of the [live demo](/examples/music/demo) on this site: the
-music example puts it behind a `/graph` route, and a page inside a documentation
-site cannot take over the URL bar. Run the example locally to see it.
+:::tip
+The graph is in the [live demo](/examples/music/demo) — press **View plugin
+graph** in the sidebar. Note where that button comes from: the application never
+draws it. It says only that it has a second view and how to reach it, and this
+plugin contributes the control. Untick **Graph** in the plugin list and the
+button goes with it, which is the whole argument for a plugin owning its own
+entry point.
 :::

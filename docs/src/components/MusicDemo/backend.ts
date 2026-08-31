@@ -190,6 +190,30 @@ async function route(request: Request, url: URL): Promise<Response> {
     return json({ name: plugin.name, enabled: plugin.enabled });
   }
 
+  if (pathname === '/contributions' && request.method === 'GET') {
+    // The half of the graph that cannot be derived in the browser: who fills
+    // whose contribution points *on the server*. `/plugins` says who exists and
+    // what they depend on; this says what they offer each other.
+    //
+    // Disabled plugins are filtered out on read, exactly as the platform does —
+    // which is what makes switching `mood` off empty this answer and redraw the
+    // graph with one fewer edge.
+    return json(
+      isEnabled('playlist') && isEnabled('mood')
+        ? [
+            {
+              point: 'music.playlistRule',
+              contributions: PLAYLIST_RULES.map((rule, index) => ({
+                plugin: 'mood',
+                id: rule.id,
+                order: index,
+              })),
+            },
+          ]
+        : [],
+    );
+  }
+
   if (pathname === '/extensions' && request.method === 'GET') {
     // The example's backend host registers plugins individually; it groups
     // none of them, and says so rather than inventing an extension.
@@ -276,6 +300,7 @@ const BACKEND_PATHS = [
   '/api/playlist',
   '/plugins',
   '/extensions',
+  '/contributions',
   '/events',
   '/reactor-extensions',
 ];

@@ -40,9 +40,20 @@ Try these, in this order:
    rendering.
 6. **Untick the Python `playlist` plugin.** Nothing disappears — the frontend
    declared that one *optional*, and the card says so instead.
+7. **Press *View plugin graph*.** Sixteen nodes and thirty-two relationships,
+   derived from what the plugins declare rather than drawn by hand: extensions
+   delivering plugins, plugins depending on each other, the contribution points
+   they offer and fill, and the dashed lines reaching across the wire to the
+   Python tier. The application does not draw that button — the graph plugin
+   contributes it, which is why unticking **Graph** in the list takes the button
+   with it.
 
 Steps 5 and 6 are the same mechanism with two different strengths declared; see
 [Across the tiers](/cross-tier/declaring-dependencies).
+
+The graph in step 7 is worth a second look while switching things off: it is
+drawn from the platform, so a plugin leaving the list leaves the picture, and
+the edges that vanish with it are the ones nobody had to write down.
 
 ## What is different from `npm run dev`
 
@@ -51,13 +62,16 @@ Three things, and no fourth:
 - **There is no uvicorn.** A documentation site is a static file, so the four
   Python plugins' endpoints — `GET /plugins`,
   `POST /plugins/{name}/toggle`, `GET /api/catalog/songs`, `POST /api/checkout`,
-  `GET /api/playlist/rules` — are answered in the browser by
-  `src/components/MusicDemo/backend.ts`, with the same manifests and the same
+  `GET /api/playlist/rules`, `GET /contributions` — are answered in the browser
+  by `src/components/MusicDemo/backend.ts`, with the same manifests and the same
   toggle semantics. The Python half of the panel is live rather than a
-  screenshot, and running the real backend changes nothing about what you see.
-- **There is no `/graph` route.** The example has a second address for the
-  [plugin graph](/plugins/graph); a page inside a documentation site cannot take
-  over the URL bar, so that plugin is left out here.
+  screenshot, and the backend half of the graph is drawn from that same answer.
+  Running the real backend changes nothing about what you see.
+- **The graph is a button, not an address.** The example gives the
+  [plugin graph](/plugins/graph) its own `/graph` route, and `pushState` is its
+  whole router. A page inside a documentation site cannot take over the URL bar,
+  so the same state lives in a `useState` here. Nothing downstream changes: the
+  slot, the button and the plugin that owns both are the example's.
 - **The theme is pinned.** The header contributes Datalayer's appearance
   controls, and running the example they repaint the whole viewport. Here the
   viewport is somebody else's, so the demo fixes itself to the Datalayer theme

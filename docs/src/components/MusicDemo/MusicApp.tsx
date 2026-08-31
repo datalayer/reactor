@@ -31,6 +31,10 @@ import { buildReactorFromPlugins, defineExtension, defineLazyPlugin, onContribut
 import { ReactorSlot, useReactor, useSlotComponents } from '@datalayer/reactor/react';
 import { Box, ThemedProvider, useThemeStore, setupPrimerPortals } from '@datalayer/primer-addons';
 import { PluginsManagerPlugin } from '@datalayer/reactor-manager';
+// Not one of the example's plugins: a reusable one from the repository's
+// `plugins/` folder, installed like anything else. It knows nothing about a
+// music store — which is why it can draw one.
+import { GraphPlugin } from '@datalayer/reactor-graph';
 import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
 import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
 import { CheckoutPlugin, useCheckout } from '@datalayer-examples/reactor-music-checkout-plugin';
@@ -38,7 +42,9 @@ import { PlaylistPlugin } from '@datalayer-examples/reactor-music-playlist-plugi
 import {
   PluginsPanelPlugin,
   useBackendPluginAvailability,
+  useBackendPlugins,
 } from '@datalayer-examples/reactor-music-plugins-panel-plugin';
+import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 import { installMockBackend } from './backend';
 
@@ -208,10 +214,15 @@ const reactor = buildReactorFromPlugins([
   StoreExtension,
   PluginsManagerPlugin,
   PluginsPanelPlugin,
+  GraphPlugin,
 ]);
 
-function Content() {
+function Content({ showingGraph }: { showingGraph: boolean }) {
   const checkingOut = useCheckout(state => state.open);
+  // Handed to the graph rather than left for it to fetch: the panel already
+  // knows which backend plugins are on, and two sources of that answer is two
+  // answers that disagree by one request.
+  const backendPlugins = useBackendPlugins(state => state.plugins);
   // Asked rather than assumed: with the shop switched off there is no shop
   // column, and the rest closes the gap rather than sitting beside a hole.
   const hasShop = useSlotComponents('main').length > 0;
@@ -230,6 +241,20 @@ function Content() {
     alignItems: 'start',
     minWidth: 0,
   } as const;
+
+  if (showingGraph) {
+    // No width cap and no second column: the graph is four columns of nodes,
+    // and every pixel it is denied is a label that wraps or an edge that
+    // crosses another.
+    return (
+      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 3, minWidth: 0 }}>
+        <ReactorSlot
+          slot="graph"
+          props={{ backendUrl: CATALOG_BACKEND_URL, backendPlugins }}
+        />
+      </Box>
+    );
+  }
 
   if (checkingOut && hasCheckout) {
     return (
@@ -267,7 +292,15 @@ function Content() {
  * own list of frontend plugins, and the group of Python ones the example's
  * panel adds to it.
  */
-function Sidebar({ beside }: { beside: boolean }) {
+function Sidebar({
+  beside,
+  showingGraph,
+  onToggleGraph,
+}: {
+  beside: boolean;
+  showingGraph: boolean;
+  onToggleGraph: () => void;
+}) {
   return (
     <Box
       as="aside"
@@ -283,7 +316,15 @@ function Sidebar({ beside }: { beside: boolean }) {
         alignSelf: 'stretch',
       }}
     >
-      <ReactorSlot slot="sidebar" props={{ width: SIDEBAR_WIDTH }} />
+      {/* The graph's own button arrives through here. This application never
+          draws a "View plugin graph" control — it says only that it has a
+          second view and how to get to it, and the plugin that owns that view
+          contributes the button. Switch the graph plugin off in the list below
+          and the button goes with it. */}
+      <ReactorSlot
+        slot="sidebar"
+        props={{ width: SIDEBAR_WIDTH, showingGraph, onToggleGraph }}
+      />
     </Box>
   );
 }
@@ -291,6 +332,12 @@ function Sidebar({ beside }: { beside: boolean }) {
 function Store({ beside }: { beside: boolean }) {
   const isBackendPluginAvailable = useBackendPluginAvailability();
   useReactor(reactor, { isBackendPluginAvailable });
+  // The example routes this: it has a `/graph` address and `pushState` is its
+  // whole router. A page inside a documentation site cannot take the URL bar,
+  // so the same state lives in `useState` here. Everything downstream — the
+  // slot, the button, the plugin that owns both — is unchanged.
+  const [showingGraph, setShowingGraph] = useState(false);
+
   return (
     <>
       <ReactorSlot slot="header" />
@@ -302,9 +349,13 @@ function Store({ beside }: { beside: boolean }) {
         }}
       >
         <Box sx={{ flex: '1 1 auto', minWidth: 0, width: '100%' }}>
-          <Content />
+          <Content showingGraph={showingGraph} />
         </Box>
-        <Sidebar beside={beside} />
+        <Sidebar
+          beside={beside}
+          showingGraph={showingGraph}
+          onToggleGraph={() => setShowingGraph(value => !value)}
+        />
       </Box>
     </>
   );

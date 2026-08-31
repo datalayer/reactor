@@ -87,6 +87,9 @@ function reactorMusicDemo() {
             '@datalayer/reactor$': path.resolve(REPO, 'src/index.ts'),
             '@datalayer/reactor/react': path.resolve(REPO, 'src/react/index.ts'),
             '@datalayer/reactor-manager$': path.resolve(REPO, 'plugins/manager/src/index.tsx'),
+            // From source, like everything else here — which also sidesteps
+            // the extensionless relative imports `tsc` leaves in `lib/`.
+            '@datalayer/reactor-graph$': path.resolve(REPO, 'plugins/graph/src/index.tsx'),
             // One generated avatar is not worth the whole Datalayer client.
             '@datalayer/core/lib/components/avatars': path.resolve(__dirname, 'src/shims/datalayer-core-avatars.tsx'),
             // Exactly one copy of each, whoever asks and from wherever.
