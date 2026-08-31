@@ -251,9 +251,16 @@ function Store({ beside }: { beside: boolean }) {
 /**
  * The demo, framed.
  *
- * The border and the scroll box are the page's contribution, not the example's:
- * a live application inside a paragraph of prose needs an edge, or the reader
- * cannot tell where the documentation stops and the running thing starts.
+ * The border is the page's contribution, not the example's: a live application
+ * inside a paragraph of prose needs an edge, or the reader cannot tell where
+ * the documentation stops and the running thing starts.
+ *
+ * What the frame deliberately does *not* have is a height. A capped, scrolling
+ * box puts the store's own scrollbar next to the page's, and then reaching the
+ * playlist means scrolling the right one — while the plugin switches that
+ * explain the playlist have gone off the top of the inner box. Left to its
+ * natural height everything is on screen at once and the page scrolls, which is
+ * the scrollbar the reader already has.
  */
 export default function MusicApp() {
   const [ref, width] = useFrameWidth();
@@ -270,11 +277,10 @@ export default function MusicApp() {
           border: '1px solid',
           borderColor: 'border.default',
           borderRadius: 2,
-          overflow: 'auto',
-          // The reader decides how much of the page the running store gets.
-          resize: 'vertical',
-          height: 720,
-          maxHeight: '90vh',
+          // No height, and no `overflow` to go with it. Horizontal overflow is
+          // handled by laying out to the measured frame width rather than by a
+          // scrollbar, and `visible` is what lets the header's cart overlay
+          // hang past the edge instead of being clipped by its own frame.
           bg: 'canvas.default',
           color: 'fg.default',
         }}
