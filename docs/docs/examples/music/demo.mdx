@@ -1,0 +1,70 @@
+---
+sidebar_position: 1
+title: Live demo
+hide_table_of_contents: true
+---
+
+import MusicDemo from '@site/src/components/MusicDemo';
+
+# The music store, running here
+
+Everything below the line is the example itself: the same plugin sources
+`examples/music` ships, on the same `@datalayer/reactor` build, assembling
+themselves into a store.
+
+<MusicDemo />
+
+## What you are looking at
+
+Nothing in that frame is drawn by this page. The application mounts four
+plugins and an extension and renders four empty slots; every pixel arrived as a
+contribution.
+
+Try these, in this order:
+
+1. **Add a song to the cart.** The badge in the header updates — the header
+   plugin reads a store the *shop* plugin owns, and neither imports the other's
+   component.
+2. **Hover the cart badge.** The overlay has a **Checkout** button in it. The
+   header does not know that button exists: it offers a `cart-actions` slot, and
+   the checkout plugin fills it.
+3. **Untick `@music/checkout`** in the Plugins panel on the right. Both Checkout
+   buttons go — the one in the overlay and the one under the songs — and the
+   store carries on. Tick it back and they return.
+4. **Untick `@music/mood`.** The playlist's rule chooser empties, because
+   disabling a plugin withdraws its contributions. The playlist plugin, which
+   owns the point those rules were made to, is untouched.
+5. **Untick the Python `catalog` plugin**, under *Backend plugins*. The catalog
+   and the shop disappear: both React plugins declare
+   `requiredBackendPlugins: ['catalog']`, so a slot component gated on it stops
+   rendering.
+6. **Untick the Python `playlist` plugin.** Nothing disappears — the frontend
+   declared that one *optional*, and the card says so instead.
+
+Steps 5 and 6 are the same mechanism with two different strengths declared; see
+[Across the tiers](/cross-tier/declaring-dependencies).
+
+## What is different from `npm run dev`
+
+Three things, and no fourth:
+
+- **There is no uvicorn.** A documentation site is a static file, so the four
+  Python plugins' endpoints — `GET /plugins`,
+  `POST /plugins/{name}/toggle`, `GET /api/catalog/songs`, `POST /api/checkout`,
+  `GET /api/playlist/rules` — are answered in the browser by
+  `src/components/MusicDemo/backend.ts`, with the same manifests and the same
+  toggle semantics. The Python half of the panel is live rather than a
+  screenshot, and running the real backend changes nothing about what you see.
+- **There is no `/graph` route.** The example has a second address for the
+  [plugin graph](/plugins/graph); a page inside a documentation site cannot take
+  over the URL bar, so that plugin is left out here.
+- **The theme is pinned.** The header contributes Datalayer's appearance
+  controls, and running the example they repaint the whole viewport. Here the
+  viewport is somebody else's, so the demo fixes itself to the Datalayer theme
+  in `auto` color mode — following your system preference, as the page around
+  it does — and the control is hidden rather than left visible and inert.
+
+The plugin sources are imported unmodified — the site's webpack configuration
+aliases `@datalayer-examples/reactor-music-*` to `examples/music/*/src/index.tsx`,
+exactly as the example's own `vite.config.ts` does. There is no forked copy of
+the example in this repository, which is the only way a demo stays true.

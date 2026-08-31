@@ -2,9 +2,13 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ☢️ Reactor
+# 🌀 Reactor
 
 Build extensible frontend (JavaScript) and backend (Python) with a dependency injection solution inpsired by VS Code, Eclipse (OSGI) and other historical solutions.
+
+> 📖 **[reactor.datalayer.tech](https://reactor.datalayer.tech)** — the full
+> documentation, with the [music example running in the page](https://reactor.datalayer.tech/examples/music/demo).
+> Source in [`docs/`](./docs).
 
 Reactor provides two sibling packages:
 

@@ -1,0 +1,8 @@
+{
+  "label": "Bundled plugins",
+  "position": 7,
+  "link": {
+    "type": "doc",
+    "id": "plugins/index"
+  }
+}
