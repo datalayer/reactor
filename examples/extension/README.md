@@ -20,8 +20,8 @@ examples/extension/
 That is the interesting part, so it is the documented path:
 
 ```bash
-# a Reactor backend, already serving
-uvicorn datalayer_music_example.app:app --reload --port 8799
+# a Reactor host, already serving the store
+datalayer-music-example
 
 # in another terminal, while it runs
 pip install -e examples/extension

@@ -103,8 +103,8 @@ platform.start()
 This works, and it is designed for rather than accidental:
 
 ```bash
-uvicorn datalayer_music_example.app:app --port 8799     # already serving
-pip install -e examples/extension              # while it runs
+datalayer-music-example            # a host, already serving
+pip install -e examples/extension  # while it runs
 # refresh the browser
 ```
 
