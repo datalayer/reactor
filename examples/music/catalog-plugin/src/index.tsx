@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
-import { defineExtension } from '@datalayer/reactor';
+import { definePlugin } from '@datalayer/reactor';
 
 /**
  * Default URL of the catalog FastAPI backend (see catalog_plugin package).
@@ -115,9 +115,14 @@ function CatalogList() {
  * slot and exposes the song data service consumed by the header and shop
  * plugins. Requires the `catalog` backend plugin to be available.
  */
-export const CatalogExtension = defineExtension({
+export const CatalogPlugin = definePlugin({
   name: '@music/catalog',
   version: '1.0.0',
+  displayName: 'Catalog',
+  description:
+    'The base plugin: fetches the song catalog and exposes it to every other plugin as the useCatalogSongs hook.',
+  octicon: 'book',
+  emoji: '🎵',
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

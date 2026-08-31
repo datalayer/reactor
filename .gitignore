@@ -3,6 +3,7 @@
 **/node_modules
 **/*-lock.json
 dist
+lib
 
 # Include
 !**/.*ignore

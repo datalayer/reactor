@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
-import { defineExtension } from '../../../../src';
+import { definePlugin } from '../../../../src';
 
 type BackendPluginProps = {
   backendBaseUrl?: string;
@@ -69,7 +69,7 @@ function WelcomeCard({ backendBaseUrl = 'http://localhost:8788' }: BackendPlugin
   );
 }
 
-export const WelcomeCardExtension = defineExtension({
+export const WelcomeCardPlugin = definePlugin({
   name: '@demo/welcome-card',
   version: '1.0.0',
   requiredBackendPlugins: ['greeting-plugin'],
@@ -79,7 +79,7 @@ export const WelcomeCardExtension = defineExtension({
         {
           slot: 'main',
           id: 'welcome-card',
-          Component: (props) => <WelcomeCard {...props} />,
+          Component: (props: BackendPluginProps) => <WelcomeCard {...props} />,
           requiredBackendPlugins: ['greeting-plugin'],
         },
       ],

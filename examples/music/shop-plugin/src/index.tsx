@@ -9,9 +9,10 @@ import { Button, Heading, Label, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
 import { BoringAvatar } from '@datalayer/core/lib/components/avatars';
 import { useThemeStore } from '@datalayer/primer-addons';
-import { defineExtension } from '@datalayer/reactor';
+import { definePlugin } from '@datalayer/reactor';
+import { ReactorSlot } from '@datalayer/reactor/react';
 import { create } from 'zustand';
-import { CatalogExtension, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { CatalogPlugin, useCatalogSongs, type Song } from '@datalayer-examples/reactor-music-catalog-plugin';
 
 /**
  * A single line in the shopping cart: a catalog song plus the quantity added.
@@ -123,6 +124,12 @@ function Shop() {
           </Card>
         ))}
       </Box>
+
+      {/* Cart actions, under the songs, where the shopper's hands already are.
+          The shop knows nothing about checkout — it offers a place and the
+          checkout plugin fills it. With that plugin switched off there is
+          nothing here, and the shop is otherwise unchanged. */}
+      <ReactorSlot slot="cart-actions" />
     </Box>
   );
 }
@@ -132,10 +139,15 @@ function Shop() {
  * by consuming its `useCatalogSongs` data service). Contributes the purchasable
  * song cards and cart to the `main` slot.
  */
-export const ShopExtension = defineExtension({
+export const ShopPlugin = definePlugin({
   name: '@music/shop',
   version: '1.0.0',
-  dependencies: [CatalogExtension],
+  displayName: 'Shop',
+  description:
+    'Purchasable song cards and the shared cart store the header and checkout read.',
+  octicon: 'package',
+  emoji: '🛒',
+  dependencies: [CatalogPlugin],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

@@ -28,6 +28,37 @@ class ReactorHookSpecs:
         """Return plugin-provided feature flags for a tenant."""
 
     @hookspec
+    def provide_contributions(self, contributions: Any) -> None:
+        """Contribute to the host's contribution points.
+
+        The host passes a :class:`~reactor.contributions.PluginContributions`
+        bound to this plugin, and the plugin calls
+        ``contributions.contribute(point, value)`` for whatever it offers — a
+        view the workspace may open, a panel, a command.
+
+        Unlike the other hooks, this one is not "react to an event". It is
+        "declare what you have", so the host can enumerate the options and
+        choose. Contributions live as long as the plugin is registered and go
+        with it when it is unregistered.
+        """
+
+    @hookspec
+    def provide_slash_commands(self, registry: Any) -> None:
+        """Register the plugin's interactive commands into the host's registry.
+
+        The sibling of :meth:`provide_cli`, for hosts that are not a command
+        line but a session: an interactive terminal, a chat prompt, a command
+        palette. The host passes its own registry — the reactor stays
+        framework-agnostic and hands the object over; the plugin knows what it
+        is and calls ``registry.register(...)``.
+
+        Keeping this separate from ``provide_cli`` is deliberate. A command
+        group added to a CLI and a command typed at a live prompt have
+        different lifetimes: one is resolved once at startup, the other runs
+        against a session that already exists.
+        """
+
+    @hookspec
     def provide_cli(self, cli: Any) -> None:
         """Register the plugin's commands into the host CLI application.
 

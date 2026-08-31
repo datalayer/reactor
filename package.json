@@ -1,31 +1,38 @@
 {
   "name": "@datalayer/reactor",
   "version": "1.0.0",
+  "workspaces": [
+    "plugins/*"
+  ],
   "description": "Extension reactor with framework-agnostic core and React bridge",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
-    "dist"
+    "lib"
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
     },
     "./react": {
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js"
+      "types": "./lib/react/index.d.ts",
+      "import": "./lib/react/index.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "build:lib": "gulp --gulpfile gulpfile.cjs resources-to-lib && tsc",
-    "test:ts": "vitest run",
-    "test": "npm run test:ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "npm run build:lib && npm run build:plugins",
+    "build:lib": "gulp --gulpfile gulpfile.cjs resources-to-lib && tsc -p tsconfig.json",
+    "build:plugins": "node scripts/build-plugins.mjs build",
+    "build:reactor": "tsc -p tsconfig.json",
+    "clean:plugins": "node scripts/build-plugins.mjs clean",
     "example:dev": "npm run dev --prefix examples/frontend",
     "example:dev:frontend-backend": "npm run dev --prefix examples/frontend-backend",
+    "test": "npm run test:ts",
+    "test:ts": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck:plugins",
+    "typecheck:plugins": "node scripts/build-plugins.mjs typecheck",
     "watch:lib": "tsc -w"
   },
   "dependencies": {
@@ -47,5 +54,15 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.8.3",
     "vitest": "^2.1.8"
+  },
+  "typesVersions": {
+    "*": {
+      "react": [
+        "lib/react/index.d.ts"
+      ],
+      "*": [
+        "lib/index.d.ts"
+      ]
+    }
   }
 }

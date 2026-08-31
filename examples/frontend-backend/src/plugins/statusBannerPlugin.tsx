@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { Button, Label, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
-import { defineExtension } from '../../../../src';
+import { definePlugin } from '../../../../src';
 
 type StatusConfig = {
   status: 'Ready' | 'Paused';
@@ -81,7 +81,7 @@ function StatusBanner({ status, backendBaseUrl = 'http://localhost:8788' }: { st
   );
 }
 
-export const StatusBannerExtension = defineExtension<StatusConfig, unknown, { components: Array<any> }>({
+export const StatusBannerPlugin = definePlugin<StatusConfig, unknown, { components: Array<any> }>({
   name: '@demo/status-banner',
   version: '1.0.0',
   requiredBackendPlugins: ['status-plugin'],
@@ -95,7 +95,9 @@ export const StatusBannerExtension = defineExtension<StatusConfig, unknown, { co
         {
           slot: 'sidebar',
           id: 'status-banner',
-          Component: (props) => <StatusBanner status={config.status} {...props} />,
+          Component: (props: BackendPluginProps) => (
+            <StatusBanner status={config.status} {...props} />
+          ),
           requiredBackendPlugins: ['status-plugin'],
         },
       ],

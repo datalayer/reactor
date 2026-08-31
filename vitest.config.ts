@@ -8,7 +8,12 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: [
+      'src/**/*.test.{ts,tsx}',
+      // The plugins in this repo ship as their own packages, and their rules
+      // are worth the same coverage as the core's.
+      'plugins/*/__tests__/**/*.test.{ts,tsx}',
+    ],
     environmentMatchGlobs: [['src/react/**', 'jsdom']],
     setupFiles: ['./tests/vitest.setup.ts'],
     fileParallelism: false,

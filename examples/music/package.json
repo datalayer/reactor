@@ -6,6 +6,9 @@
   "workspaces": [
     "catalog-plugin",
     "checkout-plugin",
+    "playlist-plugin",
+    "mood-plugin",
+    "plugins-panel-plugin",
     "header-plugin",
     "shop-plugin",
     "app"

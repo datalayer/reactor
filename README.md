@@ -2,119 +2,72 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ☢️ Reactor
+# 🌀 Reactor
+
+Build extensible frontend (JavaScript) and backend (Python) with a dependency injection solution inpsired by VS Code, Eclipse (OSGI) and other historical solutions.
 
 Reactor provides two sibling packages:
 
+- `@datalayer/reactor` (TypeScript): Plugin runtime with a framework-agnostic core and separate React integration.
 - `datalayer_reactor` (PyPI distribution, imported as `reactor`): FastAPI + pluggy plugin reactor for modular extensibility.
-- `@datalayer/reactor` (TypeScript): Extension runtime with a framework-agnostic core and separate React integration.
 
-## Why Reactor
+Both tiers implement the same architecture. That is the point of writing it down
+once: a host that lists, describes, groups or draws plugins should never have to
+ask which side of the wire one came from.
 
-This project targets a full extension reactor, not only hook callbacks:
+## 📖 Documentation
 
-- Platform architecture with lifecycle phases and dependency graph
-- Plugin marketplace metadata and discovery primitives
-- Third-party ecosystem support through explicit manifest contracts
-- Dynamic feature loading and runtime enable/disable
-- Modular app concerns: interdependencies, lifecycle management, compatibility checks
-- SaaS extensibility primitives: tenant-specific plugin activation, sandboxed execution, versioned compatibility
+**[reactor.datalayer.tech](https://reactor.datalayer.tech)** — everything is
+there, and only there. Source in [`docs/`](./docs).
 
-## Repository Layout
+| | |
+| --- | --- |
+| [Why Reactor](https://reactor.datalayer.tech/overview/why) | what this targets that a hook callback does not |
+| [Architecture](https://reactor.datalayer.tech/overview/architecture) | the seven constructs, and the two distinctions the model rests on |
+| [Get started in TypeScript](https://reactor.datalayer.tech/getting-started/typescript) · [in Python](https://reactor.datalayer.tech/getting-started/python) | install, and a plugin running |
+| [TypeScript runtime](https://reactor.datalayer.tech/typescript/) | plugins, lifecycle, contribution points, extensions, activation, lazy loading, React bindings, signals |
+| [Python runtime](https://reactor.datalayer.tech/python/) | manifests, contribution points, extensions, tenants, the HTTP API |
+| [Across the tiers](https://reactor.datalayer.tech/cross-tier/declaring-dependencies) | what a plugin may declare about its counterpart, and why it is not enforced |
+| [Roadmap](https://reactor.datalayer.tech/roadmap/) | federation, cross-tier activation, Python-packaged extensions, shadcn/ui |
 
-- `src/`: TypeScript package source for `@datalayer/reactor`
-- `reactor/`: Python package source
-- `examples/`: Various demos
+### 🎵 The music store, running in the page
 
-## TypeScript Package: @datalayer/reactor
+**[reactor.datalayer.tech/examples/music/demo](https://reactor.datalayer.tech/examples/music/demo)**
+— a store assembled entirely from plugins, with a switch per plugin on both
+tiers. Untick one and watch what it contributed leave.
 
-### Design
+## Repository layout
 
-The TypeScript runtime implements:
+| Path | What is in it |
+| --- | --- |
+| `src/` | TypeScript package source for `@datalayer/reactor` |
+| `reactor/` | Python package source for `datalayer_reactor` |
+| `plugins/` | reusable plugins shipped alongside the runtime — the [manager](https://reactor.datalayer.tech/plugins/manager) and the [graph](https://reactor.datalayer.tech/plugins/graph) |
+| `examples/` | the demos, including [the music store](./examples/music) |
+| `docs/` | the documentation site |
 
-- `defineExtension` and `configExtension`
-- `dependencies`, `peerDependencies`, `conflictsWith`
-- ordered phases: `init` -> `build` -> `register` -> `afterRegistration`
-- runtime lifecycle control: `start`, `stop`, `enable`, `disable`
-- signal primitives for reactive extension outputs:
-	- `signal`, `computed`, `effect`, `batch`, `untracked`
-	- `namedSignals`, `watchedSignal`
-
-### Core vs React split
-
-- Core runtime exports from `@datalayer/reactor`
-- React bindings export from `@datalayer/reactor/react`
-
-React bindings include:
-
-- `useReactor`: register the reactor in the zustand store and manage its lifecycle
-- `ReactorSlot`: render plugin-provided components by named slot
-- `useReactorPlatform`: reactor access for runtime toggles
-
-### Build
+## Develop
 
 ```bash
+# TypeScript: the runtime and the bundled plugins.
 npm install
 npm run build
-```
+npm test
+npm run typecheck
 
-### Minimal TypeScript usage
-
-```ts
-import { buildReactorFromExtensions, defineExtension } from '@datalayer/reactor';
-
-const DemoExtension = defineExtension({
-	name: '@demo/core',
-	build() {
-		return { message: 'hello' };
-	},
-});
-
-const reactor = buildReactorFromExtensions([DemoExtension]);
-reactor.start();
-```
-
-## Python Package: datalayer_reactor
-
-### Capabilities
-
-- Pluggy-powered plugin registration (`register_plugin`)
-- Compatibility and dependency checks via `PluginManifest`
-- Runtime enable/disable globally and by tenant
-- Marketplace publication/listing (`PluginMarketplace`)
-- Sandboxed execution option for plugin calls
-- FastAPI control plane with plugin/tenant endpoints
-
-### Install and run
-
-```bash
+# Python.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 python -m reactor
+
+# The music example, both tiers.
+make music
+
+# The documentation site.
+cd docs && make install && make start
 ```
 
-### API app endpoints
+## Release
 
-- `GET /plugins`
-- `POST /plugins/{plugin_name}/toggle`
-- `POST /tenants/plugins/{plugin_name}/toggle`
-- `GET /tenants/{tenant_id}/features`
-- `GET /tenants/{tenant_id}/routes`
-- `GET /marketplace`
-
-### Minimal Python usage
-
-```python
-from reactor import PluginManifest, PluginCompatibility, PluginPlatform
-
-reactor = PluginPlatform()
-reactor.register_plugin(
-		PluginManifest(
-				name="greeting-plugin",
-				version="1.0.0",
-				compatibility=PluginCompatibility(api_version="v1"),
-		),
-		plugin_impl=object(),
-)
-```
+See [RELEASE.md](./RELEASE.md).

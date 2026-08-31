@@ -7,9 +7,9 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import { Button, Label, Text } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
-import { defineExtension, signal } from '../../../../src';
+import { definePlugin, signal } from '../../../../src';
 import { useReactorPlatform, useSignalValue } from '../../../../src/react';
-import { WelcomeCardExtension, type WelcomeCardOutput } from './welcomeCardExtension';
+import { WelcomeCardPlugin, type WelcomeCardOutput } from './welcomeCardPlugin';
 
 type StatusConfig = {
   status: 'Ready' | 'Paused';
@@ -25,8 +25,8 @@ function StatusBanner({ status }: { status: string }) {
   // we re-resolve the output when Plugin A is enabled/disabled at runtime.
   const reactorPlatform = useReactorPlatform();
   useSyncExternalStore(reactorPlatform.subscribe, reactorPlatform.getRevision);
-  const welcomeAvailable = reactorPlatform.isEnabled(WelcomeCardExtension.name);
-  const welcome = reactorPlatform.getOutput<WelcomeCardOutput>(WelcomeCardExtension.name);
+  const welcomeAvailable = reactorPlatform.isEnabled(WelcomeCardPlugin.name);
+  const welcome = reactorPlatform.getOutput<WelcomeCardOutput>(WelcomeCardPlugin.name);
   const welcomeClicks = useSignalValue(welcome?.clicks ?? NO_CLICKS);
 
   const onToggleStatus = () => {
@@ -70,13 +70,13 @@ function StatusBanner({ status }: { status: string }) {
   );
 }
 
-export const StatusBannerExtension = defineExtension<StatusConfig, unknown, { components: Array<any> }>({
+export const StatusBannerPlugin = definePlugin<StatusConfig, unknown, { components: Array<any> }>({
   name: '@demo/status-banner',
   version: '1.0.0',
   // Plugin B depends on Plugin A: the reactor auto-includes Plugin A (even if it
   // is not listed explicitly) and builds it first, so its output — and the
   // shared `clicks` signal — is available when Plugin B renders.
-  dependencies: [WelcomeCardExtension],
+  dependencies: [WelcomeCardPlugin],
   config: {
     status: 'Ready',
   },

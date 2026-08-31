@@ -8,10 +8,10 @@ import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
 import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
 import { UnmuteIcon } from '@primer/octicons-react';
-import { defineExtension } from '@datalayer/reactor';
-import { CatalogExtension, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
-import { ShopExtension, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
-import { CheckoutExtension, CheckoutButton } from '@datalayer-examples/reactor-music-checkout-plugin';
+import { definePlugin } from '@datalayer/reactor';
+import { ReactorSlot } from '@datalayer/reactor/react';
+import { CatalogPlugin, useCatalogSongs } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { ShopPlugin, useCart, cartItemCount, cartTotal } from '@datalayer-examples/reactor-music-shop-plugin';
 
 /**
  * Cart summary rendered in the header. Shows the live item count + total from the
@@ -114,8 +114,12 @@ function CartSummary() {
                 <Text>Total</Text>
                 <Text>${total.toFixed(2)}</Text>
               </Box>
-              {/* Checkout trigger is provided by the checkout plugin. */}
-              <CheckoutButton />
+              {/* Whatever plugins offer to do with a cart. The header used
+                  to import the checkout plugin's button and draw it here,
+                  which meant switching that plugin off left a button opening
+                  a page that was gone. A slot has no such opinion: with the
+                  checkout plugin off there is simply nothing here. */}
+              <ReactorSlot slot="cart-actions" />
             </>
           )}
         </Box>
@@ -164,15 +168,22 @@ function StoreHeader() {
 
 /**
  * Header plugin: depends on the catalog plugin (for the `useCatalogSongs` data
- * service), the shop plugin (for the shared cart store) and the checkout plugin
- * (for the `CheckoutButton`). Contributes the store header bar with the
+ * service) and the shop plugin (for the shared cart store). Contributes the
+ * store header bar with the
  * appearance controls and a live cart summary — hovering the cart reveals its
- * line items plus a Checkout button in a Primer overlay — to the `header` slot.
+ * line items plus whatever plugins contribute to `cart-actions`, in a Primer
+ * overlay — to the `header` slot.
  */
-export const HeaderExtension = defineExtension({
+export const HeaderPlugin = definePlugin({
   name: '@music/header',
   version: '1.0.0',
-  dependencies: [CatalogExtension, ShopExtension, CheckoutExtension],
+  displayName: 'Header',
+  description: 'The store header, with the cart summary and the theme chooser.',
+  octicon: 'browser',
+  emoji: '🧭',
+  // No dependency on the checkout plugin any more: the header offers a place
+  // for cart actions and does not care who fills it, or whether anyone does.
+  dependencies: [CatalogPlugin, ShopPlugin],
   requiredBackendPlugins: ['catalog'],
   build() {
     return {

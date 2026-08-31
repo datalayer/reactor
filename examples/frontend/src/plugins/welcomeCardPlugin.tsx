@@ -7,7 +7,7 @@
 import React from 'react';
 import { Button, Text } from '@primer/react';
 import { Box, Card } from '@datalayer/primer-addons';
-import { defineExtension, signal, type Signal } from '../../../../src';
+import { definePlugin, signal, type Signal } from '../../../../src';
 import { useSignalValue } from '../../../../src/react';
 
 /**
@@ -67,7 +67,7 @@ function WelcomeCard({
   );
 }
 
-export const WelcomeCardExtension = defineExtension<Record<string, never>, unknown, WelcomeCardOutput>({
+export const WelcomeCardPlugin = definePlugin<Record<string, never>, unknown, WelcomeCardOutput>({
   name: '@demo/welcome-card',
   version: '1.0.0',
   build() {

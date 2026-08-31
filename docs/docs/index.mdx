@@ -1,0 +1,52 @@
+---
+sidebar_position: 0
+title: Reactor
+slug: /
+---
+
+# 🌀 Reactor
+
+Build extensible frontends (JavaScript) and backends (Python) with a dependency
+injection solution inspired by VS Code, Eclipse (OSGi) and other historical
+solutions.
+
+Reactor ships two sibling packages:
+
+| Package | Language | What it is |
+| --- | --- | --- |
+| `@datalayer/reactor` | TypeScript | A plugin runtime with a framework-agnostic core and a separate React integration. |
+| `datalayer_reactor` (imported as `reactor`) | Python | A FastAPI + pluggy plugin platform for modular extensibility. |
+
+Both tiers implement the **same architecture**, and that is the point of
+writing it down once: a host that lists, describes, groups or draws plugins
+should never have to ask which side of the wire a plugin came from.
+
+## Start here
+
+- [Why Reactor](/overview/why) — what this targets that a hook callback does not.
+- [Architecture](/overview/architecture) — the seven constructs, and the three
+  diagrams that fix how they relate.
+- [Get started in TypeScript](/getting-started/typescript) or
+  [in Python](/getting-started/python).
+- [The music example, running on this page](/examples/music/demo) — a store
+  assembled entirely from plugins, with a checkbox per plugin.
+
+## The shape of it, in one diagram
+
+```mermaid
+flowchart LR
+  reactor["Reactor"] -->|provides| points["Contribution Points"]
+  extensions["Extensions"] -->|group| plugins["Plugins"]
+  plugins -->|declare| contributions["Contributions"]
+  contributions -->|target| points
+```
+
+Reactor provides the contribution point; a plugin targets it. Nothing on the
+Reactor side names the plugin, which is what lets a plugin be added, removed or
+replaced without the host knowing.
+
+## Everything in this documentation
+
+import DocCardList from '@theme/DocCardList';
+
+<DocCardList />

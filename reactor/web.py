@@ -47,6 +47,59 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
     def list_plugins() -> list[dict]:
         return runtime.list_plugins()
 
+    @app.get("/extensions")
+    def list_extensions() -> list[dict]:
+        """Every extension and the plugins it delivered.
+
+        The grouping a host needs to present a plugin list the way it was
+        installed. Extensions have no lifecycle, so there is nothing to toggle
+        here — the switches stay on `/plugins`.
+        """
+        return runtime.list_extensions()
+
+    @app.post("/events/{event}")
+    def fire_event(event: str) -> dict[str, list[str]]:
+        """Fire an event; answer with what stood down and what woke.
+
+        Deactivation runs first, so one event can retire the old thing and
+        bring up the new. Firing an event nobody waits on is free and does
+        nothing, so a caller can fire liberally rather than checking first.
+        """
+        return runtime.fire_event(event)
+
+    @app.post("/plugins/{plugin_name}/deactivate")
+    def deactivate_plugin(plugin_name: str) -> dict[str, list[str]]:
+        """Stand a plugin down, dependants first.
+
+        Not the same as toggling it off: a deactivated plugin keeps its place
+        and comes back when one of its activation events fires. The switch is
+        `/plugins/{name}/toggle`.
+        """
+        try:
+            return {"deactivated": runtime.deactivate_plugin(plugin_name)}
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @app.get("/plugins/frontend-requirements")
+    def frontend_requirements(active: str = "") -> dict[str, dict[str, list[str]]]:
+        """What enabled plugins ask of the frontend, and what is missing.
+
+        `active` is a comma-separated list of the frontend plugin names the
+        caller has loaded. The platform cannot see them itself, so the caller
+        supplies them and the platform answers.
+        """
+        names = [name.strip() for name in active.split(",") if name.strip()]
+        return runtime.frontend_requirements(names)
+
+    @app.get("/contributions")
+    def contributions(tenant_id: str | None = None) -> list[dict]:
+        """Every contribution point that holds something, and what each holds.
+
+        The other half of the graph a host draws: `/plugins` says who exists
+        and what they depend on, this says who fills whose contribution points.
+        """
+        return runtime.describe_contributions(tenant_id)
+
     @app.post("/plugins/{plugin_name}/toggle")
     def toggle_plugin(plugin_name: str, payload: PluginTogglePayload) -> dict[str, str]:
         try:

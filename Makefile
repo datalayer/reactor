@@ -14,12 +14,12 @@ help:
 	@echo "Common Reactor operations"
 	@echo ""
 	@echo "  make install         Install JS deps and Python package in editable mode"
-	@echo "  make build           Build TypeScript package"
-	@echo "  make typecheck       Run TypeScript typecheck"
-	@echo "  make package         Build JS and Python distributables"
+	@echo "  make build           Build the reactor (core + react) and every plugin"
+	@echo "  make typecheck       Typecheck the reactor and every plugin"
+	@echo "  make package         Pack the reactor, its plugins, and the Python package"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
-	@echo "  make music             Run the monorepo music example (catalog backend + app)"
+	@echo "  make music             Run the monorepo music example (plugin backend + app)"
 	@echo "  make example-frontend          Alias for frontend example"
 	@echo "  make example-frontend-backend  Alias for frontend-backend example"
 	@echo "  make example-music             Alias for music example"
@@ -52,6 +52,11 @@ package: package-js package-py
 
 package-js:
 	$(NPM) pack
+	@set -e; for dir in plugins/*/; do \
+		[ -f "$$dir/package.json" ] || continue; \
+		echo "[package] $$dir"; \
+		( cd "$$dir" && $(NPM) pack --pack-destination ../.. ); \
+	done
 
 package-py:
 	$(PYTHON) -m pip install build
@@ -68,9 +73,20 @@ publish-pypi: # publish the pypi package
 	@exec echo
 	@exec echo https://pypi.org/project/datalayer-reactor/#history
 
-publish-npm: clean build-lib ## publish-npm
+publish-npm: clean build ## publish the reactor and every plugin package
 	npm publish
-	echo open https://www.npmjs.com/package/@datalayer/reactor
+	@set -e; for dir in plugins/*/; do \
+		[ -f "$$dir/package.json" ] || continue; \
+		name=$$(node -p "require('./$$dir/package.json').name"); \
+		private=$$(node -p "require('./$$dir/package.json').private === true"); \
+		if [ "$$private" = "true" ]; then \
+			echo "[publish] $$name is private, skipped"; \
+			continue; \
+		fi; \
+		echo "[publish] $$name"; \
+		( cd "$$dir" && npm publish ); \
+	done
+	@echo open https://www.npmjs.com/package/@datalayer/reactor
 
 frontend:
 	$(NPM) run example:dev
@@ -118,9 +134,9 @@ music: build-js
 	kill_port 8799; \
 	kill_port 5179; \
 	echo "[music] Installing Python backends..."; \
-	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin; \
+	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin -e examples/music/playlist-plugin -e examples/music/mood-plugin -e examples/music/backend; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
-	$(PYTHON) -m $(UVICORN) checkout_plugin.app:app --reload --port 8799 & \
+	$(PYTHON) -m $(UVICORN) music_backend.app:app --reload --port 8799 & \
 	PY_PID=$$!; \
 	echo "[music] Starting frontend on http://localhost:5179 ..."; \
 	$(NPM) run dev --prefix examples/music
@@ -129,6 +145,9 @@ example-music: music
 
 clean:
 	rm -rf dist
+	rm -rf lib
+	rm -rf plugins/*/lib
+	rm -rf plugins/*/node_modules
 	rm -rf build
 	rm -rf *.egg-info
 	rm -rf .pytest_cache

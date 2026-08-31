@@ -1,0 +1,32 @@
+// Build config for this plugin.
+//
+// `paths` points at the reactor's own build output rather than letting the
+// name resolve through `node_modules`. The workspace *root* is the reactor
+// itself, and npm does not link a workspace root into its members — so
+// `@datalayer/reactor` resolved to whatever is published on the registry, and
+// the plugin was built against a version of the framework that predated the
+// source sitting next to it.
+//
+// The root builds before the plugins (`npm run build`), so `../../lib` is
+// there by the time this runs. Emitted imports keep the package name; `paths`
+// only tells the compiler where to find the types.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@datalayer/reactor": [
+        "../../lib/index.d.ts"
+      ],
+      "@datalayer/reactor/react": [
+        "../../lib/react/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

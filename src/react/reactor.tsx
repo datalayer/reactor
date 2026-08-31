@@ -7,6 +7,8 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { ReactorPlatform } from '../core/reactor';
+import type { PluginManifest } from '../core/plugin';
+import type { ExtensionManifest } from '../core/extension';
 import { effect, type ReadonlySignal, type Signal } from '../core/signals';
 
 export type ReactorSlotComponent = {
@@ -151,12 +153,164 @@ function useBackendPluginAvailability(): (pluginName: string) => boolean {
   return useReactorStore((state) => state.isBackendPluginAvailable);
 }
 
+/**
+ * Whether one backend plugin is available right now.
+ *
+ * This is how a plugin acts on an *optional* backend plugin: a required
+ * one already gates rendering, so by the time a component runs the answer is
+ * yes; an optional one is the plugin's own business, and this is what it
+ * asks. Re-renders when the host's answer changes.
+ */
+export function useBackendPlugin(pluginName: string): boolean {
+  const isAvailable = useBackendPluginAvailability();
+  return isAvailable(pluginName);
+}
+
+/**
+ * The manifest of one plugin — how it presents itself, what it needs from the
+ * backend, and whether its module has arrived.
+ *
+ * Defined for a lazy plugin before its module loads, which is the point:
+ * a host can list and describe a plugin that is still on the wire.
+ */
+export function usePluginManifest(name: string): PluginManifest | undefined {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    // `revision` is the snapshot: metadata changes when a lazy module lands.
+    () => reactorPlatform.getManifest(name),
+    [reactorPlatform, name, revision],
+  );
+}
+
+/**
+ * The manifest of every plugin the platform knows, in dependency order.
+ *
+ * Includes lazy plugins that have not loaded, so a plugin list is complete
+ * from the first paint rather than growing as modules arrive.
+ */
+export function usePluginManifests(): PluginManifest[] {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    () =>
+      reactorPlatform
+        .listPlugins()
+        .map((name) => reactorPlatform.getManifest(name))
+        .filter((entry): entry is PluginManifest => Boolean(entry)),
+    [reactorPlatform, revision],
+  );
+}
+
+/**
+ * The extensions that delivered plugins, and what each delivered.
+ *
+ * For hosts that present a plugin list grouped the way it was installed —
+ * "Notebooks" with four plugins under it, rather than four peers. The grouping
+ * is read from the same manifests the ungrouped list uses, so the two can
+ * never disagree.
+ */
+export function useExtensionManifests(): ExtensionManifest[] {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    () =>
+      reactorPlatform
+        .listExtensions()
+        .map((name) => reactorPlatform.getExtensionManifest(name))
+        .filter((entry): entry is ExtensionManifest => Boolean(entry)),
+    [reactorPlatform, revision],
+  );
+}
+
+/**
+ * Plugin manifests grouped by the extension that delivered them.
+ *
+ * Ungrouped plugins come back under `extension: undefined`, in one bucket at
+ * the end — a plugin installed on its own is not an error, and a list that
+ * hid it would be lying.
+ */
+export function useGroupedPluginManifests(): {
+  extension?: ExtensionManifest;
+  plugins: PluginManifest[];
+}[] {
+  const extensions = useExtensionManifests();
+  const plugins = usePluginManifests();
+  return useMemo(() => {
+    const byExtension = new Map<string, PluginManifest[]>();
+    const loose: PluginManifest[] = [];
+    for (const plugin of plugins) {
+      if (!plugin.extension) {
+        loose.push(plugin);
+        continue;
+      }
+      const bucket = byExtension.get(plugin.extension);
+      if (bucket) {
+        bucket.push(plugin);
+      } else {
+        byExtension.set(plugin.extension, [plugin]);
+      }
+    }
+    const groups = extensions
+      .filter((extension) => byExtension.has(extension.name))
+      .map((extension) => ({
+        extension,
+        plugins: byExtension.get(extension.name)!,
+      }));
+    return loose.length > 0 ? [...groups, { plugins: loose }] : groups;
+  }, [extensions, plugins]);
+}
+
+/**
+ * Fire a reactor event when a value changes.
+ *
+ * The bridge between "the application did something" and "the plugins waiting
+ * on it change state" — opening a view, selecting a document, running a
+ * command. One event both stands down whatever was waiting to and wakes
+ * whatever was waiting for it, so switching views retires the old view's
+ * plugins and brings up the new one's in a single call.
+ *
+ * Firing an event nobody waits on is free, so this can be wired
+ * unconditionally rather than guarded.
+ *
+ * ```tsx
+ * useReactorEvent(onView(activeViewType));
+ * ```
+ */
+export function useReactorEvent(event: string | undefined): void {
+  const reactorPlatform = useReactorPlatform();
+  useEffect(() => {
+    if (!event) {
+      return;
+    }
+    void reactorPlatform.fire(event);
+  }, [reactorPlatform, event]);
+}
+
 export type ReactorSlotProps = {
   slot: string;
   props?: Record<string, unknown>;
 };
 
-export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
+/**
+ * What would render in a slot, right now.
+ *
+ * `ReactorSlot` renders them; this answers the question a host asks *before*
+ * rendering — is there anything here at all? A sidebar column, a toolbar
+ * separator, a whole panel: chrome that should not be drawn around nothing.
+ * Without this a host has to guess, and guessing means drawing an empty frame
+ * whenever no plugin happens to fill the slot.
+ *
+ * Enabled plugins only, and only those whose required backend plugins are
+ * available — the same test `ReactorSlot` applies, so the two never disagree.
+ */
+export function useSlotComponents(slot: string): ReactorSlotComponent[] {
   const reactorPlatform = useReactorPlatform();
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
@@ -164,24 +318,24 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
     () => reactorPlatform.getRevision(),
   );
 
-  const components = useMemo(() => {
+  return useMemo(() => {
     const out: ReactorSlotComponent[] = [];
 
     function hasRequiredBackendPlugins(requiredPlugins: string[]): boolean {
       return requiredPlugins.every((pluginName) => isBackendPluginAvailable(pluginName));
     }
 
-    for (const extensionName of reactorPlatform.listExtensions()) {
-      if (!reactorPlatform.isEnabled(extensionName)) {
+    for (const pluginName of reactorPlatform.listPlugins()) {
+      if (!reactorPlatform.isEnabled(pluginName)) {
         continue;
       }
 
-      const extensionBackendRequirements = reactorPlatform.getRequiredBackendPlugins(extensionName);
-      if (!hasRequiredBackendPlugins(extensionBackendRequirements)) {
+      const backendRequirements = reactorPlatform.getRequiredBackendPlugins(pluginName);
+      if (!hasRequiredBackendPlugins(backendRequirements)) {
         continue;
       }
 
-      const output = reactorPlatform.getOutput<ReactorReactOutput>(extensionName);
+      const output = reactorPlatform.getOutput<ReactorReactOutput>(pluginName);
       for (const component of output?.components ?? []) {
         const componentBackendRequirements = component.requiredBackendPlugins ?? [];
         if (component.slot === slot && hasRequiredBackendPlugins(componentBackendRequirements)) {
@@ -191,6 +345,10 @@ export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
     }
     return out;
   }, [reactorPlatform, slot, snapshot, isBackendPluginAvailable]);
+}
+
+export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
+  const components = useSlotComponents(slot);
 
   return (
     <>
