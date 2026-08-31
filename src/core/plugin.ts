@@ -92,6 +92,15 @@ export type PluginManifest = PluginPresentation & {
    */
   activated: boolean;
   /**
+   * Why its module never arrived, when it did not.
+   *
+   * A remote refused for its API version, an origin that is not allowed, a
+   * network that was down, a module that threw while evaluating: all of them
+   * leave a plugin listed and unloadable, and a host that can only show
+   * "not here" is asking somebody to guess. Absent when nothing went wrong.
+   */
+  loadError?: string;
+  /**
    * Why it is switched off, when it is — and `undefined` when it is not.
    *
    * `'user'` is somebody's decision and it sticks. `'dependency'` means it was

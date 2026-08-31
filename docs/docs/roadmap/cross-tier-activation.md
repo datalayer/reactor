@@ -7,6 +7,19 @@ title: Cross-tier activation and deactivation
 
 **Tracking: [datalayer/reactor#10](https://github.com/datalayer/reactor/issues/10)**
 
+## Status: shipped
+
+:::tip Shipped
+`disable()` now stands dependants down transitively on both tiers, and says
+whether a plugin is off because a person switched it off or because something
+it depends on went — see [Lifecycle](/typescript/lifecycle).
+
+Across the wire, `setBackendPlugins()` deactivates frontend plugins whose
+required backend plugin has gone and brings them back when it returns;
+`GET /events/stream` and `useBackendPluginStream()` keep the two in step. See
+[Across the tiers](/cross-tier/declaring-dependencies).
+:::
+
 ## The problem
 
 Switching a plugin should switch what depends on it — including across the wire.

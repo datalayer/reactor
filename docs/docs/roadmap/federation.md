@@ -7,6 +7,19 @@ title: Loading extensions via federation
 
 **Tracking: [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9)**
 
+## Status: loading a remote at runtime has landed
+
+:::tip Shipped
+`defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
+adds one to a platform that is already running, and a refused or broken remote
+costs one plugin and says why. See [Remote plugins](/typescript/federation).
+
+What is still open is below: **Module Federation containers** rather than plain
+ES modules — shared-dependency negotiation, remote type hints, and hot updates
+for consumed remotes. The loader is a seam, so that is a swap rather than a
+rewrite.
+:::
+
 ## The problem
 
 Every frontend plugin in Reactor today is an npm dependency of the application

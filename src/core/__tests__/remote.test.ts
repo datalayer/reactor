@@ -81,6 +81,24 @@ describe('defineRemotePlugin', () => {
     expect(reactor.getOutput('@hello/panel')).toEqual({ greeting: 'hello' });
   });
 
+  it('says why a module never arrived, rather than only that it did not', async () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@hello/panel', entry: 'https://elsewhere.example/index.js' },
+        { loader: loaderFor({ default: PANEL }) },
+      ),
+    ]);
+    reactor.start();
+    await reactor.whenReady();
+
+    // Listed, unloadable, and explained. "Not here" on its own asks a reader
+    // to guess between a slow network, a refused origin and a module that
+    // threw — three different things to do about it.
+    const manifest = reactor.getManifest('@hello/panel');
+    expect(manifest?.loaded).toBe(false);
+    expect(manifest?.loadError).toMatch(/not an allowed origin/);
+  });
+
   it('refuses an API version it does not speak, and survives it', async () => {
     const Bundled = definePlugin({ name: '@app/shell', build: () => 'up' });
     const remote = defineRemotePlugin(

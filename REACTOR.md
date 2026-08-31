@@ -140,7 +140,7 @@ webpack-style `~` prefixes need no stripping at all.
 
 ## 3. #9 — Federation
 
-### Phase 9.1 — `defineRemotePlugin` (core)
+### Phase 9.1 — `defineRemotePlugin` (core) — **done**, ESM loader; MF swap open
 
 New file `src/core/remote.ts`, exported from `src/index.ts`.
 
@@ -165,16 +165,17 @@ It returns a `LazyPluginRef` whose `load` registers the remote and calls
 `loadRemote`. **That is the whole integration** — the rest of the runtime does
 not learn a new concept.
 
-- [ ] `defineRemotePlugin` + `registerReactorRemotes(remotes)` for the runtime
+- [x] `defineRemotePlugin` + `registerReactorRemotes(remotes)` for the runtime
       registration path
-- [ ] `apiVersion` check against a host-declared version, refusing with a
+- [x] `apiVersion` check against a host-declared version, refusing with a
       manifest-visible reason rather than a thrown module
-- [ ] an allowlist of remote origins on the platform, defaulting to
+- [x] an allowlist of remote origins on the platform, defaulting to
       same-origin; loading from an origin not on it is refused and *said*
 - [ ] `PluginManifest` gains `remote?: {name, entry, module}` so a host can
       draw where a plugin came from, and the [graph](./plugins/graph) a column
-      for it
-- [ ] tests in `src/core/__tests__/remote.test.ts`: mocked `loadRemote`,
+      for it — *open; `loadError` landed instead, being the state that actually
+      needed showing first*
+- [x] tests in `src/core/__tests__/remote.test.ts`: mocked `loadRemote`,
       covering success, failure isolation, version refusal, and StrictMode's
       start/stop/start over one load
 
@@ -189,12 +190,25 @@ The failure mode here is not subtle and not recoverable at runtime: two Reacts.
 - [x] a shared Rsbuild config (`@datalayer/reactor-build`) emits it, so a plugin
       package gets the policy by using the preset rather than by copying it
 
-### Phase 9.3 — `examples/federation/`
+### Phase 9.3 — `examples/federation/` — **done**
 
 A shell and two remotes, deliberately minimal (this is not the music store):
 one remote that works, one that is broken on purpose, and a button that
 registers a third at runtime from a URL typed into a box. That last one is the
 demo that proves a marketplace is possible.
+
+Built, and it earned its keep immediately: drawing the plugin list showed that a
+failed remote had no way to say *why* — 9.1 had promised "refused politely, with
+the reason on its manifest" and the manifest carried no such field. `loadError`
+is now on `PluginManifest`, and the example shows it. A demo that only exercised
+the happy path would not have found that.
+
+- [x] `PluginManifest.loadError`, so "installed but unloadable" is a state a
+      host can draw rather than an absence somebody has to guess about
+- [x] `reactor.install(input)` — add a plugin to a platform that is already
+      running, ordered against the plugins already in it, without restarting
+      them. This is what a marketplace needs and what `buildReactorFromPlugins`
+      could never provide
 
 ---
 
@@ -432,7 +446,7 @@ flowchart LR
 | --- | --- | --- |
 | **M0** ✅ | §2.1–2.3 — everything on Rsbuild | the four boxes in §2.3 |
 | **M1** ✅ | 9.1, 9.2, 10.1 | a remote plugin loads in `examples/federation`; disable cascades |
-| **M2** ◐ | 9.3 *(open)*, 10.2 ✅ | runtime `registerRemotes`; a backend toggle stands a frontend plugin down |
+| **M2** ✅ | 9.3, 10.2 | runtime `registerRemotes`; a backend toggle stands a frontend plugin down |
 | **M3** ✅ | 5.1–5.5 | `pip install` an extension into the music backend and it appears in the browser |
 | **M4** | 11.1, 11.2 | the shadcn store loads as a remote beside the Primer one |
 

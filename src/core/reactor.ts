@@ -221,6 +221,24 @@ export type ReactorPlatform = ReactorPlatformView & {
    * once at startup. Firing it with an unchanged list is free.
    */
   setBackendPlugins: (available: readonly string[]) => Promise<FiredEvent>;
+  /**
+   * Add a plugin — or an extension of them — to a platform that is already
+   * running.
+   *
+   * `buildReactorFromPlugins` takes the set an application was built with.
+   * This is for the set it did not know about: a remote fetched from a URL a
+   * person typed in, an extension the server reported after a `pip install`,
+   * anything a marketplace hands over. Without it, "install a plugin" means
+   * rebuilding the platform, which restarts every plugin already in it.
+   *
+   * The new plugins are ordered against the existing ones rather than appended,
+   * so one that depends on something already installed still activates after
+   * it. Installing a name that is already here is a no-op, not an error —
+   * asking twice is what a retry looks like.
+   *
+   * Resolves with the names actually installed, dependencies first.
+   */
+  install: (input: PlatformInput) => Promise<string[]>;
   stop: () => void;
   enable: (name: string) => void;
   disable: (name: string) => void;
@@ -406,6 +424,14 @@ export function buildReactorFromPlugins(
   let mutationDepth = 0;
   /** The in-flight startup pass, so `whenReady` can be awaited more than once. */
   let readyPromise: Promise<void> | undefined;
+  /**
+   * Whether `start` has run.
+   *
+   * `install` needs it: a plugin installed before the platform starts should
+   * wait for the same startup pass as everything else, and one installed
+   * afterwards has missed that pass and must be activated on its own.
+   */
+  let started = false;
   /** Activations in flight, by plugin, so two events never activate one twice. */
   const activating = new Map<string, Promise<void>>();
   /** Points already read at least once, so an event is fired once per point. */
@@ -563,6 +589,7 @@ export function buildReactorFromPlugins(
         lazy: Boolean(current.lazy),
         activated: current.activated,
         disabledBy: current.enabled ? undefined : current.disabledBy ?? 'user',
+        loadError: current.loadError?.message,
         activationEvents: plugin.activationEvents ?? [ON_STARTUP],
         deactivationEvents: plugin.deactivationEvents ?? [],
         contributionPoints: (plugin.contributionPoints ?? []).map((point) => point.id),
@@ -925,6 +952,7 @@ export function buildReactorFromPlugins(
   return {
     ...reactorView,
     start() {
+      started = true;
       asOneChange(() => {
         // Eager plugins due at startup, in dependency order, synchronously —
         // that is what lets the first paint happen without awaiting anything.
@@ -1009,7 +1037,79 @@ export function buildReactorFromPlugins(
 
       return { deactivated, activated };
     },
+    async install(input: PlatformInput): Promise<string[]> {
+      const incoming = normalizePlugins([input]);
+      const fresh = incoming.plugins.filter((plugin) => !state.has(plugin.name));
+      if (fresh.length === 0) {
+        return [];
+      }
+
+      // Conflicts are checked against everything, not just the new arrivals:
+      // the whole point of a conflict is that two plugins cannot coexist, and
+      // one of them being here already is the usual way that happens.
+      for (const plugin of fresh) {
+        for (const conflict of plugin.conflictsWith ?? []) {
+          if (byName.has(conflict) || fresh.some((one) => one.name === conflict)) {
+            throw new Error(`Plugin ${plugin.name} conflicts with ${conflict}`);
+          }
+        }
+      }
+
+      for (const [name, ref] of incoming.lazyByName) {
+        lazyByName.set(name, ref);
+      }
+      for (const [name, from] of incoming.extensionOf) {
+        extensionOf.set(name, from);
+      }
+      for (const [name, extension] of incoming.extensions) {
+        extensions.set(name, extension);
+      }
+
+      const overrides = collectOverrides([input]);
+      for (const plugin of fresh) {
+        byName.set(plugin.name, plugin);
+        state.set(plugin.name, {
+          plugin,
+          config: mergeWithDefaults(plugin, (overrides.get(plugin.name) ?? {}) as never),
+          enabled: true,
+          activated: false,
+          extension: extensionOf.get(plugin.name),
+          lazy: lazyByName.get(plugin.name),
+          loaded: !lazyByName.has(plugin.name),
+        });
+      }
+
+      // Re-sorted in place rather than appended: `orderedPlugins` is what every
+      // dependency walk reads, and a plugin installed now may sit *between* two
+      // that were here before.
+      const reordered = topoSort([...orderedPlugins, ...fresh]);
+      orderedPlugins.splice(0, orderedPlugins.length, ...reordered);
+
+      // Listed immediately, whether or not it activates: a host should be able
+      // to draw and describe what it just installed while the module is still
+      // on the wire.
+      emitChange();
+
+      if (!started) {
+        // It will go up with everything else. Installing before `start` is the
+        // same as having passed it to the builder.
+        return fresh.map((plugin) => plugin.name);
+      }
+
+      const installed: string[] = [];
+      for (const plugin of reordered) {
+        if (!fresh.some((one) => one.name === plugin.name)) {
+          continue;
+        }
+        installed.push(plugin.name);
+        if (activatesAtStartup(plugin.activationEvents)) {
+          await ensureActivated(plugin.name);
+        }
+      }
+      return installed;
+    },
     stop() {
+      started = false;
       asOneChange(() => {
         for (const plugin of [...orderedPlugins].reverse()) {
           stopPlugin(plugin.name);
