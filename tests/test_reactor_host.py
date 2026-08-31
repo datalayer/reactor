@@ -116,7 +116,17 @@ def test_a_missing_build_is_reported_rather_than_served(tmp_path: Path) -> None:
     assert TestClient(app).get("/plugins").status_code == 200
 
 
-def test_find_ui_looks_where_a_wheel_puts_it(tmp_path: Path) -> None:
+def test_find_ui_looks_where_a_wheel_puts_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sys
+
+    # An empty `sys.prefix` for the duration. `find_ui` falls back to the real
+    # one, so without this the test answers differently depending on what is
+    # installed in the environment running it — and `pip install
+    # datalayer_music_example` really does put `share/…/apps/music` there.
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "empty-prefix"))
+
     package = tmp_path / "site-packages" / "my_app"
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("")

@@ -51,6 +51,68 @@ installMockBackend();
 // this component's theme provider. This is what themes them.
 setupPrimerPortals();
 
+/**
+ * Declarations the Datalayer theme provider writes onto `<body>`.
+ *
+ * Not the CSS custom properties it writes alongside them — those are named
+ * `--fgColor-…`, `--text-…`, `--bgColor-…`, they collide with nothing
+ * Docusaurus uses, and the portals genuinely need them: an overlay renders at
+ * the document root, outside every provider, and inherits its theme from the
+ * body it lands in.
+ *
+ * These six are the ones that are not tokens but *appearance*, and they change
+ * the page around the demo.
+ */
+const LEAKED_ONTO_BODY = [
+  'font-family',
+  'font-size',
+  'background-color',
+  'color',
+  '-webkit-font-smoothing',
+  'text-rendering',
+];
+
+/**
+ * Keep the store's theme off the documentation around it.
+ *
+ * `DatalayerThemeProvider` pushes its theme onto `document.body` so that
+ * Primer's portals inherit it. That is right for an application that owns the
+ * page — the music store, run on its own, is exactly that — and wrong for one
+ * embedded in somebody else's: the font, background and text colour of every
+ * page on this site changed, and because Docusaurus is a single-page
+ * application, they stayed changed after navigating away.
+ *
+ * So the tokens are left alone and the six appearance declarations are removed
+ * again. An observer rather than a one-off, because the provider rewrites them
+ * whenever the theme is recomputed — including on hover, when the header's
+ * overlay mounts a provider of its own.
+ *
+ * The alternative was to stop using `ThemedProvider` here, which would have
+ * meant the demo no longer running the code the example runs. Better to leave
+ * the example honest and pay for the embedding on this side.
+ */
+function keepTheStoreOutOfTheDocs(): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const strip = () => {
+    for (const property of LEAKED_ONTO_BODY) {
+      if (document.body.style.getPropertyValue(property)) {
+        // Removing mutates the attribute, which wakes this observer again —
+        // and finds nothing left to remove, so it settles after one pass.
+        document.body.style.removeProperty(property);
+      }
+    }
+  };
+  strip();
+  new MutationObserver(strip).observe(document.body, {
+    attributes: true,
+    attributeFilter: ['style'],
+  });
+}
+
+keepTheStoreOutOfTheDocs();
+
 // Pinned, rather than left to the reader.
 //
 // The example's header contributes Datalayer's appearance controls — eight
