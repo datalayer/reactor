@@ -6,6 +6,8 @@
 
 Build extensible frontend (JavaScript) and backend (Python) with a dependency injection solution inpsired by VS Code, Eclipse (OSGI) and other historical solutions.
 
+[![Reactor Example Music](https://images.datalayer.io/products/reactor/reactor-example-music.png)](https://reactor.datalayer.tech)
+
 Reactor provides two sibling packages:
 
 - `@datalayer/reactor` (TypeScript): Plugin runtime with a framework-agnostic core and separate React integration.
