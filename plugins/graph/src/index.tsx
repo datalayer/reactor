@@ -742,6 +742,18 @@ export function PluginGraphToggle({
   );
 }
 
+/**
+ * The event a host listens for to put the graph on screen.
+ *
+ * The button below is handed `onToggleGraph` as a prop, because the host owns
+ * its own routing. A command has no props — it is invoked from a palette that
+ * knows nothing about this plugin — so the command asks through an event
+ * instead, and the host answers it the same way it answers the button.
+ *
+ * Exported so a host can listen for the name rather than retype it.
+ */
+export const GRAPH_TOGGLE_EVENT = 'datalayer-reactor-graph:toggle';
+
 export const GraphPlugin = definePlugin({
   name: '@datalayer/reactor-graph',
   version: '0.1.0',
@@ -750,6 +762,19 @@ export const GraphPlugin = definePlugin({
     'Draws the plugin graph — extensions, dependencies, contribution points and their contributors, across both tiers.',
   octicon: 'workflow',
   emoji: '🕸️',
+  commands: [
+    {
+      id: 'graph.toggle',
+      name: 'View the plugin graph',
+      description: 'Show the platform as a graph, or go back to the application',
+      emoji: '🕸️',
+      octicon: 'workflow',
+      category: 'Graph',
+      execute: () => {
+        window.dispatchEvent(new CustomEvent(GRAPH_TOGGLE_EVENT));
+      },
+    },
+  ],
   build() {
     return {
       components: [

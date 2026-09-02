@@ -253,6 +253,23 @@ export type ReactorPlatform = ReactorPlatformView & {
   getConfig: <C = unknown>(name: string) => C | undefined;
   /** Every point that holds something, and what each holds. */
   describeContributions: () => { point: string; contributions: Contribution<unknown>[] }[];
+  /**
+   * Every command registered by an enabled plugin, ordered by `order` then by
+   * registration order.
+   *
+   * A snapshot: commands registered later show up on the next revision, which
+   * is what every host is already subscribed to.
+   */
+  listCommands: () => RegisteredCommand[];
+  /** One command by id, or `undefined`. */
+  getCommand: (id: string) => RegisteredCommand | undefined;
+  /**
+   * Run a command by id. Rejects if there is no such command, if it is
+   * currently unavailable, or if the command itself throws — the caller
+   * decides what a failed command looks like, because only it knows where to
+   * say so.
+   */
+  executeCommand: <A = void>(id: string, argument?: A) => Promise<void>;
   /** The dependency graph of this plugin, by name. */
   getDependencies: (name: string) => string[];
   /**
@@ -1263,6 +1280,15 @@ export function buildReactorFromPlugins(
     },
     describeContributions() {
       return contributions.describe();
+    },
+    listCommands() {
+      return commands.list();
+    },
+    getCommand(id: string) {
+      return commands.get(id);
+    },
+    executeCommand<A = void>(id: string, argument?: A) {
+      return commands.execute<A>(id, argument);
     },
     getDependencies(name: string): string[] {
       return (state.get(name)?.plugin.dependencies ?? []).map(

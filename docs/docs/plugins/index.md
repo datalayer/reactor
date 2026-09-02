@@ -14,8 +14,9 @@ are installed like any other plugin, and switched off like any other plugin.
 | --- | --- |
 | [`@datalayer/reactor-manager`](/plugins/manager) | the plugin list, and a switch per plugin |
 | [`@datalayer/reactor-graph`](/plugins/graph) | the platform drawn as a graph — extensions, dependencies, points and contributors |
+| [`@datalayer/reactor-commands`](/plugins/commands) | a Ctrl-K palette over every command plugins have registered |
 
-Both are built by `npm run build` at the repository root, alongside the runtime.
+All three are built by `npm run build` at the repository root, alongside the runtime.
 
 The distinction worth keeping: these are not features of the runtime. A plugin
 manager that shipped inside `@datalayer/reactor` would be a manager you could

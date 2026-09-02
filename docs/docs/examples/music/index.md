@@ -91,6 +91,24 @@ curl -s localhost:8799/api/checkout \
   -d '{"items":[{"id":"s1","quantity":2},{"id":"s3"}]}'
 ```
 
+## Commands
+
+Press **Ctrl-K**. The palette lists what the store's plugins have registered —
+*Clear the cart*, *Open checkout* — and greys out the ones that cannot run right
+now, so *Clear the cart* is unavailable while the cart is empty.
+
+The commands are declared on the plugins that own the state they change; the
+[palette](/plugins/commands) shows them without either knowing about the other.
+The catalog's Python package registers commands too, reachable from a terminal:
+
+```bash
+reactor commands list
+reactor catalog songs
+```
+
+See [the command registry](/cross-tier/commands) and
+[extending the command line](/python/cli).
+
 ## Read on
 
 | Page | What it covers |

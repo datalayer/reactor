@@ -18,11 +18,9 @@ export default defineConfig({
     setupFiles: ['./tests/vitest.setup.ts'],
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    // Vitest 4 lifted the per-pool options to the top level; this is what
+    // `poolOptions.forks.singleFork` used to say.
+    singleFork: true,
     testTimeout: 10000,
     hookTimeout: 10000,
   },

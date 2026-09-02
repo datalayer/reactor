@@ -12,9 +12,11 @@ The distribution is `datalayer_reactor`; the import name is `reactor`.
 - Contribution points and contributions: `define_contribution_point`,
   `provide_contributions`, `platform.get_contributions(point)` — the same model
   as the TypeScript runtime, with tenant scoping applied on read
-- Host extensibility hooks: `provide_cli` (command-line applications) and
-  `provide_slash_commands` (interactive sessions — a terminal, a prompt, a
-  command palette)
+- Host extensibility hooks: [`provide_cli`](/python/cli) (command-line
+  applications) and [`provide_slash_commands`](/cross-tier/commands)
+  (interactive sessions — a terminal, a prompt, a command palette)
+- A [command registry](/cross-tier/commands) mirroring the TypeScript one, and
+  a Typer [`reactor` command](/python/cli) that installed extensions extend
 - Compatibility and dependency checks via `PluginManifest`
 - Presentation metadata — `display_name`, `description`, `octicon`, `emoji` —
   the same four fields the TypeScript tier declares, so one host can list both

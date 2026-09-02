@@ -151,3 +151,19 @@ every class lives in the host's build.
   server named; the application bundles none.
 - Extensions [group without governing](/typescript/extensions) — Core and Pro
   each deliver three plugins, and every plugin is still switched on its own.
+- [Commands](/cross-tier/commands) on both tiers — Ctrl-K opens the
+  [palette](/plugins/commands) over the application's own document commands,
+  while the Python packages register theirs for the
+  [command line](/python/cli).
+
+## Commands, and what installing changes
+
+Core's Python package ships a `cms` command group and Pro ships a `pro` one, so
+the command line grows and shrinks with what is installed — the same claim the
+browser half makes, made where there is no browser:
+
+```bash
+reactor cms check "A title that is long enough" --description "…"
+pip install cms-pro
+reactor pro rewrite "hello"          # only after Pro is installed
+```

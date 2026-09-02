@@ -35,6 +35,7 @@ reactor itself. In practice that means:
 | --- | --- |
 | [`graph`](./graph) — `@datalayer/reactor-graph` | Draws the plugin graph: dependencies, contribution points and their extenders, across the frontend and backend tiers |
 | [`manager`](./manager) — `@datalayer/reactor-manager` | Lists every plugin in the platform and switches each one on and off while the application runs |
+| [`commands`](./commands) — `@datalayer/reactor-commands` | A Ctrl-K palette over every command plugins have registered, and runs the one chosen |
 
 ## How the two fit together
 
@@ -129,3 +130,30 @@ Declare how it presents itself — `displayName`, `description`, `octicon`,
 needs from the other tier with `requiredBackendPlugins` and
 `optionalBackendPlugins`. A plugin that describes itself is one a host can
 render without being taught about it.
+
+## TODO: ship these as Python packages too
+
+Every plugin in this folder is an npm package, and that is the whole of what a
+host can install today. It is the wrong half of the story for this repository,
+because the claim the examples make is **one `pip install`, both tiers** — and
+these three, the ones written to be reused, are the ones that cannot be
+installed that way.
+
+What that would mean, concretely, for `graph` and `commands`:
+
+- **A distribution per plugin**, each shipping its built module under
+  `share/datalayer/reactor/extensions/<name>/` and declaring itself in the
+  `datalayer.reactor.extensions` entry-point group — the packaging
+  `examples/cms` already demonstrates for `cms` and `cms-pro`.
+- **A backend half where there is one to write.** The graph already fetches
+  `/plugins` and `/contributions` from whatever server it is pointed at; as an
+  extension it would arrive *with* that server rather than being told its
+  address. The palette's backend half is the more interesting one: the Python
+  command registry exists, `reactor commands list` reads it, and nothing yet
+  puts those commands in front of a person in the browser.
+- **Nothing new in the host.** That is the point of doing it: a host would stop
+  importing `GraphPlugin` and `CommandsPlugin` and instead have them appear
+  because they are installed, exactly as the CMS's Core and Pro tiers do.
+
+Worth doing in that order — `graph` first, since its backend half is already
+written and only its packaging is missing.

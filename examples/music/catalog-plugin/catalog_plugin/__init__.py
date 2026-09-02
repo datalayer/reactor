@@ -12,6 +12,7 @@ from .catalog import (
     catalog_router,
     create_app,
     list_songs,
+    plugin,
     register,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "catalog_router",
     "create_app",
     "list_songs",
+    "plugin",
     "register",
 ]

@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   buildReactorFromPlugins,
+  type ReactorExtension,
   defineExtension,
   defineLazyPlugin,
   onContributionPoint,
@@ -42,7 +43,8 @@ const SIDEBAR_WIDTH = 420;
 import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
 // Not one of this example's plugins: a reusable one from the repo's `plugins/`
 // folder, installed like anything else. It knows nothing about a music store.
-import { GraphPlugin } from '@datalayer/reactor-graph';
+import { GraphPlugin, GRAPH_TOGGLE_EVENT } from '@datalayer/reactor-graph';
+import { CommandsPlugin } from '@datalayer/reactor-commands';
 
 /**
  * The whole router, because the example needs exactly two addresses.
@@ -152,13 +154,14 @@ const StoreExtension = defineExtension({
  * everything else, because a remote plugin is not a second kind of plugin: it
  * is a lazy plugin whose module happens to be at a URL.
  */
-function createReactor(remotes: LazyPluginRef[]) {
+function createReactor(remotes: (LazyPluginRef | ReactorExtension)[]) {
   return buildReactorFromPlugins([
     HeaderPlugin,
     StoreExtension,
     PluginsManagerPlugin,
     PluginsPanelPlugin,
     GraphPlugin,
+    CommandsPlugin,
     ...remotes,
   ]);
 }
@@ -279,6 +282,19 @@ function Content({ pathname }: { pathname: string }) {
  */
 function Sidebar({ pathname }: { pathname: string }) {
   const onGraph = pathname === '/graph';
+
+  const toggleGraph = useCallback(
+    () => navigate(onGraph ? '/' : '/graph'),
+    [navigate, onGraph],
+  );
+  // The graph plugin's palette command cannot be handed `onToggleGraph`, so it
+  // asks through an event instead. Answering it here keeps one way to open the
+  // graph, whether it came from the button or from Ctrl-K.
+  useEffect(() => {
+    window.addEventListener(GRAPH_TOGGLE_EVENT, toggleGraph);
+    return () => window.removeEventListener(GRAPH_TOGGLE_EVENT, toggleGraph);
+  }, [toggleGraph]);
+
   return (
     <Box
       as="aside"
@@ -306,14 +322,20 @@ function Sidebar({ pathname }: { pathname: string }) {
         props={{
           width: SIDEBAR_WIDTH,
           showingGraph: onGraph,
-          onToggleGraph: () => navigate(onGraph ? '/' : '/graph'),
+          onToggleGraph: toggleGraph,
         }}
       />
     </Box>
   );
 }
 
-export default function App({ remotes = [] }: { remotes?: LazyPluginRef[] }) {
+export default function App({
+  remotes = [],
+}: {
+  // What `bootstrapExtensions` hands back: plugin refs, and the extension
+  // groups that deliver several at once.
+  remotes?: (LazyPluginRef | ReactorExtension)[];
+}) {
   // Which backend plugins are available is the server's answer, not a constant:
   // the Plugins panel toggles them over the reactor's management API, and every
   // slot gated on `requiredBackendPlugins` follows.
@@ -330,6 +352,9 @@ export default function App({ remotes = [] }: { remotes?: LazyPluginRef[] }) {
   const pathname = usePathname();
   return (
     <>
+      {/* Rendered once, for plugins that need a mount point but position
+          themselves — the command palette floats over everything from here. */}
+      <ReactorSlot slot="root" />
       <ReactorSlot slot="header" />
       <Box
         sx={{

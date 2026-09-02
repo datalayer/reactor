@@ -19,6 +19,7 @@ from .contributions import (
     PluginContributions,
     define_contribution_point,
 )
+from .commands import Command, CommandRegistry, PluginCommands
 from .reactor import PluginPlatform
 from .types import (
     ON_ANY,
@@ -42,6 +43,9 @@ from .host import (
 from .web import create_reactor_app
 
 __all__ = [
+    "Command",
+    "CommandRegistry",
+    "PluginCommands",
     "Contribution",
     "ContributionPoint",
     "ContributionRegistry",

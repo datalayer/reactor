@@ -141,6 +141,23 @@ function Shop() {
  */
 export const ShopPlugin = definePlugin({
   name: '@music/shop',
+  // Declared rather than registered in a phase: neither command needs anything
+  // the build produced, and a command that can be read off the plugin is one a
+  // host can show before the plugin has run.
+  commands: [
+    {
+      id: 'music.shop.clearCart',
+      name: 'Clear the cart',
+      description: 'Remove every song from the cart',
+      emoji: '🧹',
+      octicon: 'trash',
+      category: 'Shop',
+      // Nothing to clear is not an error, it is an unavailable command — the
+      // palette greys it out and says so rather than hiding it.
+      isEnabled: () => Object.keys(useCart.getState().lines).length > 0,
+      execute: () => useCart.getState().clear(),
+    },
+  ],
   version: '1.0.0',
   displayName: 'Shop',
   description:

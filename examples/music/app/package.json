@@ -18,6 +18,7 @@
     "@datalayer-examples/reactor-music-shop-plugin": "*",
     "@datalayer/primer-addons": "^1.0.17",
     "@datalayer/reactor": "file:../../..",
+    "@datalayer/reactor-commands": "file:../../../plugins/commands",
     "@datalayer/reactor-graph": "file:../../../plugins/graph",
     "@datalayer/reactor-manager": "file:../../../plugins/manager",
     "@primer/react": "^37.31.0",

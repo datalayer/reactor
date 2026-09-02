@@ -56,6 +56,11 @@ class MarkdownToolsPlugin:
             )
 
 
+#: The gallery's fields, named once and read by both the contribution and the
+#: command that describes it.
+GALLERY_FIELDS = ("caption", "alt")
+
+
 GALLERY_MANIFEST = PluginManifest(
     name="cms.gallery",
     version="0.1.0",
@@ -68,12 +73,41 @@ GALLERY_MANIFEST = PluginManifest(
 
 
 class GalleryPlugin:
+    def provide_slash_commands(self, commands) -> None:
+        commands.add(
+            "cms.gallery.fields",
+            "Show the gallery fields",
+            lambda: ", ".join(GALLERY_FIELDS),
+            description="What a gallery item carries",
+            emoji="🖼️",
+            octicon="image",
+            category="CMS",
+        )
+
     def provide_contributions(self, contributions) -> None:
         contributions.contribute(
             CONTENT_TYPES,
-            {"id": "gallery", "label": "Gallery", "fields": ["caption", "alt"]},
+            {"id": "gallery", "label": "Gallery", "fields": list(GALLERY_FIELDS)},
             contribution_id="gallery",
         )
+
+
+#: What the validator insists on. One list, read by the lifecycle contribution,
+#: the `cms check` command, and the palette entry — so the three cannot drift.
+SEO_RULES = (
+    "A title between 10 and 60 characters",
+    "A meta description of at least 50 characters",
+)
+
+
+def seo_problems(title: str, description: str) -> list[str]:
+    """Everything wrong with a document, in the order the rules are listed."""
+    problems: list[str] = []
+    if not 10 <= len(title) <= 60:
+        problems.append(f"{SEO_RULES[0]} (this one has {len(title)})")
+    if len(description) < 50:
+        problems.append(f"{SEO_RULES[1]} (this one has {len(description)})")
+    return problems
 
 
 SEO_MANIFEST = PluginManifest(
@@ -99,4 +133,44 @@ class SeoValidatorPlugin:
             PUBLISH_LIFECYCLE,
             {"id": "seo", "label": "SEO", "blocking": True},
             contribution_id="seo",
+        )
+
+    def provide_cli(self, cli) -> None:
+        """Add a `cms` command group to whichever CLI is hosting us.
+
+        The same validation the publish lifecycle runs, available before a
+        document is anywhere near a browser — which is the point of the server
+        tier contributing to the same points the editor draws.
+        """
+        import typer
+
+        cms_app = typer.Typer(name="cms", help="Author and check content.")
+
+        @cms_app.command("check")
+        def check(
+            title: str = typer.Argument(..., help="The document's title."),
+            description: str = typer.Option("", help="Its meta description."),
+        ) -> None:
+            """Check a document against the SEO rules that gate publishing."""
+            problems = seo_problems(title, description)
+            if not problems:
+                typer.secho("Ready to publish.", fg=typer.colors.GREEN)
+                return
+            for problem in problems:
+                typer.secho(f"- {problem}", fg=typer.colors.RED)
+            # A non-zero exit is what makes this usable in a pre-commit hook or
+            # a pipeline: the same veto the lifecycle applies, as an exit code.
+            raise typer.Exit(code=1)
+
+        cli.add_typer(cms_app)
+
+    def provide_slash_commands(self, commands) -> None:
+        commands.add(
+            "cms.seo.rules",
+            "Show the SEO rules",
+            lambda: "\n".join(SEO_RULES),
+            description="What a document must have before it can be published",
+            emoji="🔎",
+            octicon="search",
+            category="CMS",
         )

@@ -18,5 +18,11 @@ dependencies = [
   "uvicorn>=0.30.0",
 ]
 
+# Installing this distribution publishes its CLI commands: `reactor` discovers
+# the group and `reactor catalog songs` is there, with nothing on the host side
+# naming this package.
+[project.entry-points."datalayer.reactor.cli"]
+catalog = "catalog_plugin:plugin"
+
 [tool.setuptools]
 packages = ["catalog_plugin"]

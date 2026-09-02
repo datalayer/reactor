@@ -17,6 +17,11 @@ from .contributions import (
     ContributionPoint,
     PluginContributions,
 )
+from .commands import (
+    Command,
+    CommandRegistry,
+    PluginCommands,
+)
 from .extensions import (
     EXTENSION_ENTRY_POINT_GROUP,
     FrontendExtension,
@@ -59,6 +64,7 @@ class PluginPlatform:
         self._marketplace = PluginMarketplace()
         self._sandbox = SandboxExecutor()
         self._contributions = ContributionRegistry()
+        self._commands = CommandRegistry()
         self._extensions: dict[str, ExtensionManifest] = {}
         #: Points already read, so a point's activation event fires once.
         self._fired_points: set[str] = set()
@@ -211,6 +217,7 @@ class PluginPlatform:
             record.implementation = record.factory()
         self._pm.register(record.implementation, name=name)
         self._collect_contributions(name, record)
+        self._collect_commands(name, record)
         return True
 
     def deactivate_plugin(self, name: str) -> list[str]:
@@ -242,8 +249,9 @@ class PluginPlatform:
         return stood_down
 
     def _retire(self, name: str, record: PluginRecord) -> None:
-        """Drop one plugin's contributions and unregister it."""
+        """Drop one plugin's contributions and commands, and unregister it."""
         self._contributions.dispose_plugin(name)
+        self._commands.dispose_plugin(name)
         try:
             self._pm.unregister(record.implementation)
         except Exception as error:  # noqa: BLE001
@@ -336,6 +344,7 @@ class PluginPlatform:
         record = self._get_record(name)
         self._bump()
         self._contributions.dispose_plugin(name)
+        self._commands.dispose_plugin(name)
         try:
             if record.activated:
                 self._pm.unregister(record.implementation)
@@ -382,6 +391,75 @@ class PluginPlatform:
         """The registry as one plugin sees it, for contributing after startup."""
         self._get_record(plugin_name)
         return PluginContributions(self._contributions, plugin_name)
+
+    def _collect_commands(self, plugin_name: str, record: PluginRecord) -> None:
+        """Let a freshly registered plugin register its commands.
+
+        A plugin that fails here is registered anyway, without its commands:
+        one bad plugin must not take down the host, the same posture as
+        `register_cli` and `_collect_contributions`.
+        """
+        provider = getattr(record.implementation, "provide_slash_commands", None)
+        if not callable(provider):
+            return
+        view = PluginCommands(self._commands, plugin_name)
+        try:
+            self._run_plugin_call(plugin_name, lambda: provider(view))
+        except Exception as error:  # noqa: BLE001
+            logger.warning(
+                "Plugin %s failed to register commands: %s",
+                plugin_name,
+                error,
+                exc_info=True,
+            )
+
+    def commands_for(self, plugin_name: str) -> PluginCommands:
+        """The command registry as one plugin sees it, for a host that wants
+        to register on a plugin's behalf rather than through the hook."""
+        return PluginCommands(self._commands, plugin_name)
+
+    def list_commands(self, tenant_id: str | None = None) -> list[Command]:
+        """Every command registered by an enabled plugin.
+
+        Read through the tenant filter for the same reason contributions are:
+        what a tenant may invoke is decided where enablement already lives, not
+        by each caller remembering to check.
+        """
+        allowed = self._enabled_plugin_names(tenant_id)
+        return [
+            command
+            for command in self._commands.list()
+            if self._commands.owner(command.id) in allowed
+        ]
+
+    def describe_commands(self, tenant_id: str | None = None) -> list[dict]:
+        """Every command as JSON, for a host serving a palette over HTTP."""
+        allowed = self._enabled_plugin_names(tenant_id)
+        return [entry for entry in self._commands.describe() if entry["plugin"] in allowed]
+
+    async def execute_command(
+        self,
+        command_id: str,
+        argument: object = None,
+        tenant_id: str | None = None,
+    ) -> object:
+        """Run a command by id, honouring enablement and the tenant filter."""
+        allowed = self._enabled_plugin_names(tenant_id)
+        owner = self._commands.owner(command_id)
+        if owner is None:
+            raise KeyError(f"No command '{command_id}' is registered")
+        if owner not in allowed:
+            # Indistinguishable from "no such command" on purpose: a tenant
+            # that may not use a plugin should not learn what it offers.
+            raise KeyError(f"No command '{command_id}' is registered")
+        return await self._commands.execute(command_id, argument)
+
+    def _enabled_plugin_names(self, tenant_id: str | None) -> set[str]:
+        """Plugins whose commands count right now."""
+        names = {name for name, record in self._records.items() if record.enabled}
+        if tenant_id:
+            names &= set(self.resolve_tenant_plugins(tenant_id))
+        return names
 
     def _collect_contributions(self, plugin_name: str, record: PluginRecord) -> None:
         """Let a freshly registered plugin declare what it offers.

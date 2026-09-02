@@ -23,6 +23,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import type { Contribution, ContributionPoint } from '../core/contributions';
+import type { RegisteredCommand } from '../core/commands';
 import { resolveGate, type Gate, type GateVerdict } from '../core/gates';
 import { useReactorPlatform } from './reactor';
 
@@ -65,6 +66,33 @@ export function useContributions<T>(point: ContributionPoint<T>): Contribution<T
     // `revision` is the snapshot: the contributions array is rebuilt on every
     // call, so it cannot be compared by identity.
     [reactorPlatform, point, revision],
+  );
+}
+
+/**
+ * Every command registered by an enabled plugin, re-read when the reactor
+ * changes.
+ *
+ * What a command palette renders. Registration, disposal, and a plugin being
+ * enabled or disabled all move the reactor's revision, so a surface built on
+ * this follows the platform without subscribing to the registry itself.
+ *
+ * ```tsx
+ * const commands = useCommands();
+ * const reactor = useReactorPlatform();
+ * <button onClick={() => reactor.executeCommand(commands[0].id)}>Run</button>
+ * ```
+ */
+export function useCommands(): RegisteredCommand[] {
+  const reactorPlatform = useReactorPlatform();
+  const revision = useSyncExternalStore(reactorPlatform.subscribe, () =>
+    reactorPlatform.getRevision(),
+  );
+  return useMemo(
+    // `revision` is the snapshot: the array is rebuilt on every call, so it
+    // cannot be compared by identity.
+    () => reactorPlatform.listCommands(),
+    [reactorPlatform, revision],
   );
 }
 

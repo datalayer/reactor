@@ -301,7 +301,7 @@ const PluginHoverContext = createContext<HoverControl | null>(null);
 /** The one control, created by whoever renders the list. */
 function usePluginHoverControl(): HoverControl {
   const [openName, setOpenName] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -400,7 +400,11 @@ function PluginDetails({ row }: { row: ManagedPlugin }): JSX.Element {
  */
 const OVERLAY_TAKES_NO_FOCUS = {
   preventFocusOnOpen: true,
-  returnFocusRef: { current: null },
+  // React 19 types `RefObject<T>.current` as non-nullable and Primer 37 types
+  // this prop with it, so a ref that deliberately points at nothing has to be
+  // cast at the boundary. Pointing it anywhere real would reintroduce exactly
+  // the focus-return this constant exists to prevent.
+  returnFocusRef: { current: null } as unknown as React.RefObject<HTMLElement>,
 } as const;
 
 function PluginRowView({

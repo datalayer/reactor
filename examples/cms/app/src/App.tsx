@@ -23,8 +23,16 @@
  * which is why the free and paid packages can fill the *same* point.
  */
 
-import React, { useMemo, useState } from 'react';
-import { buildReactorFromPlugins, type LazyPluginRef } from '@datalayer/reactor';
+import React, { useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  buildReactorFromPlugins,
+  type LazyPluginRef,
+  type ReactorExtension,
+} from '@datalayer/reactor';
+import { CommandsPlugin } from '@datalayer/reactor-commands';
+
+import { CmsCommandsPlugin } from './commands';
+import { docStore } from './docStore';
 import {
   ReactorSlot,
   useContributions,
@@ -52,11 +60,6 @@ import {
   type Doc,
 } from './points';
 
-const STARTING_DOC: Doc = {
-  title: 'Hello from the CMS',
-  body: 'Write something, then reach for a tool.\n',
-  contentType: '',
-};
 
 /** The toolbar: every contribution is drawn, and the application chooses none. */
 function Toolbar({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) => void }) {
@@ -211,15 +214,32 @@ function Installed() {
   );
 }
 
-export default function App({ remotes = [] }: { remotes?: LazyPluginRef[] }) {
-  // Everything here came from the server; this application bundles no plugins.
-  const reactor = useMemo(() => buildReactorFromPlugins(remotes), [remotes]);
+export default function App({
+  remotes = [],
+}: {
+  // What `bootstrapExtensions` hands back: plugin refs, and the extension
+  // groups that deliver several at once.
+  remotes?: (LazyPluginRef | ReactorExtension)[];
+}) {
+  // Everything *content* here came from the server; this application bundles no
+  // plugins of its own. The palette is the exception, and deliberately so: it is
+  // part of the shell rather than something a CMS package ships.
+  const reactor = useMemo(
+    () => buildReactorFromPlugins([CommandsPlugin, CmsCommandsPlugin, ...remotes]),
+    [remotes],
+  );
   useReactor(reactor);
 
-  const [doc, setDoc] = useState<Doc>(STARTING_DOC);
+  // Read from the store rather than component state: a command is invoked from
+  // the palette, which is outside this tree, so both have to see one document.
+  const doc = useSyncExternalStore(docStore.subscribe, docStore.get);
+  const setDoc = docStore.set;
 
   return (
     <div className="mx-auto grid max-w-6xl gap-4 p-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* Rendered once, for plugins that need a mount point but position
+          themselves — the command palette floats over everything from here. */}
+      <ReactorSlot slot="root" />
       <header className="lg:col-span-2">
         <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
           <Sparkles size={18} className="text-primary" /> Reactor CMS

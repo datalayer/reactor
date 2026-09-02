@@ -248,6 +248,28 @@ function CheckoutAside() {
  */
 export const CheckoutPlugin = definePlugin({
   name: '@music/checkout',
+  commands: [
+    {
+      id: 'music.checkout.open',
+      name: 'Open checkout',
+      description: 'Go to the checkout page',
+      emoji: '🧾',
+      octicon: 'credit-card',
+      category: 'Checkout',
+      isEnabled: () => !useCheckout.getState().open,
+      execute: () => useCheckout.getState().openCheckout(),
+    },
+    {
+      id: 'music.checkout.close',
+      name: 'Leave checkout',
+      description: 'Return to the store',
+      emoji: '↩️',
+      octicon: 'arrow-left',
+      category: 'Checkout',
+      isEnabled: () => useCheckout.getState().open,
+      execute: () => useCheckout.getState().closeCheckout(),
+    },
+  ],
   version: '1.0.0',
   displayName: 'Checkout',
   description: 'Turns the cart into an order: the Checkout button and the checkout page.',

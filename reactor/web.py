@@ -86,6 +86,20 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
         """
         return runtime.fire_event(event)
 
+    @app.post("/plugins/{plugin_name}/activate")
+    def activate_plugin(plugin_name: str) -> dict[str, bool]:
+        """Bring a plugin up now, dependencies first.
+
+        Activation is normally the platform's own answer to an event; this is
+        the way to ask for it directly, which a person at a terminal needs and
+        an event does not provide. Idempotent: activating something already up
+        answers `false` rather than failing.
+        """
+        try:
+            return {"activated": runtime.activate_plugin(plugin_name)}
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
     @app.post("/plugins/{plugin_name}/deactivate")
     def deactivate_plugin(plugin_name: str) -> dict[str, list[str]]:
         """Stand a plugin down, dependants first.

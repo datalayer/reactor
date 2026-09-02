@@ -50,6 +50,37 @@ class AiWritingAssistantPlugin:
             contribution_id="rewrite",
         )
 
+    def provide_cli(self, cli) -> None:
+        """A `pro` command group, present only while this wheel is installed.
+
+        The same point the extension makes in the browser, made on the command
+        line: uninstall `cms-pro` and `reactor pro` is gone, with nothing in the
+        host or in Core mentioning it either way.
+        """
+        import typer
+
+        pro_app = typer.Typer(name="pro", help="Commands the Pro tier adds.")
+
+        @pro_app.command("rewrite")
+        def rewrite(
+            text: str = typer.Argument(..., help="The sentence to rewrite."),
+        ) -> None:
+            """Rewrite a sentence. Faked here — the point is where it comes from."""
+            typer.echo(text.strip().capitalize().rstrip(".") + ", rewritten by Pro.")
+
+        cli.add_typer(pro_app)
+
+    def provide_slash_commands(self, commands) -> None:
+        commands.add(
+            "cms.pro.rewrite",
+            "Rewrite the selection",
+            lambda text=None: (text or "").strip().capitalize(),
+            description="The Pro tier's writing assistant",
+            emoji="✨",
+            octicon="sparkle-fill",
+            category="CMS Pro",
+        )
+
 
 PRODUCT_MANIFEST = PluginManifest(
     name="cms.product",
@@ -95,4 +126,15 @@ class SocialPublisherPlugin:
             PUBLISH_LIFECYCLE,
             {"id": "social", "label": "Social", "blocking": False},
             contribution_id="social",
+        )
+
+    def provide_slash_commands(self, commands) -> None:
+        commands.add(
+            "cms.pro.share",
+            "Share on publish",
+            lambda: "Queued for the social channels.",
+            description="What the non-blocking lifecycle step does",
+            emoji="📣",
+            octicon="megaphone",
+            category="CMS Pro",
         )
