@@ -188,6 +188,19 @@ const PALETTE_CSS = `
   white-space: nowrap;
 }
 .dla-cmdk-meta { font-size: 12px; opacity: 0.6; flex: none; }
+.dla-cmdk-key {
+  flex: none;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--cmdk-border);
+  background: var(--cmdk-selected);
+  /* The glyphs a Mac uses are wider than the letters beside them, and a
+     shortcut column that jitters between rows reads as a rendering fault. */
+  white-space: nowrap;
+}
 .dla-cmdk-empty { padding: 20px 12px; font-size: 14px; opacity: 0.7; }
 .dla-cmdk-error {
   padding: 10px 12px;
@@ -343,42 +356,88 @@ export function CommandPalette(): React.JSX.Element | null {
   );
 
   /*
-   * The one global listener: opens the palette, and closes it on Escape.
+   * Every shortcut in the platform, bound while this plugin is mounted.
    *
-   * Registered on the **capture** phase of `document`, which is what makes the
+   * The palette is the surface that owns the keyboard, which is why the
+   * registry does not: a command carries a `keybinding`, and mounting this
+   * plugin is what makes those keystrokes live. Switch it off and the
+   * shortcuts go with it, along with the palette they open.
+   *
+   * Registered on the **capture** phase of `document`, which is what makes a
    * shortcut reliable rather than merely declared:
    *
-   * - Chrome's own Ctrl-K ("Search Google") is a *default action*, and a page
-   *   may override it — but only if something calls `preventDefault`. A
-   *   bubble-phase listener on `window` never gets the chance when a
+   * - The browser's own Mod+K ("Search Google" in Chrome) is a *default
+   *   action*, and a page may override it — but only by calling
+   *   `preventDefault`. A bubble-phase listener never gets the chance when a
    *   descendant stops propagation first, and the editors in a workspace do
-   *   exactly that: Lexical in the prompt and CodeMirror in the notebook both
+   *   exactly that: Lexical in a prompt and CodeMirror in a notebook both
    *   handle keydown and stop it. The palette then looked broken in precisely
    *   the place people were typing, which is the only place it matters.
-   * - CodeMirror also binds Ctrl-K itself (delete-to-end-of-line, from the
-   *   emacs-flavoured keymap). Capturing means the palette wins that too, and
-   *   `stopPropagation` is what stops the editor acting on the same keystroke
-   *   behind the open palette.
+   * - Editors bind these chords themselves — CodeMirror's emacs-flavoured
+   *   keymap has Ctrl-K for delete-to-end-of-line. Capturing means the command
+   *   wins, and `stopPropagation` is what stops the editor acting on the same
+   *   keystroke behind the palette.
    *
    * Escape is deliberately *not* captured: an editor with its own idea of
    * Escape should keep it, and the palette only needs the ones that reach it.
    */
   useEffect(() => {
+    // Parsed once per change rather than per keystroke: this runs on the
+    // capture phase of every key a person presses, including while they type.
+    const bound = commands
+      .map((command) => {
+        const chord = command.keybinding
+          ? parseKeybinding(command.keybinding)
+          : null;
+        return chord ? { chord, id: command.id } : null;
+      })
+      .filter((entry): entry is { chord: ParsedKeybinding; id: string } =>
+        entry !== null,
+      );
+    const apple = isApplePlatform();
+
     function onKeyDown(event: KeyboardEvent) {
-      if (isPaletteShortcut(event)) {
+      if (PALETTE_CHORD && matchesKeybinding(event, PALETTE_CHORD, apple)) {
         event.preventDefault();
         event.stopPropagation();
         setOpen((wasOpen) => !wasOpen);
         return;
       }
+
       if (event.key === 'Escape') {
         setOpen((wasOpen) => wasOpen && false);
+        return;
+      }
+
+      // A command's own shortcut. Only while the palette is closed: with it
+      // open the keyboard belongs to the search field, and a chord typed into
+      // it should filter rather than fire.
+      if (open) {
+        return;
+      }
+      for (const entry of bound) {
+        if (matchesKeybinding(event, entry.chord, apple)) {
+          event.preventDefault();
+          event.stopPropagation();
+          const command = reactor.getCommand(entry.id);
+          if (command && command.isEnabled?.() !== false) {
+            void reactor.executeCommand(entry.id).catch((failure) => {
+              // Nothing is on screen to show this on: the palette is closed,
+              // which is the whole point of a shortcut. The console is where a
+              // developer will look for it.
+              // eslint-disable-next-line no-console
+              console.error(`Command ${entry.id} failed`, failure);
+            });
+          }
+          return;
+        }
       }
     }
+
     document.addEventListener('keydown', onKeyDown, { capture: true });
     return () =>
       document.removeEventListener('keydown', onKeyDown, { capture: true });
-  }, []);
+  }, [commands, open, reactor]);
 
   // Opening focuses the input; every open starts from a clean query.
   useEffect(() => {
@@ -478,7 +537,9 @@ export function CommandPalette(): React.JSX.Element | null {
                     </span>
                     {running === command.id && <span className="dla-cmdk-meta">running…</span>}
                     {command.keybinding && (
-                      <span className="dla-cmdk-meta">{command.keybinding}</span>
+                      <kbd className="dla-cmdk-key">
+                        {formatKeybinding(command.keybinding)}
+                      </kbd>
                     )}
                     {command.category && <span className="dla-cmdk-meta">{command.category}</span>}
                   </button>
@@ -489,7 +550,13 @@ export function CommandPalette(): React.JSX.Element | null {
         </ul>
 
         <div className="dla-cmdk-footer">
-          <span>↑↓ to move · ↵ to run · esc to close</span>
+          <span>
+            ↑↓ to move · ↵ to run · esc to close ·{' '}
+            <kbd className="dla-cmdk-key">
+              {formatKeybinding(PALETTE_KEYBINDING)}
+            </kbd>{' '}
+            to reopen
+          </span>
           <span>
             {matches.length} of {commands.length}
           </span>
@@ -530,7 +597,7 @@ export const CommandsPlugin = definePlugin({
       description: 'The same thing Ctrl-K does — listed so it is discoverable',
       emoji: '⌘',
       category: 'Commands',
-      keybinding: 'Ctrl+K',
+      keybinding: PALETTE_KEYBINDING,
       execute: () => {
         // Dispatching the shortcut rather than reaching into the component's
         // state keeps one way in, so there is no second path to keep working.

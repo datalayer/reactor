@@ -152,6 +152,7 @@ export const ShopPlugin = definePlugin({
       emoji: '🧹',
       octicon: 'trash',
       category: 'Shop',
+      keybinding: 'Mod+Alt+Backspace',
       // Nothing to clear is not an error, it is an unavailable command — the
       // palette greys it out and says so rather than hiding it.
       isEnabled: () => Object.keys(useCart.getState().lines).length > 0,

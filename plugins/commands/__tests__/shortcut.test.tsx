@@ -23,6 +23,7 @@ import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
 import { buildReactorFromPlugins } from '../../../src/index';
 import { registerReactor } from '../../../src/react';
+import { definePlugin as define } from '../../../src/index';
 import { CommandPalette, CommandsPlugin } from '../src/index';
 
 /** An editor that swallows keydown, as Lexical and CodeMirror both do. */
@@ -44,11 +45,11 @@ function Harness() {
   );
 }
 
-async function mount() {
+async function mount(extra: Parameters<typeof buildReactorFromPlugins>[0] = []) {
   // Registered before the first render rather than from an effect: the palette
   // reads the platform while rendering, and `useReactor` would only have set
   // it up afterwards.
-  const reactor = buildReactorFromPlugins([CommandsPlugin]);
+  const reactor = buildReactorFromPlugins([CommandsPlugin, ...extra]);
   reactor.start();
   registerReactor(reactor);
 
@@ -58,7 +59,7 @@ async function mount() {
   await act(async () => {
     root.render(<Harness />);
   });
-  return { container, root };
+  return { container, root, reactor };
 }
 
 /** Whether the palette is on screen. */
@@ -123,6 +124,69 @@ describe('the palette shortcut', () => {
       pressCtrlK(document);
     });
     expect(isOpen()).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("a plugin's own shortcut", () => {
+  it('fires the command, even from inside a greedy editor', async () => {
+    const ran: string[] = [];
+    const Bound = define({
+      name: '@tests/bound',
+      commands: [
+        {
+          id: 'tests.bound',
+          name: 'Bound',
+          // Mod is Ctrl here and ⌘ on a Mac, from the one declaration.
+          keybinding: 'Mod+Alt+G',
+          execute: () => {
+            ran.push('bound');
+          },
+        },
+      ],
+    });
+
+    const { container, root } = await mount([Bound]);
+    const editor = container.querySelector('[data-testid="editor"]')!;
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'g',
+          ctrlKey: true,
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect(ran).toEqual(['bound']);
+    // The palette stays shut: a shortcut is how you skip it.
+    expect(isOpen()).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+
+  it('leaves a chord nobody bound alone', async () => {
+    const { container, root } = await mount();
+    const editor = container.querySelector('[data-testid="editor"]')!;
+
+    let event!: KeyboardEvent;
+    await act(async () => {
+      event = new KeyboardEvent('keydown', {
+        key: 'g',
+        ctrlKey: true,
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      editor.dispatchEvent(event);
+    });
+
+    // Nothing claimed it, so whatever else wants it still gets it.
+    expect(event.defaultPrevented).toBe(false);
 
     await act(async () => root.unmount());
   });

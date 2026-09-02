@@ -771,6 +771,7 @@ export const GraphPlugin = definePlugin({
       emoji: '🕸️',
       octicon: 'workflow',
       category: 'Graph',
+      keybinding: 'Mod+Alt+G',
       execute: () => {
         window.dispatchEvent(new CustomEvent(GRAPH_TOGGLE_EVENT));
       },
