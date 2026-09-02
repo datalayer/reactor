@@ -28,6 +28,7 @@
  */
 
 import type { Dispose } from './plugin';
+import type { Keybinding } from './keys';
 
 /**
  * Something a person can invoke.
@@ -67,11 +68,17 @@ export type ReactorCommand<A = void> = {
    */
   category?: string;
   /**
-   * How a person could reach this without the palette, as text to display —
-   * `'Ctrl+Shift+P'`. Documentation, not a binding: the reactor listens to no
-   * keyboard, and whoever owns the surface owns the shortcut.
+   * A keystroke that invokes this command, written once for every platform.
+   *
+   * `'Mod+K'` is ⌘K on a Mac and Ctrl+K elsewhere, both when the keystroke is
+   * matched and when it is drawn — see `core/keys`. Chords work: `'Ctrl+Alt+Z'`,
+   * `'Mod+Shift+P'`.
+   *
+   * The registry still listens to no keyboard; a *surface* does. The command
+   * palette binds every one of these while it is mounted, which is what makes
+   * a shortcut arrive with the plugin that declared it and leave with it.
    */
-  keybinding?: string;
+  keybinding?: Keybinding;
   /** Lower sorts first among commands. Ties keep registration order. */
   order?: number;
   /**

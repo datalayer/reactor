@@ -11,6 +11,7 @@ export * from './core/reactor';
 export * from './core/signals';
 export * from './core/contributions';
 export * from './core/commands';
+export * from './core/keys';
 export * from './core/gates';
 export * from './core/graph';
 export * from './core/remote';

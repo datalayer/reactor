@@ -32,6 +32,7 @@
  * @module manager-plugin
  */
 
+import type { JSX } from 'react';
 import {
   createContext,
   useContext,

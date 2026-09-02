@@ -24,6 +24,7 @@
  * @module graph-plugin
  */
 
+import type { JSX } from 'react';
 import React, {
   useEffect,
   useMemo,

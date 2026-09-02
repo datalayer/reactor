@@ -39,7 +39,15 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { definePlugin, type RegisteredCommand } from '@datalayer/reactor';
+import {
+  definePlugin,
+  formatKeybinding,
+  isApplePlatform,
+  matchesKeybinding,
+  parseKeybinding,
+  type ParsedKeybinding,
+  type RegisteredCommand,
+} from '@datalayer/reactor';
 import { useCommands, useReactorPlatform } from '@datalayer/reactor/react';
 
 /**
@@ -274,12 +282,10 @@ function paletteRoot(): HTMLElement {
   return document.getElementById(PRIMER_PORTAL_ROOT_ID) ?? document.body;
 }
 
-/** Whether this keystroke is the one that opens the palette. */
-function isPaletteShortcut(event: KeyboardEvent): boolean {
-  // `metaKey` on a Mac, `ctrlKey` everywhere else. Accepting both rather than
-  // sniffing the platform: a person on either keyboard gets what they expect.
-  return (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k';
-}
+/** What opens the palette. Declared once, matched and drawn from the same string. */
+export const PALETTE_KEYBINDING = 'Mod+K';
+
+const PALETTE_CHORD = parseKeybinding(PALETTE_KEYBINDING);
 
 /**
  * The floating bar.
@@ -336,12 +342,32 @@ export function CommandPalette(): React.JSX.Element | null {
     [close, reactor],
   );
 
-  // The one global listener: opens the palette, and closes it on Escape.
+  /*
+   * The one global listener: opens the palette, and closes it on Escape.
+   *
+   * Registered on the **capture** phase of `document`, which is what makes the
+   * shortcut reliable rather than merely declared:
+   *
+   * - Chrome's own Ctrl-K ("Search Google") is a *default action*, and a page
+   *   may override it — but only if something calls `preventDefault`. A
+   *   bubble-phase listener on `window` never gets the chance when a
+   *   descendant stops propagation first, and the editors in a workspace do
+   *   exactly that: Lexical in the prompt and CodeMirror in the notebook both
+   *   handle keydown and stop it. The palette then looked broken in precisely
+   *   the place people were typing, which is the only place it matters.
+   * - CodeMirror also binds Ctrl-K itself (delete-to-end-of-line, from the
+   *   emacs-flavoured keymap). Capturing means the palette wins that too, and
+   *   `stopPropagation` is what stops the editor acting on the same keystroke
+   *   behind the open palette.
+   *
+   * Escape is deliberately *not* captured: an editor with its own idea of
+   * Escape should keep it, and the palette only needs the ones that reach it.
+   */
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (isPaletteShortcut(event)) {
-        // Some browsers focus their own search bar on Ctrl-K.
         event.preventDefault();
+        event.stopPropagation();
         setOpen((wasOpen) => !wasOpen);
         return;
       }
@@ -349,8 +375,9 @@ export function CommandPalette(): React.JSX.Element | null {
         setOpen((wasOpen) => wasOpen && false);
       }
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown, { capture: true });
+    return () =>
+      document.removeEventListener('keydown', onKeyDown, { capture: true });
   }, []);
 
   // Opening focuses the input; every open starts from a clean query.
@@ -507,7 +534,11 @@ export const CommandsPlugin = definePlugin({
       execute: () => {
         // Dispatching the shortcut rather than reaching into the component's
         // state keeps one way in, so there is no second path to keep working.
-        window.dispatchEvent(
+        //
+        // On `document`, because that is where the listener is: an event
+        // dispatched on `window` has only `window` in its propagation path, so
+        // a capture listener on `document` would never see it.
+        document.dispatchEvent(
           new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
         );
       },
