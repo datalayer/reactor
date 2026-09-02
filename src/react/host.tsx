@@ -142,7 +142,7 @@ export function ReactorLazy<P = Record<string, unknown>>({
   return (
     <LazyErrorBoundary fallback={renderError} resetKey={load}>
       <Suspense fallback={fallback}>
-        <LazyComponent {...((props ?? {}) as P & JSX.IntrinsicAttributes)} />
+        <LazyComponent {...((props ?? {}) as P & React.JSX.IntrinsicAttributes)} />
       </Suspense>
     </LazyErrorBoundary>
   );

@@ -31,6 +31,7 @@ import type {
   ContributionPoint,
   ContributionRecord,
 } from './contributions';
+import type { ReactorCommand } from './commands';
 import type { Gate, GateVerdict } from './gates';
 
 export type Dispose = () => void;
@@ -156,6 +157,15 @@ export type PhaseContext<C, I, O> = {
     value: T,
     options?: ContributeOptions,
   ) => Dispose;
+  /**
+   * Register a command a person can invoke. Usable in any phase and at any
+   * time afterwards. The returned disposer is idempotent, and every command a
+   * plugin registered is disposed automatically when it stops or is disabled.
+   *
+   * The imperative twin of {@link ReactorPlugin.commands}: use this when the
+   * command closes over build output, that when it does not.
+   */
+  registerCommand: <A>(command: ReactorCommand<A>) => Dispose;
 };
 
 export type PluginState<C, I, O> = {
@@ -247,6 +257,13 @@ export interface ReactorPlugin<C, I, O> extends PluginPresentation {
    * does, or when it appears later.
    */
   contributes?: ContributionRecord<any>[];
+  /**
+   * Commands this plugin offers, registered by the reactor during the register
+   * phase — the declarative twin of `ctx.registerCommand`. Use this when a
+   * command does not need build output; use `ctx.registerCommand` when it does,
+   * or when the command appears later.
+   */
+  commands?: ReactorCommand<any>[];
   register?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
   afterRegistration?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
 }

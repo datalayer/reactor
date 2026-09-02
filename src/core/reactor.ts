@@ -31,6 +31,8 @@ import {
   type Contribution,
   type ContributionPoint,
 } from './contributions';
+import { CommandRegistry } from './commands';
+import type { ReactorCommand, RegisteredCommand } from './commands';
 import {
   activatesAtStartup,
   matchesActivation,
@@ -420,6 +422,7 @@ export function buildReactorFromPlugins(
   const state = new Map<string, PluginRuntimeState<any, any, any>>();
   const listeners = new Set<() => void>();
   const contributions = new ContributionRegistry();
+  const commands = new CommandRegistry();
   let revision = 0;
   let mutationDepth = 0;
   /** The in-flight startup pass, so `whenReady` can be awaited more than once. */
@@ -646,6 +649,22 @@ export function buildReactorFromPlugins(
           emitChange();
         };
       },
+      registerCommand<A>(command: ReactorCommand<A>): Dispose {
+        const dispose = commands.add(name, command);
+        emitChange();
+
+        // Idempotent for the same reason `contribute`'s disposer is: a second
+        // call removes nothing, and waking subscribers again is pure noise.
+        let disposed = false;
+        return () => {
+          if (disposed) {
+            return;
+          }
+          disposed = true;
+          dispose();
+          emitChange();
+        };
+      },
     };
   }
 
@@ -675,6 +694,9 @@ export function buildReactorFromPlugins(
     // plugin's own register hook already sees a fully populated point.
     for (const record of current.plugin.contributes ?? []) {
       contributions.add(name, record.point, record.value, record.options);
+    }
+    for (const command of current.plugin.commands ?? []) {
+      commands.add(name, command);
     }
     emitChange();
 
@@ -968,6 +990,7 @@ export function buildReactorFromPlugins(
     // Whatever it contributed goes with it: a disabled plugin must not keep
     // a view in the switcher or a command in the palette.
     contributions.disposePlugin(name);
+    commands.disposePlugin(name);
   }
 
   return {
