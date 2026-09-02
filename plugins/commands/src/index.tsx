@@ -295,6 +295,10 @@ function paletteRoot(): HTMLElement {
   return document.getElementById(PRIMER_PORTAL_ROOT_ID) ?? document.body;
 }
 
+/** The listbox the search field drives, and its options. */
+const LIST_ID = 'dla-cmdk-list';
+const optionId = (index: number) => `dla-cmdk-option-${index}`;
+
 /** What opens the palette. Declared once, matched and drawn from the same string. */
 export const PALETTE_KEYBINDING = 'Mod+K';
 
@@ -497,6 +501,31 @@ export function CommandPalette(): React.JSX.Element | null {
             type="text"
             placeholder="Run a command…"
             aria-label="Search commands"
+            /*
+             * Every browser assist off.
+             *
+             * A plain text input with a value the browser has seen before
+             * shows its own autofill list, and ↑↓ then walk *that* rather than
+             * the commands — so the arrows worked on an empty field and
+             * stopped the moment somebody typed. Nothing here is a form field
+             * worth remembering.
+             */
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            /*
+             * A combobox over a listbox, which is what this is. Beyond telling
+             * a screen reader which option is current, it tells the browser
+             * this is an application widget rather than a field to help with.
+             */
+            role="combobox"
+            aria-expanded
+            aria-controls={LIST_ID}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              matches.length > 0 ? optionId(selected) : undefined
+            }
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
@@ -505,7 +534,7 @@ export function CommandPalette(): React.JSX.Element | null {
 
         {error !== null && <div className="dla-cmdk-error">{error}</div>}
 
-        <ul className="dla-cmdk-list">
+        <ul className="dla-cmdk-list" id={LIST_ID} role="listbox">
           {matches.length === 0 ? (
             <li className="dla-cmdk-empty">
               {commands.length === 0
@@ -520,6 +549,8 @@ export function CommandPalette(): React.JSX.Element | null {
                   <button
                     type="button"
                     className="dla-cmdk-item"
+                    id={optionId(index)}
+                    role="option"
                     aria-selected={index === selected}
                     aria-disabled={!available}
                     disabled={!available}

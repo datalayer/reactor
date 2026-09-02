@@ -755,7 +755,20 @@ export function PluginGraphToggle({
  */
 export const GRAPH_TOGGLE_EVENT = 'datalayer-reactor-graph:toggle';
 
-export const GraphPlugin = definePlugin({
+export type GraphPluginConfig = {
+  /**
+   * Whether to register the "View the plugin graph" command.
+   *
+   * On by default, and worth turning off in one case: a host that already has
+   * its own way to open the graph. The loop workspace does — its adapter
+   * contributes a command that switches the active view directly — and two
+   * palette entries for one action, one of which is a hopeful event dispatch,
+   * is worse than either alone.
+   */
+  registerCommand: boolean;
+};
+
+export const GraphPlugin = definePlugin<GraphPluginConfig>({
   name: '@datalayer/reactor-graph',
   version: '0.1.0',
   displayName: 'Graph',
@@ -763,8 +776,12 @@ export const GraphPlugin = definePlugin({
     'Draws the plugin graph — extensions, dependencies, contribution points and their contributors, across both tiers.',
   octicon: 'workflow',
   emoji: '🕸️',
-  commands: [
-    {
+  config: { registerCommand: true },
+  register(ctx) {
+    if (!ctx.config.registerCommand) {
+      return;
+    }
+    return ctx.registerCommand({
       id: 'graph.toggle',
       name: 'View the plugin graph',
       description: 'Show the platform as a graph, or go back to the application',
@@ -773,10 +790,28 @@ export const GraphPlugin = definePlugin({
       category: 'Graph',
       keybinding: 'Mod+Alt+G',
       execute: () => {
-        window.dispatchEvent(new CustomEvent(GRAPH_TOGGLE_EVENT));
+        /*
+         * Asked, not done: only the host knows how it routes.
+         *
+         * The event is cancelable, and a host claims it by calling
+         * `preventDefault`. Nobody claiming it means the host mounted this
+         * plugin without wiring the way in — so say so, rather than letting a
+         * palette entry quietly do nothing, which is the hardest kind of
+         * broken to notice.
+         */
+        const asked = new CustomEvent(GRAPH_TOGGLE_EVENT, { cancelable: true });
+        window.dispatchEvent(asked);
+        if (!asked.defaultPrevented) {
+          throw new Error(
+            'Nothing is listening for the graph toggle. A host mounting ' +
+              '@datalayer/reactor-graph has to answer ' +
+              `'${GRAPH_TOGGLE_EVENT}' to open the graph, or turn this command ` +
+              'off with `configurePlugin(GraphPlugin, { registerCommand: false })`.',
+          );
+        }
       },
-    },
-  ],
+    });
+  },
   build() {
     return {
       components: [

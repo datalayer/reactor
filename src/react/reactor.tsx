@@ -112,6 +112,26 @@ export function useReactor(reactor: ReactorPlatform, options: UseReactorOptions 
   return reactor;
 }
 
+/**
+ * The platform, or `null` when none is registered yet.
+ *
+ * For a component that legitimately renders *outside* a reactor and wants to
+ * read one when there is one — chrome around a workspace, drawn before the
+ * workspace has built its platform. Everything else should use
+ * {@link useReactorPlatform}, whose throw is a useful error: a slot rendered in
+ * a reactor-less tree is nearly always a mistake, and silence would hide it.
+ *
+ * The store is global rather than a React context, so a component using this
+ * re-renders when a platform is registered later — it does not have to be a
+ * descendant of whatever registered it.
+ */
+/** Subscribing to nothing, for a slot read with no platform behind it. */
+const NO_SUBSCRIPTION = () => () => {};
+
+export function useOptionalReactorPlatform(): ReactorPlatform | null {
+  return useReactorStore((state) => state.reactor);
+}
+
 export function useReactorPlatform(): ReactorPlatform {
   const reactorStore = useReactorStore((state) => state.reactor);
   if (!reactorStore) {
@@ -420,16 +440,44 @@ export type ReactorSlotProps = {
  * Enabled plugins only, and only those whose required backend plugins are
  * available — the same test `ReactorSlot` applies, so the two never disagree.
  */
+/**
+ * What is contributed to a slot, or nothing when no platform is registered.
+ *
+ * The tolerant twin of {@link useSlotComponents}, for chrome that may render
+ * before the workspace inside it has built its reactor.
+ */
+export function useOptionalSlotComponents(slot: string): ReactorSlotComponent[] {
+  const reactorPlatform = useOptionalReactorPlatform();
+  const slots = useSlotComponentsFrom(reactorPlatform, slot);
+  return slots;
+}
+
 export function useSlotComponents(slot: string): ReactorSlotComponent[] {
   const reactorPlatform = useReactorPlatform();
+  return useSlotComponentsFrom(reactorPlatform, slot);
+}
+
+function useSlotComponentsFrom(
+  reactorPlatform: ReactorPlatform | null,
+  slot: string,
+): ReactorSlotComponent[] {
   const isBackendPluginAvailable = useBackendPluginAvailability();
   const snapshot = useSyncExternalStore(
-    reactorPlatform.subscribe,
-    () => reactorPlatform.getRevision(),
+    // A hook cannot be skipped, so with no platform this subscribes to nothing
+    // and reports a constant — and re-runs when one is registered, because the
+    // store holding it is what this component read to get here.
+    reactorPlatform ? reactorPlatform.subscribe : NO_SUBSCRIPTION,
+    () => (reactorPlatform ? reactorPlatform.getRevision() : -1),
   );
 
   return useMemo(() => {
     const out: ReactorSlotComponent[] = [];
+    if (!reactorPlatform) {
+      // Nothing registered yet. Chrome drawn around a workspace renders before
+      // the workspace has built its platform, and an empty slot is the honest
+      // answer until it has.
+      return out;
+    }
 
     function hasRequiredBackendPlugins(requiredPlugins: string[]): boolean {
       return requiredPlugins.every((pluginName) => isBackendPluginAvailable(pluginName));
@@ -458,7 +506,10 @@ export function useSlotComponents(slot: string): ReactorSlotComponent[] {
 }
 
 export function ReactorSlot({ slot, props = {} }: ReactorSlotProps) {
-  const components = useSlotComponents(slot);
+  // Tolerant, because a slot is legitimately rendered by chrome around a
+  // workspace — outside the reactor, and before it exists. An empty slot is
+  // the right answer then, and it fills in when a platform registers.
+  const components = useOptionalSlotComponents(slot);
 
   return (
     <>

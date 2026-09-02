@@ -291,8 +291,14 @@ function Sidebar({ pathname }: { pathname: string }) {
   // asks through an event instead. Answering it here keeps one way to open the
   // graph, whether it came from the button or from Ctrl-K.
   useEffect(() => {
-    window.addEventListener(GRAPH_TOGGLE_EVENT, toggleGraph);
-    return () => window.removeEventListener(GRAPH_TOGGLE_EVENT, toggleGraph);
+    function answer(event: Event) {
+      // Claiming it is how the command knows a host is listening: unclaimed,
+      // it throws rather than doing nothing.
+      event.preventDefault();
+      toggleGraph();
+    }
+    window.addEventListener(GRAPH_TOGGLE_EVENT, answer);
+    return () => window.removeEventListener(GRAPH_TOGGLE_EVENT, answer);
   }, [toggleGraph]);
 
   return (
