@@ -1,0 +1,9 @@
+{
+  "label": "Python Plugins",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "title": "Python runtime",
+    "description": "datalayer_reactor \u2014 the same constructs, on pluggy and FastAPI."
+  }
+}

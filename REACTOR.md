@@ -1,4 +1,4 @@
-# 🌀 Reactor — plan for `feat/federation`
+# ⚛️ Reactor — plan for `feat/federation`
 
 Covers the four open roadmap issues:
 

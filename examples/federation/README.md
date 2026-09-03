@@ -1,6 +1,6 @@
 [![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
 
-# 🌀 Federation — plugins that arrive from a URL
+# ⚛️ Federation — plugins that arrive from a URL
 
 Every other example bundles its plugins. This one fetches them, and exists to
 answer the three questions that raises.

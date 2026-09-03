@@ -52,7 +52,7 @@ flowchart BT
   `dependencies: [PlaylistPlugin]` and contributes three rules (Chill, Energetic,
   A to Z); it contributes to no slot and renders nothing of its own.
 - **plugins-panel-plugin** — contributes the Python plugins as a group in the
-  [plugins manager](/plugins/manager), driven by `GET /plugins` and
+  [plugins manager](/core-plugins/manager), driven by `GET /plugins` and
   `POST /plugins/{name}/toggle`.
 
 Every plugin, on both tiers, declares a `displayName`/`display_name`,

@@ -1,6 +1,6 @@
 ---
 sidebar_position: 4
-title: The Python backend
+title: The Python Backend
 ---
 
 # Four packages, one platform, one command
@@ -19,7 +19,7 @@ pip install datalayer_music_example
 datalayer-music-example
 ```
 
-See [the host](/python/host) for the construct that makes that one command
+See [the host](/python-plugins/host) for the construct that makes that one command
 serve both tiers.
 
 ```python

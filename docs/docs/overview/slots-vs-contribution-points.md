@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-title: Slots or contribution points?
+title: Slots or Contribution Points?
 ---
 
 # Slots or contribution points?
@@ -35,5 +35,5 @@ contribution point. See
 [the two-plugin pair](/examples/music/architecture) for the shape a slot cannot
 express.
 
-Details and code: [Contribution points](/typescript/contribution-points) and
-[React bindings](/typescript/react).
+Details and code: [Contribution points](/typescript-plugins/contribution-points) and
+[React bindings](/typescript-plugins/react).

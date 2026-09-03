@@ -4,18 +4,19 @@
  * Datalayer License
  */
 
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import * as Reactor from '@datalayer/reactor';
-import { bootstrapExtensions, setReactorSharedModules } from '@datalayer/reactor';
-import * as ReactorReact from '@datalayer/reactor/react';
-import { ThemedProvider, setupPrimerPortals, useThemeStore } from '@datalayer/primer-addons';
-import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
-import App from './App';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import * as Reactor from "@datalayer/reactor";
+import {
+  bootstrapExtensions,
+  setReactorSharedModules,
+} from "@datalayer/reactor";
+import * as ReactorReact from "@datalayer/reactor/react";
+import { ThemedProvider, useThemeStore } from "@datalayer/primer-addons";
+import { CATALOG_BACKEND_URL } from "@datalayer-examples/reactor-music-catalog-plugin";
+import App from "./App";
 
-import './styles.css';
-
-setupPrimerPortals();
+import "./styles.css";
 
 /**
  * What a pip-installed plugin is allowed to borrow from this shell.
@@ -28,8 +29,8 @@ setupPrimerPortals();
  */
 setReactorSharedModules({
   react: React,
-  '@datalayer/reactor': Reactor,
-  '@datalayer/reactor/react': ReactorReact,
+  "@datalayer/reactor": Reactor,
+  "@datalayer/reactor/react": ReactorReact,
 });
 
 /**
@@ -51,7 +52,7 @@ async function main() {
     allowedOrigins: [CATALOG_BACKEND_URL],
   });
 
-  createRoot(document.getElementById('root')!).render(
+  createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <ThemedProvider useStore={useThemeStore}>
         <App remotes={remotes} />

@@ -56,7 +56,7 @@ def create_app() -> FastAPI:
 uvicorn my_backend.app:app --reload --port 8799
 ```
 
-See [the HTTP API](/python/http-api) for what `create_reactor_app` serves, and
+See [the HTTP API](/python-plugins/http-api) for what `create_reactor_app` serves, and
 [the music example's backend](/examples/music/backend) for a host composing four
 plugin packages on one platform.
 
@@ -64,8 +64,8 @@ plugin packages on one platform.
 
 | You want to | Read |
 | --- | --- |
-| write a manifest with everything on it | [Plugins](/python/plugins) |
-| let plugins offer things the host chooses between | [Contribution points](/python/contribution-points) |
-| group plugins, and defer their construction | [Extensions and events](/python/extensions-and-events) |
-| scope plugins per tenant, or publish them | [Tenants and marketplace](/python/tenants-and-marketplace) |
-| tell the frontend what you need from it | [Across the tiers](/cross-tier/declaring-dependencies) |
+| write a manifest with everything on it | [Plugins](/python-plugins/plugins) |
+| let plugins offer things the host chooses between | [Contribution points](/python-plugins/contribution-points) |
+| group plugins, and defer their construction | [Extensions and events](/python-plugins/extensions-and-events) |
+| scope plugins per tenant, or publish them | [Tenants and marketplace](/python-plugins/tenants-and-marketplace) |
+| tell the frontend what you need from it | [Cross-tier Dependencies](/cross-tier-dependencies) |

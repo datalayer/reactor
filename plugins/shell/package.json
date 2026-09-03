@@ -1,0 +1,43 @@
+{
+  "name": "@datalayer/reactor-shell",
+  "version": "1.0.0",
+  "description": "The shell plugin of a Datalayer Reactor platform — a generic view point, a segmented selector that shows nothing until plugins contribute, a choice store, and a cycle command.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    }
+  },
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "datalayer",
+    "reactor",
+    "plugins",
+    "shell",
+    "views"
+  ],
+  "dependencies": {
+    "@primer/react": "^37.31.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "clean": "rm -rf lib"
+  },
+  "peerDependencies": {
+    "@datalayer/reactor": "^1.0.0",
+    "react": ">=18"
+  }
+}

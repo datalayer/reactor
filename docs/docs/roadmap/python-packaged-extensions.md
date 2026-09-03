@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-title: Frontend + backend extensions as one Python package
+title: Frontend + Backend Extensions as One Python Package
 ---
 
 # Packaging and loading a frontend + backend extension as a Python package
@@ -13,7 +13,7 @@ title: Frontend + backend extensions as one Python package
 :::tip Shipped
 A distribution can ship both halves, a server discovers it by installing it, and
 **installing one while the server runs makes it appear on the next browser
-refresh**. See [Packaging an extension](/python/packaging).
+refresh**. See [Packaging an extension](/python-plugins/packaging).
 
 What is still open is on this page below: remotes built as Module Federation
 containers rather than plain ES modules, and a template for people outside this
@@ -22,7 +22,7 @@ repository.
 
 ## The problem
 
-An [extension](/typescript/extensions) is the unit of delivery — *"what would I
+An [extension](/typescript-plugins/extensions) is the unit of delivery — *"what would I
 uninstall to lose this?"*. In an application with two tiers, the honest answer to
 that question usually spans both: the checkout view and the endpoint that prices
 a cart are one capability, and nobody wants to install them separately or
@@ -58,7 +58,7 @@ in step by hand.
   worth building in that order.
 - **Version coupling.** The two halves ship together, so they can be required to
   match — which is a stronger guarantee than
-  [`frontend_requirements`](/cross-tier/declaring-dependencies) can offer today,
+  [`frontend_requirements`](/cross-tier-dependencies) can offer today,
   and worth making explicit rather than assumed.
 - **Development ergonomics.** An editable install has to keep working: a plugin
   author must be able to edit the TSX and see it without rebuilding a wheel.

@@ -9,6 +9,7 @@
     "preview": "rsbuild preview"
   },
   "dependencies": {
+    "@datalayer/primer-addons": "^1.0.21",
     "@datalayer/reactor": "file:../../..",
     "@datalayer/reactor-commands": "file:../../../plugins/commands",
     "class-variance-authority": "^0.7.1",

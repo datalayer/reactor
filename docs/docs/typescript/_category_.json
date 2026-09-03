@@ -1,9 +1,0 @@
-{
-  "label": "TypeScript runtime",
-  "position": 3,
-  "link": {
-    "type": "generated-index",
-    "title": "TypeScript runtime",
-    "description": "@datalayer/reactor — the plugin runtime, its lifecycle, and the React bindings that render what plugins contribute."
-  }
-}

@@ -24,6 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The interactive REPL (reactor.repl). Soft on purpose: servers never prompt.
+repl = [
+  "prompt_toolkit>=3.0.0"
+]
 dev = [
   "pytest>=8.3.0",
   # `reactor commands` is async under the hood, and its tests await the

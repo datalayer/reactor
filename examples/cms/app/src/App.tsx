@@ -23,23 +23,25 @@
  * which is why the free and paid packages can fill the *same* point.
  */
 
-import React, { useMemo, useState, useSyncExternalStore } from 'react';
+import React, { useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildReactorFromPlugins,
   type LazyPluginRef,
   type ReactorExtension,
-} from '@datalayer/reactor';
-import { CommandsPlugin } from '@datalayer/reactor-commands';
+} from "@datalayer/reactor";
+import { CommandsPlugin } from "@datalayer/reactor-commands";
+// By path, not from the main barrel — see the music example for why.
+import { ThemePlugin } from "@datalayer/primer-addons/lib/reactor";
 
-import { CmsCommandsPlugin } from './commands';
-import { docStore } from './docStore';
+import { CmsCommandsPlugin } from "./commands";
+import { docStore } from "./docStore";
 import {
   ReactorSlot,
   useContributions,
   usePluginManifests,
   useReactor,
-} from '@datalayer/reactor/react';
-import { FileText, Package, Rocket, Sparkles } from 'lucide-react';
+} from "@datalayer/reactor/react";
+import { FileText, Package, Rocket, Sparkles } from "lucide-react";
 
 import {
   Badge,
@@ -52,17 +54,22 @@ import {
   Empty,
   Separator,
   Textarea,
-} from './ui';
+} from "./ui";
 import {
   ContentTypes,
   EditorToolbar,
   PublishLifecycle,
   type Doc,
-} from './points';
-
+} from "./points";
 
 /** The toolbar: every contribution is drawn, and the application chooses none. */
-function Toolbar({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) => void }) {
+function Toolbar({
+  doc,
+  onChange,
+}: {
+  doc: Doc;
+  onChange: (doc: Doc) => void;
+}) {
   const tools = useContributions(EditorToolbar);
 
   if (tools.length === 0) {
@@ -76,7 +83,7 @@ function Toolbar({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) => void }) 
           key={tool.id}
           variant="outline"
           size="sm"
-          title={`${tool.value.hint ?? ''} — from ${tool.plugin}`}
+          title={`${tool.value.hint ?? ""} — from ${tool.plugin}`}
           onClick={() => onChange({ ...doc, body: tool.value.run(doc.body) })}
         >
           {tool.value.label}
@@ -87,12 +94,23 @@ function Toolbar({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) => void }) 
 }
 
 /** Content types: the application draws a chooser and shows exactly one. */
-function ContentTypePicker({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) => void }) {
+function ContentTypePicker({
+  doc,
+  onChange,
+}: {
+  doc: Doc;
+  onChange: (doc: Doc) => void;
+}) {
   const types = useContributions(ContentTypes);
-  const active = types.find((entry) => entry.value.id === doc.contentType) ?? types[0];
+  const active =
+    types.find((entry) => entry.value.id === doc.contentType) ?? types[0];
 
   if (types.length === 0) {
-    return <Empty>No content types are installed — there is nothing to author.</Empty>;
+    return (
+      <Empty>
+        No content types are installed — there is nothing to author.
+      </Empty>
+    );
   }
 
   return (
@@ -102,7 +120,7 @@ function ContentTypePicker({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) =
           <Button
             key={entry.id}
             size="sm"
-            variant={entry.id === active?.id ? 'default' : 'outline'}
+            variant={entry.id === active?.id ? "default" : "outline"}
             onClick={() =>
               onChange({
                 ...doc,
@@ -117,7 +135,7 @@ function ContentTypePicker({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) =
       </div>
       {active ? (
         <p className="text-xs text-muted-foreground">
-          {active.value.description}{' '}
+          {active.value.description}{" "}
           <span className="opacity-70">— contributed by {active.plugin}</span>
         </p>
       ) : null}
@@ -139,11 +157,16 @@ function ContentTypePicker({ doc, onChange }: { doc: Doc; onChange: (doc: Doc) =
 /** Publish: every contribution runs, and any one of them can stop it. */
 function Publish({ doc }: { doc: Doc }) {
   const steps = useContributions(PublishLifecycle);
-  const [results, setResults] = useState<{ label: string; ok: boolean; message: string }[]>([]);
+  const [results, setResults] = useState<
+    { label: string; ok: boolean; message: string }[]
+  >([]);
   const [published, setPublished] = useState(false);
 
   const publish = () => {
-    const outcome = steps.map((step) => ({ label: step.value.label, ...step.value.run(doc) }));
+    const outcome = steps.map((step) => ({
+      label: step.value.label,
+      ...step.value.run(doc),
+    }));
     setResults(outcome);
     setPublished(outcome.every((entry) => entry.ok));
   };
@@ -155,25 +178,32 @@ function Publish({ doc }: { doc: Doc }) {
           <Rocket size={14} /> Publish
         </Button>
         <span className="text-xs text-muted-foreground">
-          {steps.length} step{steps.length === 1 ? '' : 's'} in the lifecycle
+          {steps.length} step{steps.length === 1 ? "" : "s"} in the lifecycle
         </span>
       </div>
       {steps.length === 0 ? (
-        <Empty>Nothing runs on publish. Install a plugin that fills this point.</Empty>
+        <Empty>
+          Nothing runs on publish. Install a plugin that fills this point.
+        </Empty>
       ) : null}
       {results.length > 0 ? (
         <div className="grid gap-1.5">
           {results.map((result) => (
-            <div key={result.label} className="flex items-baseline gap-2 text-xs">
-              <Badge variant={result.ok ? 'success' : 'destructive'}>
-                {result.ok ? 'ok' : 'blocked'}
+            <div
+              key={result.label}
+              className="flex items-baseline gap-2 text-xs"
+            >
+              <Badge variant={result.ok ? "success" : "destructive"}>
+                {result.ok ? "ok" : "blocked"}
               </Badge>
               <span className="font-medium">{result.label}</span>
               <span className="text-muted-foreground">{result.message}</span>
             </div>
           ))}
           <p className="pt-1 text-xs">
-            {published ? '🎉 Published.' : '⛔ Publishing was stopped by a step above.'}
+            {published
+              ? "🎉 Published."
+              : "⛔ Publishing was stopped by a step above."}
           </p>
         </div>
       ) : null}
@@ -186,7 +216,7 @@ function Installed() {
   const manifests = usePluginManifests();
   const byExtension = new Map<string, typeof manifests>();
   for (const manifest of manifests) {
-    const key = manifest.extension ?? 'Not grouped';
+    const key = manifest.extension ?? "Not grouped";
     byExtension.set(key, [...(byExtension.get(key) ?? []), manifest]);
   }
 
@@ -202,7 +232,10 @@ function Installed() {
           {plugins.map((manifest) => (
             <div key={manifest.name} className="pl-5 text-xs">
               <span className="font-medium">{manifest.displayName}</span>
-              <span className="text-muted-foreground"> — {manifest.description}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {manifest.description}
+              </span>
             </div>
           ))}
         </div>
@@ -225,7 +258,13 @@ export default function App({
   // plugins of its own. The palette is the exception, and deliberately so: it is
   // part of the shell rather than something a CMS package ships.
   const reactor = useMemo(
-    () => buildReactorFromPlugins([CommandsPlugin, CmsCommandsPlugin, ...remotes]),
+    () =>
+      buildReactorFromPlugins([
+        CommandsPlugin,
+        CmsCommandsPlugin,
+        ThemePlugin,
+        ...remotes,
+      ]),
     [remotes],
   );
   useReactor(reactor);
@@ -245,8 +284,8 @@ export default function App({
           <Sparkles size={18} className="text-primary" /> Reactor CMS
         </h1>
         <p className="text-sm text-muted-foreground">
-          Every feature below arrived from a Python package. This application has
-          three contribution points and no opinions about what fills them.
+          Every feature below arrived from a Python package. This application
+          has three contribution points and no opinions about what fills them.
         </p>
       </header>
 
@@ -257,8 +296,8 @@ export default function App({
               <FileText size={14} /> Editor
             </CardTitle>
             <CardDescription>
-              The toolbar is <code>cms.editorToolbar</code> — every contribution is
-              drawn.
+              The toolbar is <code>cms.editorToolbar</code> — every contribution
+              is drawn.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
@@ -290,8 +329,8 @@ export default function App({
           <CardHeader>
             <CardTitle>Publish</CardTitle>
             <CardDescription>
-              <code>cms.publishLifecycle</code> — every step runs, and any one can
-              stop it.
+              <code>cms.publishLifecycle</code> — every step runs, and any one
+              can stop it.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -306,7 +345,9 @@ export default function App({
         <Card>
           <CardHeader>
             <CardTitle>Installed</CardTitle>
-            <CardDescription>Python package → extension → plugin.</CardDescription>
+            <CardDescription>
+              Python package → extension → plugin.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Installed />

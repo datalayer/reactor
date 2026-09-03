@@ -22,7 +22,7 @@ An application that ends at the browser needs one plugin system. An application
 with a server needs two — and the moment it has two, every question it answers
 has two answers unless the two agree on what a plugin *is*.
 
-Reactor's answer is to declare the same seven constructs on both sides, with the
+Reactor's answer is to declare the same constructs on both sides, with the
 same names and the same presentation fields, so that:
 
 - a plugin list can show frontend and backend plugins in one list, in one shape;
@@ -32,7 +32,7 @@ same names and the same presentation fields, so that:
   the same way.
 
 See [Architecture](/overview/architecture) for the constructs, and
-[Across the tiers](/cross-tier/declaring-dependencies) for what a plugin may say
+[Cross-tier Dependencies](/cross-tier-dependencies) for what a plugin may say
 about its counterpart.
 
 ## What is deliberately not here
@@ -45,5 +45,5 @@ about its counterpart.
 - **Enforcement across the wire.** Backend `dependencies` are checked at
   registration and refused outright. A frontend dependency cannot be — the
   plugins live in a browser the platform cannot see. Reactor declares those and
-  [answers questions about them](/cross-tier/declaring-dependencies) instead of
+  [answers questions about them](/cross-tier-dependencies) instead of
   pretending to enforce them.

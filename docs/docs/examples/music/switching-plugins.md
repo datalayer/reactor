@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-title: Switching plugins off
+title: Switching Plugins Off
 ---
 
 # Switching plugins off and on
@@ -28,9 +28,9 @@ same four presentation fields, which is why one overlay draws either.
 
 - **Frontend (TypeScript)** — `reactor.enable(name)` / `reactor.disable(name)`
   on the platform in the browser. That is every reactor's business rather than
-  this example's, so [`@datalayer/reactor-manager`](/plugins/manager) does it.
+  this example's, so [`@datalayer/reactor-manager`](/core-plugins/manager) does it.
 - **Backend (Python)** — `POST /plugins/{name}/toggle` on the reactor's
-  [management API](/python/http-api). The frontend does not decide this; it asks
+  [management API](/python-plugins/http-api). The frontend does not decide this; it asks
   the server and re-reads `GET /plugins`. Nothing generic can know that endpoint
   exists, which is why the example's own panel still does.
 

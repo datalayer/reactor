@@ -22,7 +22,7 @@ npm run build
 ```
 
 `npm run build` builds the runtime (`lib/`) and the
-[bundled plugins](/plugins/) under `plugins/`.
+[bundled plugins](/core-plugins/) under `plugins/`.
 
 ## A plugin, a platform, a start
 
@@ -58,9 +58,9 @@ import { ReactorSlot } from '@datalayer/reactor/react';   // React bindings
 
 | You want to | Read |
 | --- | --- |
-| declare a plugin properly, with presentation metadata | [Plugins](/typescript/plugins) |
-| understand phases, `enable`/`disable` and disposal | [Lifecycle](/typescript/lifecycle) |
-| let plugins offer things the app chooses between | [Contribution points](/typescript/contribution-points) |
-| ship several plugins as one capability | [Extensions](/typescript/extensions) |
-| not load a plugin until something asks | [Activation events](/typescript/activation-events) and [Lazy loading](/typescript/lazy-loading) |
-| render all of it | [React bindings](/typescript/react) |
+| declare a plugin properly, with presentation metadata | [Plugins](/typescript-plugins/plugins) |
+| understand phases, `enable`/`disable` and disposal | [Lifecycle](/typescript-plugins/lifecycle) |
+| let plugins offer things the app chooses between | [Contribution points](/typescript-plugins/contribution-points) |
+| ship several plugins as one capability | [Extensions](/typescript-plugins/extensions) |
+| not load a plugin until something asks | [Activation events](/typescript-plugins/activation-events) and [Lazy loading](/typescript-plugins/lazy-loading) |
+| render all of it | [React bindings](/typescript-plugins/react) |

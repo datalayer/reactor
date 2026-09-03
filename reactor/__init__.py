@@ -20,6 +20,13 @@ from .contributions import (
     define_contribution_point,
 )
 from .commands import Command, CommandRegistry, PluginCommands
+from .slash import (
+    CommandArgSpec,
+    CommandCollisionError,
+    SlashCommandRegistry,
+    SlashCommandSpec,
+    spec_from_module,
+)
 from .reactor import PluginPlatform
 from .types import (
     ON_ANY,

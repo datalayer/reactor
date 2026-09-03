@@ -4,7 +4,7 @@
  * Datalayer License
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildReactorFromPlugins,
   type ReactorExtension,
@@ -12,39 +12,42 @@ import {
   defineLazyPlugin,
   onContributionPoint,
   type LazyPluginRef,
-} from '@datalayer/reactor';
+} from "@datalayer/reactor";
 import {
   ReactorSlot,
   useBackendPluginStream,
   useReactor,
   useSlotComponents,
-} from '@datalayer/reactor/react';
-import { Box } from '@datalayer/primer-addons';
-import { HeaderPlugin } from '@datalayer-examples/reactor-music-header-plugin';
-import { ShopPlugin } from '@datalayer-examples/reactor-music-shop-plugin';
+} from "@datalayer/reactor/react";
+import { Box } from "@datalayer/primer-addons";
+import { HeaderPlugin } from "@datalayer-examples/reactor-music-header-plugin";
+import { ShopPlugin } from "@datalayer-examples/reactor-music-shop-plugin";
 import {
   CheckoutPlugin,
   useCheckout,
-} from '@datalayer-examples/reactor-music-checkout-plugin';
-import { PlaylistPlugin } from '@datalayer-examples/reactor-music-playlist-plugin';
+} from "@datalayer-examples/reactor-music-checkout-plugin";
+import { PlaylistPlugin } from "@datalayer-examples/reactor-music-playlist-plugin";
 import {
   PluginsPanelPlugin,
   useBackendPluginAvailability,
   useBackendPlugins,
-} from '@datalayer-examples/reactor-music-plugins-panel-plugin';
+} from "@datalayer-examples/reactor-music-plugins-panel-plugin";
 // The generic manager from the repo's `plugins/` folder: it lists this
 // platform's frontend plugins and switches them, and knows nothing about a
 // music store. The example's own panel keeps the half it cannot know — the
 // Python plugins on the other side of the wire.
-import { PluginsManagerPlugin } from '@datalayer/reactor-manager';
+import { PluginsManagerPlugin } from "@datalayer/reactor-manager";
 
 /** How wide the sidebar is, and what the manager truncates to. */
 const SIDEBAR_WIDTH = 420;
-import { CATALOG_BACKEND_URL } from '@datalayer-examples/reactor-music-catalog-plugin';
+import { CATALOG_BACKEND_URL } from "@datalayer-examples/reactor-music-catalog-plugin";
 // Not one of this example's plugins: a reusable one from the repo's `plugins/`
 // folder, installed like anything else. It knows nothing about a music store.
-import { GraphPlugin, GRAPH_TOGGLE_EVENT } from '@datalayer/reactor-graph';
-import { CommandsPlugin } from '@datalayer/reactor-commands';
+import { GraphPlugin, GRAPH_TOGGLE_EVENT } from "@datalayer/reactor-graph";
+import { CommandsPlugin } from "@datalayer/reactor-commands";
+// By path, not from the main barrel: the barrel-free corner is what keeps
+// reactor out of primer-addons consumers that have none.
+import { ThemePlugin } from "@datalayer/primer-addons/lib/reactor";
 
 /**
  * The whole router, because the example needs exactly two addresses.
@@ -58,8 +61,8 @@ function usePathname(): string {
   const [pathname, setPathname] = useState(() => window.location.pathname);
   useEffect(() => {
     const onPopState = () => setPathname(window.location.pathname);
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
   return pathname;
 }
@@ -68,9 +71,9 @@ function navigate(to: string): void {
   if (window.location.pathname === to) {
     return;
   }
-  window.history.pushState({}, '', to);
+  window.history.pushState({}, "", to);
   // `pushState` does not fire `popstate`; this is what tells the app it moved.
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 /**
@@ -93,17 +96,17 @@ function navigate(to: string): void {
  * what rules exist, and the answer arrives.
  */
 const MoodPlugin = defineLazyPlugin({
-  name: '@music/mood',
-  version: '1.0.0',
-  displayName: 'Moods',
+  name: "@music/mood",
+  version: "1.0.0",
+  displayName: "Moods",
   description:
-    'Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself, and loads after the first paint.',
-  octicon: 'sun',
-  emoji: '🌤️',
+    "Three ways to fill a playlist, contributed to the playlist plugin. Renders nothing itself, and loads after the first paint.",
+  octicon: "sun",
+  emoji: "🌤️",
   dependencies: [PlaylistPlugin],
-  activationEvents: [onContributionPoint('music.playlistRule')],
+  activationEvents: [onContributionPoint("music.playlistRule")],
   load: () =>
-    import('@datalayer-examples/reactor-music-mood-plugin').then(
+    import("@datalayer-examples/reactor-music-mood-plugin").then(
       (module) => module.MoodPlugin,
     ),
 });
@@ -130,12 +133,13 @@ const MoodPlugin = defineLazyPlugin({
  * the shop, and a package should not claim to deliver what it merely relies on.
  */
 const StoreExtension = defineExtension({
-  name: '@music/store',
-  version: '1.0.0',
-  displayName: 'Store',
-  description: 'The shop view, the playlist beside it, and the moods that fill it.',
-  octicon: 'package',
-  emoji: '🛍️',
+  name: "@music/store",
+  version: "1.0.0",
+  displayName: "Store",
+  description:
+    "The shop view, the playlist beside it, and the moods that fill it.",
+  octicon: "package",
+  emoji: "🛍️",
   plugins: [ShopPlugin, PlaylistPlugin, MoodPlugin, CheckoutPlugin],
 });
 
@@ -162,6 +166,9 @@ function createReactor(remotes: (LazyPluginRef | ReactorExtension)[]) {
     PluginsPanelPlugin,
     GraphPlugin,
     CommandsPlugin,
+    // The portal root and its color mode, followed from the theme store —
+    // the two lines main.tsx used to hand-roll, plus the toggle command.
+    ThemePlugin,
     ...remotes,
   ]);
 }
@@ -178,18 +185,18 @@ function Content({ pathname }: { pathname: string }) {
   // layout has to have an answer for. Asking the slot what is in it is the
   // answer: with the shop off there is no first column, and what is left
   // takes the whole width rather than sitting beside a hole.
-  const hasShop = useSlotComponents('main').length > 0;
+  const hasShop = useSlotComponents("main").length > 0;
   // Asked rather than assumed, for the same reason. Switching the checkout
   // plugin off while its page is open would otherwise leave two empty columns
   // and no way back to the store — the `open` flag lives in the plugin's
   // store, but the page that reads it has gone.
-  const hasCheckout = useSlotComponents('checkout').length > 0;
+  const hasCheckout = useSlotComponents("checkout").length > 0;
 
-  if (pathname === '/graph') {
+  if (pathname === "/graph") {
     // No width cap: the graph is four columns of nodes and every pixel it is
     // denied is a label that wraps or an edge that crosses another.
     return (
-      <Box sx={{ px: 3, py: 4, display: 'grid', gap: 3 }}>
+      <Box sx={{ px: 3, py: 4, display: "grid", gap: 3 }}>
         <ReactorSlot
           slot="graph"
           props={{ backendUrl: CATALOG_BACKEND_URL, backendPlugins }}
@@ -207,9 +214,9 @@ function Content({ pathname }: { pathname: string }) {
         sx={{
           px: 3,
           py: 4,
-          display: 'grid',
-          gridTemplateColumns: ['1fr', '1fr', 'minmax(0, 1fr) minmax(0, 1fr)'],
-          alignItems: 'start',
+          display: "grid",
+          gridTemplateColumns: ["1fr", "1fr", "minmax(0, 1fr) minmax(0, 1fr)"],
+          alignItems: "start",
           gap: 4,
         }}
       >
@@ -218,12 +225,12 @@ function Content({ pathname }: { pathname: string }) {
             children straight into the grid — and the second would land in the
             next column. Wrapping keeps a slot's contents in one column
             however many plugins fill it. */}
-        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+        <Box sx={{ display: "grid", gap: 4, minWidth: 0 }}>
           <ReactorSlot slot="checkout" />
         </Box>
         {/* Whatever the checkout plugin wants beside its page — which of its
             two views is on screen is its business, not this layout's. */}
-        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+        <Box sx={{ display: "grid", gap: 4, minWidth: 0 }}>
           <ReactorSlot slot="checkout-aside" />
         </Box>
       </Box>
@@ -234,15 +241,15 @@ function Content({ pathname }: { pathname: string }) {
       sx={{
         px: 3,
         py: 4,
-        display: 'grid',
+        display: "grid",
         // One column until there is room for two. `minmax(0, 1fr)` rather than
         // `1fr`: a grid track's default minimum is its content, so a wide
         // child — the catalog's own inner grid — would push the column past
         // its share and the whole page would scroll sideways.
         gridTemplateColumns: hasShop
-          ? ['1fr', '1fr', 'minmax(0, 1fr) minmax(0, 1fr)']
-          : '1fr',
-        alignItems: 'start',
+          ? ["1fr", "1fr", "minmax(0, 1fr) minmax(0, 1fr)"]
+          : "1fr",
+        alignItems: "start",
         gap: 4,
       }}
     >
@@ -253,11 +260,11 @@ function Content({ pathname }: { pathname: string }) {
         // Boxed for the same reason as the checkout columns: a slot renders a
         // fragment, and two plugins filling `main` would otherwise become two
         // grid items in two different columns.
-        <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+        <Box sx={{ display: "grid", gap: 4, minWidth: 0 }}>
           <ReactorSlot slot="main" />
         </Box>
       ) : null}
-      <Box sx={{ display: 'grid', gap: 4, minWidth: 0 }}>
+      <Box sx={{ display: "grid", gap: 4, minWidth: 0 }}>
         <ReactorSlot slot="catalog" />
         <ReactorSlot slot="playlist" />
       </Box>
@@ -281,10 +288,10 @@ function Content({ pathname }: { pathname: string }) {
  * need it take what they recognise.
  */
 function Sidebar({ pathname }: { pathname: string }) {
-  const onGraph = pathname === '/graph';
+  const onGraph = pathname === "/graph";
 
   const toggleGraph = useCallback(
-    () => navigate(onGraph ? '/' : '/graph'),
+    () => navigate(onGraph ? "/" : "/graph"),
     [navigate, onGraph],
   );
   // The graph plugin's palette command cannot be handed `onToggleGraph`, so it
@@ -308,19 +315,19 @@ function Sidebar({ pathname }: { pathname: string }) {
         // Wide enough for a plugin's name, its description and a switch on
         // one line. The manager truncates its descriptions to the width it is
         // given, so the two are the same number on purpose.
-        width: ['100%', '100%', SIDEBAR_WIDTH],
+        width: ["100%", "100%", SIDEBAR_WIDTH],
         flexShrink: 0,
         px: 3,
         py: 4,
-        bg: 'canvas.subtle',
-        borderLeft: ['none', 'none', '1px solid'],
-        borderTop: ['1px solid', '1px solid', 'none'],
-        borderColor: 'border.default',
-        alignSelf: 'stretch',
-        position: ['static', 'static', 'sticky'],
+        bg: "canvas.subtle",
+        borderLeft: ["none", "none", "1px solid"],
+        borderTop: ["1px solid", "1px solid", "none"],
+        borderColor: "border.default",
+        alignSelf: "stretch",
+        position: ["static", "static", "sticky"],
         top: 0,
-        maxHeight: ['none', 'none', '100vh'],
-        overflowY: ['visible', 'visible', 'auto'],
+        maxHeight: ["none", "none", "100vh"],
+        overflowY: ["visible", "visible", "auto"],
       }}
     >
       <ReactorSlot
@@ -364,12 +371,12 @@ export default function App({
       <ReactorSlot slot="header" />
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: ['column', 'column', 'row'],
-          alignItems: 'flex-start',
+          display: "flex",
+          flexDirection: ["column", "column", "row"],
+          alignItems: "flex-start",
         }}
       >
-        <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+        <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
           <Content pathname={pathname} />
         </Box>
         <Sidebar pathname={pathname} />

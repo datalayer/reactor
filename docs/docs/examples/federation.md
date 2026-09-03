@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 7
 title: Federation
 ---
 
@@ -27,4 +27,4 @@ remote runs with the page's privileges.
 
 The remotes in `public/remotes/` are plain ES modules with no build step, and
 borrow React from the host rather than importing it — see
-[Remote plugins](/typescript/federation) for why that is not optional.
+[Remote plugins](/typescript-plugins/federation) for why that is not optional.

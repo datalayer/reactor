@@ -1,6 +1,6 @@
 {
   "label": "CMS",
-  "position": 2,
+  "position": 6,
   "link": {
     "type": "doc",
     "id": "examples/cms/index"

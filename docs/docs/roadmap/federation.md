@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: Loading extensions via federation
+title: Loading Extensions via Federation
 ---
 
 # Loading extensions via federation
@@ -12,7 +12,7 @@ title: Loading extensions via federation
 :::tip Shipped
 `defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
 adds one to a platform that is already running, and a refused or broken remote
-costs one plugin and says why. See [Remote plugins](/typescript/federation).
+costs one plugin and says why. See [Remote plugins](/typescript-plugins/federation).
 
 What is still open is below: **Module Federation containers** rather than plain
 ES modules — shared-dependency negotiation, remote type hints, and hot updates
@@ -39,10 +39,10 @@ were designed for it:
 - **A manifest is readable without running anything.** A plugin can be listed,
   described, drawn and switched off before its code exists locally. A remote
   changes *where the module comes from*, not what a host knows about it.
-- **[`defineLazyPlugin`](/typescript/lazy-loading) already defers a module.**
+- **[`defineLazyPlugin`](/typescript-plugins/lazy-loading) already defers a module.**
   `load: () => import('./heavy')` is a thunk. A federated remote is the same
   thunk with a different body.
-- **[Activation events](/typescript/activation-events) already gate the fetch.**
+- **[Activation events](/typescript-plugins/activation-events) already gate the fetch.**
   A remote that is never wanted is never downloaded, with no extra machinery.
 
 So the missing piece is delivery, not lifecycle.
@@ -87,8 +87,8 @@ One thing the choice deliberately does **not** decide: what
 standalone SDK that needs no bundler, so the runtime loads a remote through
 that and stays consumable by a host built with something else. A plugin
 platform that dictated a bundler to third parties would be making the same
-mistake as one that dictated a UI kit — which is the claim
-[the shadcn/ui example](/roadmap/shadcn-ui) exists to test.
+mistake as one that dictated a UI kit — the claim
+[the CMS example](/examples/cms/) exists to test, and passes.
 
 ## What has to be designed
 
@@ -101,7 +101,7 @@ mistake as one that dictated a UI kit — which is the claim
 - **Version compatibility.** The Python tier already has
   `PluginCompatibility(api_version=…)`; a remote loaded at runtime needs the same
   check, and needs it to *fail politely* — a bad remote should be one missing
-  plugin, exactly as [a module that fails to load is today](/typescript/lazy-loading).
+  plugin, exactly as [a module that fails to load is today](/typescript-plugins/lazy-loading).
 - **Trust.** A remote is third-party code in the shell's origin. What a
   marketplace listing has to assert before a host will load it is an open
   question, not an implementation detail.

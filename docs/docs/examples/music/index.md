@@ -1,6 +1,6 @@
 ---
 sidebar_position: 0
-title: Music store
+title: Music Store
 slug: /examples/music/
 ---
 
@@ -50,7 +50,7 @@ datalayer-music-example # one server: the store, its API, and all four Python pl
 
 That is the whole thing — no npm afterwards, no second server, no CORS. The
 Python host serves the built interface from the same origin as the API it calls.
-See [the host](/python/host) for what makes that one command possible.
+See [the host](/python-plugins/host) for what makes that one command possible.
 
 ## Run it the long way
 
@@ -98,7 +98,7 @@ Press **Ctrl-K**. The palette lists what the store's plugins have registered —
 now, so *Clear the cart* is unavailable while the cart is empty.
 
 The commands are declared on the plugins that own the state they change; the
-[palette](/plugins/commands) shows them without either knowing about the other.
+[palette](/core-plugins/commands) shows them without either knowing about the other.
 The catalog's Python package registers commands too, reachable from a terminal:
 
 ```bash
@@ -106,8 +106,8 @@ reactor commands list
 reactor catalog songs
 ```
 
-See [the command registry](/cross-tier/commands) and
-[extending the command line](/python/cli).
+See [the command registry](/commands-registry) and
+[extending the command line](/python-plugins/cli).
 
 ## Read on
 

@@ -33,9 +33,9 @@ CMS
 | --- | --- |
 | Application | CMS |
 | Python package | `cms`, `cms-pro` |
-| [Extension](/typescript/extensions) | Core, Pro |
-| [Plugin](/typescript/plugins) | Gallery, SEO Validator, AI Writing Assistant… |
-| [Contribution point](/typescript/contribution-points) | Editor Toolbar, Content Types, Publish Lifecycle |
+| [Extension](/typescript-plugins/extensions) | Core, Pro |
+| [Plugin](/typescript-plugins/plugins) | Gallery, SEO Validator, AI Writing Assistant… |
+| [Contribution point](/typescript-plugins/contribution-points) | Editor Toolbar, Content Types, Publish Lifecycle |
 | Contribution | a toolbar button, a content type, a publish step |
 
 The hierarchy, which is the thing to hold on to:
@@ -67,7 +67,7 @@ A regular `pip install`, not `pip install -e`. An editable install writes a
 `.pth` file that Python only processes at interpreter startup, so an editable
 package genuinely does need a restart. A normal install lands in
 `site-packages`, which a running process can be made to re-read — see
-[packaging](/python/packaging).
+[packaging](/python-plugins/packaging).
 :::
 
 ## Packaging is independent of extensibility
@@ -143,18 +143,18 @@ every class lives in the host's build.
 
 ## What it demonstrates, in one list
 
-- [One `pip install`, both tiers](/python/packaging) — each package ships its
+- [One `pip install`, both tiers](/python-plugins/packaging) — each package ships its
   Python plugins *and* their browser halves.
-- [A host](/python/host) — one command serves the interface and the API from one
+- [A host](/python-plugins/host) — one command serves the interface and the API from one
   origin.
-- [Remote plugins](/typescript/federation) — every plugin arrives from a URL the
+- [Remote plugins](/typescript-plugins/federation) — every plugin arrives from a URL the
   server named; the application bundles none.
-- Extensions [group without governing](/typescript/extensions) — Core and Pro
+- Extensions [group without governing](/typescript-plugins/extensions) — Core and Pro
   each deliver three plugins, and every plugin is still switched on its own.
-- [Commands](/cross-tier/commands) on both tiers — Ctrl-K opens the
-  [palette](/plugins/commands) over the application's own document commands,
+- [Commands](/commands-registry) on both tiers — Ctrl-K opens the
+  [palette](/core-plugins/commands) over the application's own document commands,
   while the Python packages register theirs for the
-  [command line](/python/cli).
+  [command line](/python-plugins/cli).
 
 ## Commands, and what installing changes
 

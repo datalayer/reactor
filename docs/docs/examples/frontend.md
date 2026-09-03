@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 title: Frontend
 ---
 
@@ -23,5 +23,5 @@ npm run example:dev
 | `src/plugins/statusBannerPlugin.tsx` | a second plugin in the same slot |
 | `src/App.tsx` | `buildReactorFromPlugins`, `useReactor`, `ReactorSlot` |
 
-Read [Plugins](/typescript/plugins) and [React bindings](/typescript/react)
+Read [Plugins](/typescript-plugins/plugins) and [React bindings](/typescript-plugins/react)
 alongside it.

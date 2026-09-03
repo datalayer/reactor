@@ -99,7 +99,11 @@ function reactorMusicDemo() {
             ...shared('styled-components'),
             ...shared('boring-avatars'),
             ...shared('@primer/octicons-react'),
-            ...shared('@datalayer/primer-addons'),
+            // From the workspace next door, not this site's own install:
+            // the published copy predates `lib/reactor` (the theme plugin),
+            // and a subpath-only alias would load a second copy of the theme
+            // store — the toggle would then flip a store nobody renders.
+            '@datalayer/primer-addons': path.resolve(REPO, '../../primer/addons'),
             '@primer/react$': path.resolve(__dirname, 'node_modules/@primer/react'),
           },
         },
@@ -135,7 +139,7 @@ function reactorMusicDemo() {
 
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
-  title: '🌀 Reactor',
+  title: '⚛️ Reactor',
   tagline: 'Extensible frontends and backends, from one plugin model',
   url: 'https://reactor.datalayer.tech',
   baseUrl: '/',
@@ -259,11 +263,11 @@ module.exports = {
             },
             {
               label: 'TypeScript runtime',
-              to: '/typescript/plugins',
+              to: '/typescript-plugins/plugins',
             },
             {
               label: 'Python runtime',
-              to: '/python/plugins',
+              to: '/python-plugins/plugins',
             },
             {
               label: 'Music example',

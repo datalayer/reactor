@@ -1,6 +1,6 @@
 ---
-sidebar_position: 3
-title: Frontend + backend
+sidebar_position: 4
+title: Frontend + Backend
 ---
 
 # The frontend + backend example
@@ -20,6 +20,6 @@ npm run example:dev:frontend-backend
 ```
 
 This is the two-tier contract at its smallest. See
-[Across the tiers](/cross-tier/declaring-dependencies) for what is being
+[Cross-tier Dependencies](/cross-tier-dependencies) for what is being
 declared, and [the music example](/examples/music/) for the same idea with four
 backend plugins and a panel to switch them.

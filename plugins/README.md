@@ -1,6 +1,6 @@
 [![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
 
-# 🌀 Reactor Plugins
+# ⚛️ Reactor Plugins
 
 Plugins that ship as their own packages, for any application built on
 `@datalayer/reactor` to install.

@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: Live demo
+title: Live Demo
 hide_table_of_contents: true
 ---
 
@@ -49,7 +49,7 @@ Try these, in this order:
    with it.
 
 Steps 5 and 6 are the same mechanism with two different strengths declared; see
-[Across the tiers](/cross-tier/declaring-dependencies).
+[Cross-tier Dependencies](/cross-tier-dependencies).
 
 The graph in step 7 is worth a second look while switching things off: it is
 drawn from the platform, so a plugin leaving the list leaves the picture, and
@@ -68,7 +68,7 @@ Three things, and no fourth:
   screenshot, and the backend half of the graph is drawn from that same answer.
   Running the real backend changes nothing about what you see.
 - **The graph is a button, not an address.** The example gives the
-  [plugin graph](/plugins/graph) its own `/graph` route, and `pushState` is its
+  [plugin graph](/core-plugins/graph) its own `/graph` route, and `pushState` is its
   whole router. A page inside a documentation site cannot take over the URL bar,
   so the same state lives in a `useState` here. Nothing downstream changes: the
   slot, the button and the plugin that owns both are the example's.

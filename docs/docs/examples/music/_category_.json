@@ -1,6 +1,6 @@
 {
-  "label": "Music store",
-  "position": 1,
+  "label": "Music Store",
+  "position": 5,
   "link": {
     "type": "doc",
     "id": "examples/music/index"

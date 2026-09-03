@@ -190,7 +190,7 @@ export default function App() {
 
   return (
     <>
-      <h1>🌀 Reactor — plugins from a URL</h1>
+      <h1>⚛️ Reactor — plugins from a URL</h1>
       <p className="lede">
         One plugin is bundled with this page. The others arrive over HTTP, and one
         of them was not known to anybody when this page was built.
