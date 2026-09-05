@@ -57,10 +57,11 @@ host whose plugins draw with a design system must add it, and the runtime
 cannot know what that is.
 
 :::note
-This is what Module Federation's `shared` does, with the machinery removed.
-`defineRemotePlugin` takes a `loader`, so swapping `import(url)` for
-`loadRemote()` when [federation lands](/roadmap/federation) is one function, not
-a rewrite.
+This is what Module Federation's `shared` does, with the machinery removed —
+a remote reads a global, and gets whatever is there. A remote built as a
+**container** negotiates instead; see [Containers](#containers) below. Both
+kinds go through the same `loader` seam, which is why adding the second was
+one function rather than a rewrite.
 :::
 
 ### A refusal that is not a crash
@@ -91,6 +92,82 @@ same-origin always passes and anything else must be named.
 defineRemotePlugin(ref, { allowedOrigins: ['https://plugins.example.com'] });
 ```
 
+## Containers
+
+A plain remote borrows the host's React off a global and hopes it is the right
+one. That is enough until two remotes want the same library at compatible but
+different versions, or until a remote is a real build with chunks rather than
+one file. A **Module Federation container** is the answer to both, and
+`defineFederatedPlugin` loads one through the same seam:
+
+```ts
+import { defineFederatedPlugin, initReactorFederation } from '@datalayer/reactor';
+
+// Once, after setReactorSharedModules: the same modules, offered the way a
+// container negotiates for them — with versions, as singletons.
+await initReactorFederation({ name: 'my_shell', versions: { react: React.version } });
+
+const Charts = defineFederatedPlugin({
+  name: '@acme/charts',
+  displayName: 'Charts',
+  entry: 'https://cdn.acme.com/charts/remoteEntry.js',   // the container entry
+  scope: 'acme_charts',                                  // the container's name
+  module: './plugin',                                    // what it exposes
+  activationEvents: [onView('charts')],
+}, { allowedOrigins: ['https://cdn.acme.com'] });
+```
+
+The manifest half is identical to `defineRemotePlugin`, and that is the point:
+listed, described and switchable from the first frame, one lazy plugin in the
+platform. What changes is delivery, in three ways.
+
+### Shared dependencies are negotiated
+
+`initReactorFederation` turns what `setReactorSharedModules` published into the
+host's offer: each module a singleton, with the version you pass. A container
+built with `shared: { react: { requiredVersion: '^19' } }` asks for that range,
+and the runtime hands over the host's copy or refuses **by name** — a mismatch
+is a load error on the manifest, not a broken hook in a render. `sharedFromHost`
+is the function behind it, if a host wants to tighten one module without
+restating the rest.
+
+### Entry types
+
+A bundler emits a `global` entry — a script that sets `globalThis[scope]` —
+and that is the runtime's default. A container can also be an ES module
+exporting `init` and `get`; say so with `type: 'esm'`. The
+[federation example](https://github.com/datalayer/reactor/tree/main/examples/federation)
+ships one written by hand, forty lines that are the whole protocol, beside the
+Rsbuild configuration that emits the real thing.
+
+### Hot updates
+
+A container is registered by name. Pointing the name at new code is the update:
+
+```ts
+await updateFederatedRemote('acme_charts', 'https://cdn.acme.com/charts/remoteEntry.js');
+```
+
+The entry is cache-busted, re-registered with `force`, and pre-fetched. What is
+already on screen keeps running; the next module the container hands out is
+the new code. A plugin that must itself be replaced is `uninstall` then
+`install`, the same story a local plugin has.
+
+### Type hints
+
+Build the container with `dts: true` and it emits `@mf-types/`; a host can then
+type `loadRemote<typeof import('acme_charts/plugin')>()`. Reactor does not need
+the hint — a plugin is a plugin — but a host reaching into a container for
+anything else does.
+
+### The runtime is optional
+
+`@module-federation/runtime` is an optional peer dependency, imported the first
+time a container is actually loaded. A host that never federates never pays
+for it. A host whose bundler already initialised the runtime can hand that
+instance over with `setFederationRuntime`, so there is one federation host per
+page rather than two that share nothing.
+
 ## Installing into a platform that is already running
 
 `buildReactorFromPlugins` takes the set an application was built with.
@@ -118,5 +195,6 @@ before any module is fetched. See
 ## A worked example
 
 [`examples/federation`](https://github.com/datalayer/reactor/tree/main/examples/federation)
-is a shell, a remote that works, a remote that fails on purpose, and a box to
-paste a URL into.
+is a shell, a remote that works, a remote that fails on purpose, a box to paste
+a URL into — and a container, with a button that updates it in place.
+`remote-charts/` beside it is the same container as an Rsbuild build.

@@ -19,13 +19,21 @@
  *    `reactor.install` puts it into the running platform. No rebuild, and
  *    nothing already running is restarted. That is a marketplace install with
  *    the marketplace removed.
+ * 4. **A container negotiates what a plain module borrows.** `@remote/charts`
+ *    is a Module Federation container: it does not read the host's React off
+ *    a global, it is *handed* one through the share scope, version and all.
+ *    Same lifecycle, same list, same switch — a different loader, which is the
+ *    one thing `defineFederatedPlugin` changes. And a container is registered
+ *    by name, so pointing the name at new code updates it in place.
  */
 
 import React, { useCallback, useState, useSyncExternalStore } from 'react';
 import {
   buildReactorFromPlugins,
+  defineFederatedPlugin,
   defineRemotePlugin,
   definePlugin,
+  updateFederatedRemote,
 } from '@datalayer/reactor';
 import {
   ReactorSlot,
@@ -62,7 +70,32 @@ const BrokenRemote = defineRemotePlugin({
   entry: '/remotes/broken.js',
 });
 
-const reactor = buildReactorFromPlugins([ShellPlugin, GreetingRemote, BrokenRemote]);
+/**
+ * A remote delivered as a Module Federation container.
+ *
+ * `scope` is the container's name and `module` what it exposes; `type: 'esm'`
+ * because `public/remotes/charts/remoteEntry.js` is written by hand as an ES
+ * module (see `remote-charts/` for the build that emits one). Everything else
+ * is the manifest every other remote carries — the plugin is listed before a
+ * byte of it is fetched, exactly like the two above.
+ */
+const CHARTS_ENTRY = '/remotes/charts/remoteEntry.js';
+const ChartsContainer = defineFederatedPlugin({
+  name: '@remote/charts',
+  displayName: 'Charts',
+  description: 'A Module Federation container: React arrives by negotiation, not by global.',
+  entry: CHARTS_ENTRY,
+  scope: 'reactor_charts',
+  module: './plugin',
+  type: 'esm',
+});
+
+const reactor = buildReactorFromPlugins([
+  ShellPlugin,
+  GreetingRemote,
+  BrokenRemote,
+  ChartsContainer,
+]);
 
 /** Re-render whenever the platform changes: installs, loads, failures. */
 function usePlatformRevision() {
@@ -185,6 +218,48 @@ function InstallBox() {
   );
 }
 
+/** Point the container's name at new code, without restarting anything. */
+function UpdateBox() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'failed'>('idle');
+  const [detail, setDetail] = useState('');
+
+  const update = useCallback(async () => {
+    setState('busy');
+    try {
+      // A container is keyed by name in the federation graph, so re-registering
+      // `reactor_charts` with a fresh (cache-busted) entry is the whole update.
+      // What is already on screen keeps running; the next module the container
+      // hands out is the new code. Replacing a plugin that is *already built*
+      // is `uninstall` then `install`, the same story a local plugin has.
+      await updateFederatedRemote('reactor_charts', CHARTS_ENTRY);
+      setState('done');
+      setDetail('The container was re-registered and its entry re-fetched.');
+    } catch (caught) {
+      setState('failed');
+      setDetail(caught instanceof Error ? caught.message : String(caught));
+    }
+  }, []);
+
+  return (
+    <div className="card">
+      <strong>Update the container</strong>
+      <p className="lede">
+        Edit <code>public/remotes/charts/remoteEntry.js</code>, then pull the new
+        code into this running page. Nothing restarts; the name is simply pointed
+        at a new entry.
+      </p>
+      <button onClick={() => void update()} disabled={state === 'busy'}>
+        {state === 'busy' ? 'Updating…' : 'Update reactor_charts'}
+      </button>
+      {detail ? (
+        <div className={state === 'failed' ? 'error' : 'lede'} style={{ marginTop: 8 }}>
+          {detail}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function App() {
   useReactor(reactor);
 
@@ -197,6 +272,7 @@ export default function App() {
       </p>
       <PluginList />
       <InstallBox />
+      <UpdateBox />
       {/* Whatever the remotes contribute. The shell offers a place and does not
           know, or need to know, who fills it. */}
       <ReactorSlot slot="main" />

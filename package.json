@@ -40,7 +40,13 @@
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "@module-federation/runtime": ">=0.8"
+  },
+  "peerDependenciesMeta": {
+    "@module-federation/runtime": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "19.2.18",

@@ -1,23 +1,29 @@
 ---
-sidebar_position: 1
-title: Loading Extensions via Federation
+sidebar_position: 7
+title: Federation
 ---
 
 # Loading extensions via federation
 
-**Tracking: [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9)**
+Tracked as [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9). This page keeps the design record: the problem, what the model already gave it, and what was built.
 
-## Status: loading a remote at runtime has landed
+## Status: shipped
 
 :::tip Shipped
 `defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
 adds one to a platform that is already running, and a refused or broken remote
 costs one plugin and says why. See [Remote plugins](/typescript-plugins/federation).
 
-What is still open is below: **Module Federation containers** rather than plain
-ES modules — shared-dependency negotiation, remote type hints, and hot updates
-for consumed remotes. The loader is a seam, so that is a swap rather than a
-rewrite.
+**Module Federation containers** have landed too, through the same loader seam:
+`defineFederatedPlugin` loads a container, `initReactorFederation` turns the
+host's shared modules into a negotiated offer with versions, `updateFederatedRemote`
+hot-updates a container by name, and a build with `dts: true` gives a host the
+remote's type hints. See [Containers](/typescript-plugins/federation#containers)
+and the [federation example](https://github.com/datalayer/reactor/tree/main/examples/federation).
+
+What remains open is **trust**: what a marketplace listing must assert before a
+host will load it. `allowedOrigins` is the floor; a signed manifest is the
+question.
 :::
 
 ## The problem
@@ -109,5 +115,5 @@ mistake as one that dictated a UI kit — the claim
 ## Related
 
 Delivering the *server* half of the same extension is
-[#12](/roadmap/python-packaged-extensions), and the two are meant to compose:
+[#12](/python-packaged-extensions), and the two are meant to compose:
 one install, both tiers, loaded at runtime.

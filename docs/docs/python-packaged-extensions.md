@@ -1,23 +1,27 @@
 ---
-sidebar_position: 3
-title: Frontend + Backend Extensions as One Python Package
+sidebar_position: 8
+title: Python-Packaged Extensions
 ---
 
 # Packaging and loading a frontend + backend extension as a Python package
 
-**Tracking: [datalayer/reactor#12](https://github.com/datalayer/reactor/issues/12)**
-· related to [#9](/roadmap/federation)
+Tracked as [datalayer/reactor#12](https://github.com/datalayer/reactor/issues/12), the server half of [Federation](/federation). This page keeps the design record: the problem, what the model already gave it, and what was built.
 
-## Status: the packaging and discovery half has landed
+## Status: shipped
 
 :::tip Shipped
 A distribution can ship both halves, a server discovers it by installing it, and
 **installing one while the server runs makes it appear on the next browser
 refresh**. See [Packaging an extension](/python-plugins/packaging).
 
-What is still open is on this page below: remotes built as Module Federation
-containers rather than plain ES modules, and a template for people outside this
-repository.
+The two open items have landed: a frontend half can be a **Module Federation
+container** (`kind="federated"`, built by Rsbuild straight into `share/`, loaded
+by the browser through the federation loader), and
+[`examples/extension-template`](https://github.com/datalayer/reactor/tree/main/examples/extension-template)
+scaffolds one for people outside this repository. Version coupling is now
+mechanical — the container is built into the wheel — and an editable install
+keeps working with the frontend served from a dev server and hot-updated by name.
+See [Shipping a container](/python-plugins/packaging#shipping-a-container).
 :::
 
 ## The problem
@@ -53,7 +57,7 @@ in step by hand.
   entry-point group, a `[project.entry-points]` table, or a data directory the
   host scans.
 - **How the shell finds it at runtime.** This is where the issue meets
-  [#9](/roadmap/federation): the server can list what is installed, but a browser
+  [#9](/federation): the server can list what is installed, but a browser
   can only *load* it if the shell can consume a remote. The two features are
   worth building in that order.
 - **Version coupling.** The two halves ship together, so they can be required to

@@ -65,7 +65,7 @@ describe('defineRemotePlugin', () => {
 
     await reactor.fire(onView('hello'));
 
-    expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js');
+    expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js', expect.objectContaining({ name: expect.any(String) }));
     expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
     expect(reactor.getOutput('@hello/panel')).toEqual({ greeting: 'hello' });
   });
@@ -261,6 +261,7 @@ describe('bootstrapExtensions', () => {
     // A relative entry is resolved against the server that listed it.
     expect(load).toHaveBeenCalledWith(
       'http://localhost:8799/reactor-extensions/hello/index.js',
+      expect.objectContaining({ name: expect.any(String) }),
     );
   });
 
@@ -282,6 +283,7 @@ describe('bootstrapExtensions', () => {
     await reactor.whenReady();
     expect(load).toHaveBeenCalledWith(
       'http://localhost:8799/reactor-extensions/hello/index.js',
+      expect.objectContaining({ name: expect.any(String) }),
     );
   });
 

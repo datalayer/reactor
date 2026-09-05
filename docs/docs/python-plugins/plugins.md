@@ -71,4 +71,4 @@ spirit as a lazy plugin in the browser: installed, listed, and not constructed
 until wanted.
 
 Packaging a *frontend* extension the same way — one `pip install` delivering
-both tiers — is [on the roadmap](/roadmap/python-packaged-extensions).
+both tiers — is described under [Python-packaged extensions](/python-packaged-extensions).

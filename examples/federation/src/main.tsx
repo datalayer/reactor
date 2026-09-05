@@ -7,7 +7,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Reactor from '@datalayer/reactor';
-import { setReactorSharedModules } from '@datalayer/reactor';
+import { initReactorFederation, setReactorSharedModules } from '@datalayer/reactor';
 import * as ReactorReact from '@datalayer/reactor/react';
 
 import App from './App';
@@ -25,6 +25,21 @@ setReactorSharedModules({
   react: React,
   '@datalayer/reactor': Reactor,
   '@datalayer/reactor/react': ReactorReact,
+});
+
+/**
+ * The same statement, in Module Federation's vocabulary.
+ *
+ * A plain remote reads `globalThis.__DATALAYER_REACTOR__.shared` by hand. A
+ * *container* negotiates instead: the host says what it has and which version,
+ * the container says what it needs, and the runtime hands over one copy or
+ * refuses by name. `initReactorFederation` turns what was published above into
+ * that offer — declared once, used both ways. The versions let a container's
+ * `requiredVersion` be answered rather than waved through.
+ */
+void initReactorFederation({
+  name: 'reactor_federation_example',
+  versions: { react: React.version },
 });
 
 createRoot(document.getElementById('root')!).render(

@@ -346,3 +346,42 @@ def test_an_extension_that_failed_once_is_tried_again(
 
     assert platform.rescan_extensions()["added"] == ["later"]
     assert [record["name"] for record in platform.frontend_extensions()] == ["later"]
+
+
+def test_a_federated_frontend_is_described_as_one(tmp_path: Path) -> None:
+    """A container is loaded by a different loader, and the server says which.
+
+    ``kind``, ``remoteName`` and ``module`` are what the browser's
+    ``bootstrapExtensions`` reads to pick the Module Federation loader over a
+    plain ``import()``; a record without them is a plain ES module.
+    """
+    frontend = tmp_path / "share" / "charts"
+    frontend.mkdir(parents=True)
+    (frontend / "remoteEntry.js").write_text("export async function get() {}\nexport function init() {}\n")
+
+    platform = PluginPlatform()
+    platform._register_extension_object(  # noqa: SLF001
+        "charts",
+        ReactorExtension(
+            manifest=ExtensionManifest(name="charts", display_name="Charts"),
+            frontend=FrontendExtension(
+                directory=frontend,
+                entry="remoteEntry.js",
+                kind="federated",
+                remote_name="acme_charts",
+                module="./plugin",
+                remote_type="esm",
+                plugins=[FrontendPlugin(name="@acme/charts")],
+            ),
+        ),
+    )
+
+    [record] = platform.frontend_extensions()
+    assert record["kind"] == "federated"
+    assert record["remoteName"] == "acme_charts"
+    assert record["module"] == "./plugin"
+    assert record["remoteType"] == "esm"
+    assert record["entry"] == "/reactor-extensions/charts/remoteEntry.js"
+    # And a plain one says so, by omission of the container fields.
+    plain = make_extension(tmp_path, "plain")
+    assert plain.frontend is not None and plain.frontend.kind == "esm"

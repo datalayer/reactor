@@ -897,6 +897,7 @@ class PluginPlatform:
                     "kind": frontend.kind,
                     "remoteName": frontend.remote_name,
                     "module": frontend.module,
+                    "remoteType": frontend.remote_type,
                     "entry": f"{base_url}/{name}/{frontend.entry}",
                     "plugins": [plugin.to_dict() for plugin in frontend.plugins],
                     # What this extension's Python half brought, so a host can
