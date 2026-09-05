@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 /**
  * Builds the __NAME__ container straight into the wheel's `share/` directory,
  * so `npm run build` then `pip install .` ships both halves at one version.

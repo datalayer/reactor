@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """The Python half of the __NAME__ extension."""
 
 from __future__ import annotations

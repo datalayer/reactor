@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """The __NAME__ extension: both halves, declared in one place.
 
 The frontend plugin's *manifest* lives here, in Python, so a host can list,
