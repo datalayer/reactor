@@ -28,6 +28,17 @@ class ReactorHookSpecs:
         """Return plugin-provided feature flags for a tenant."""
 
     @hookspec
+    def provide_agent_tools(self) -> list[dict]:
+        """What this plugin offers an AI agent: its commands, as tools.
+
+        Return bundles of the shape the TypeScript ``AgentTools`` contribution
+        point takes — ``{"id", "name", "plugin", "toolset", "commands": [{"name",
+        "command", "description", "parameters"}]}`` — so a host lists a plugin's
+        agent tools from either tier with one vocabulary. ``GET
+        /plugins/agent-tools`` serves what every enabled plugin returned.
+        """
+
+    @hookspec
     def provide_contributions(self, contributions: Any) -> None:
         """Contribute to the host's contribution points.
 

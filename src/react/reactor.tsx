@@ -16,6 +16,13 @@ export type ReactorSlotComponent = {
   id: string;
   Component: React.ComponentType<Record<string, unknown>>;
   requiredBackendPlugins?: string[];
+  /**
+   * Where this sits among the slot's components: lower first, unset is 0,
+   * and equal orders keep plugin order. Without it a slot renders in the
+   * order plugins were listed, which puts a host's own panel wherever its
+   * plugin happened to land in the list — after the presets, usually last.
+   */
+  order?: number;
 };
 
 export type ReactorReactOutput = {
@@ -501,7 +508,15 @@ function useSlotComponentsFrom(
         }
       }
     }
-    return out;
+    // Stable: an `order` moves a component, and unordered ones keep the plugin
+    // order they always had.
+    return out
+      .map((component, index) => ({ component, index }))
+      .sort(
+        (a, b) =>
+          (a.component.order ?? 0) - (b.component.order ?? 0) || a.index - b.index,
+      )
+      .map((entry) => entry.component);
   }, [reactorPlatform, slot, snapshot, isBackendPluginAvailable]);
 }
 

@@ -481,6 +481,18 @@ class PluginPlatform:
                 "Plugin %s failed to contribute: %s", plugin_name, error, exc_info=True
             )
 
+    def implementation_of(self, name: str) -> Any | None:
+        """The live object behind a plugin, or ``None`` before it is activated.
+
+        For a host that composed its platform from discovered extensions and
+        needs to talk to one of them directly — hand a plugin's store to a
+        router, say — without holding a reference of its own. Unknown names
+        answer ``None`` too: a host asking about a plugin that is not installed
+        should get a plain answer, not an exception.
+        """
+        record = self._records.get(name)
+        return record.implementation if record is not None else None
+
     def list_plugins(self) -> list[dict[str, Any]]:
         """Every plugin's manifest, plus the state the manifest cannot carry.
 
@@ -942,6 +954,37 @@ class PluginPlatform:
                 routes.extend(plugin_routes or [])
         return routes
 
+    def collect_agent_tools(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
+        """Every agent-tool bundle enabled plugins provide, with the plugin named.
+
+        The Python side of the ``AgentTools`` contribution point: a plugin
+        declares what an agent may do with it, once, and a host — an agent
+        runtime asking the server that serves the plugin — reads one list. A
+        bundle's ``toolset`` defaults to its commands' names, as it does in
+        TypeScript.
+        """
+        active = set(self.resolve_tenant_plugins(tenant_id or "*")) if tenant_id else None
+        bundles: list[dict[str, Any]] = []
+        for plugin_name, record in self._records.items():
+            if not record.enabled:
+                continue
+            if active is not None and plugin_name not in active:
+                continue
+            provider = getattr(record.implementation, "provide_agent_tools", None)
+            if not callable(provider):
+                continue
+            for bundle in self._run_plugin_call(plugin_name, provider) or []:
+                commands = list(bundle.get("commands") or [])
+                bundles.append(
+                    {
+                        **bundle,
+                        "plugin": bundle.get("plugin") or plugin_name,
+                        "toolset": list(bundle.get("toolset") or [c["name"] for c in commands]),
+                        "commands": commands,
+                    }
+                )
+        return bundles
+
     def feature_flags(self, tenant_id: str) -> dict[str, bool]:
         flags: dict[str, bool] = {}
         active = set(self.resolve_tenant_plugins(tenant_id))
@@ -980,11 +1023,24 @@ class PluginPlatform:
         return {"result": result}
 
     def _invoke_enabled_hook(self, hook_name: str, **kwargs: Any) -> None:
-        hook = getattr(self._pm.hook, hook_name)
+        """Run one hook once per enabled plugin, each under its own sandbox.
+
+        Per plugin rather than once for all so a sandboxed plugin's hook runs
+        inside *its* sandbox. It used to call the whole hook inside every
+        plugin's turn — pluggy calls every implementation on each call — so
+        with seven plugins every start hook ran seven times. A subset caller
+        keeps just this plugin's implementation.
+        """
+        registered = list(self._pm.get_plugins())
         for plugin_name, record in self._records.items():
-            if not record.enabled:
+            implementation = record.implementation
+            if not record.enabled or implementation is None:
                 continue
-            self._run_plugin_call(plugin_name, lambda: hook(**kwargs))
+            if not any(implementation is candidate for candidate in registered):
+                continue  # registered here, never activated: nothing to call
+            others = [candidate for candidate in registered if candidate is not implementation]
+            caller = self._pm.subset_hook_caller(hook_name, remove_plugins=others)
+            self._run_plugin_call(plugin_name, lambda: caller(**kwargs))
 
     def _run_plugin_call(self, plugin_name: str, call: Any) -> Any:
         record = self._records[plugin_name]

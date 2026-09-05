@@ -57,6 +57,7 @@ rather than appearing to work.
 | `slot` | `'header'` | Where the selector renders |
 | `defaultView` | `'none'` | Seeded into the store, not announced |
 | `showSelector` | `true` | The control; the store and command remain either way |
+| `allowNone` | `true` | Whether "none" is a choice. `false` for a host whose views are the whole application: the selector then lists only the views, appears only once there are two, and the cycle command wraps among them |
 | `announce` | `() => true` | Told of every choice; returns whether anyone heard |
 | `commandId`, `keybinding` | `shell.cycleView`, `Mod+Alt+E` | The cycle command |
 | `noneLabel`, `ariaLabel` | `None`, `View` | Words |

@@ -16,3 +16,4 @@ export * from './core/gates';
 export * from './core/graph';
 export * from './core/remote';
 export * from './core/federation';
+export * from './core/agentTools';

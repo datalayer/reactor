@@ -6,3 +6,4 @@
 
 export * from './reactor';
 export * from './host';
+export * from './agentTools';
