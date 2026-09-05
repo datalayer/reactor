@@ -67,7 +67,7 @@ A regular `pip install`, not `pip install -e`. An editable install writes a
 `.pth` file that Python only processes at interpreter startup, so an editable
 package genuinely does need a restart. A normal install lands in
 `site-packages`, which a running process can be made to re-read — see
-[packaging](/python-plugins/packaging).
+[packaging](/python-packaged-extensions).
 :::
 
 ## Packaging is independent of extensibility
@@ -143,7 +143,7 @@ every class lives in the host's build.
 
 ## What it demonstrates, in one list
 
-- [One `pip install`, both tiers](/python-plugins/packaging) — each package ships its
+- [One `pip install`, both tiers](/python-packaged-extensions) — each package ships its
   Python plugins *and* their browser halves.
 - [A host](/python-plugins/host) — one command serves the interface and the API from one
   origin.

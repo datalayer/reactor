@@ -33,6 +33,7 @@
  */
 
 import { defineExtension, type ReactorExtension } from './extension';
+import { defineFederatedPlugin } from './federation';
 import { defineLazyPlugin, type LazyPluginRef } from './plugin';
 import type { ActivationEvent } from './activation';
 
@@ -116,8 +117,27 @@ export function missingSharedModules(
   return expected.filter((name) => !(name in published));
 }
 
-/** How a remote module is fetched. The seam Module Federation replaces. */
-export type RemoteModuleLoader = (url: string) => Promise<Record<string, unknown>>;
+/**
+ * What a loader is told about the remote it is fetching, beyond the URL.
+ *
+ * A plain ES-module loader needs none of it. A Module Federation loader needs
+ * the container's name and which module inside it to ask for — see
+ * {@link module:core/federation} — and passing that here rather than encoding
+ * it into the URL keeps the reference readable and the seam one function wide.
+ */
+export type RemoteLoadContext = {
+  name: string;
+  scope?: string;
+  module?: string;
+  /** How the container's entry is built — see `RemotePluginRef.type`. */
+  type?: string;
+};
+
+/** How a remote module is fetched. The seam Module Federation plugs into. */
+export type RemoteModuleLoader = (
+  url: string,
+  ref?: RemoteLoadContext,
+) => Promise<Record<string, unknown>>;
 
 /**
  * The default loader: a dynamic import of an absolute URL.
@@ -143,6 +163,25 @@ export interface RemotePluginRef {
   entry: string;
   /** Which export holds the plugin. Empty or absent means the default. */
   export?: string;
+  /**
+   * The Module Federation container this plugin lives in, when it is one.
+   *
+   * Absent means the entry is a plain ES module, which is what the default
+   * loader fetches. Present, and the federation loader uses it —
+   * {@link defineFederatedPlugin} is the way to say so without wiring the
+   * loader by hand.
+   */
+  scope?: string;
+  /** Which exposed module inside the container. `./plugin` by default. */
+  module?: string;
+  /**
+   * How the container's entry file is built, in Module Federation's terms:
+   * `global` (a script that sets `globalThis[scope]`, the bundlers' default),
+   * `esm` (an ES module exporting `init` and `get`), `system`, …
+   *
+   * Only read for a container. Left unset, the runtime's default applies.
+   */
+  type?: string;
   /** Refused if it is not what this runtime speaks. */
   apiVersion?: string;
   dependencies?: LazyPluginRef['dependencies'];
@@ -253,7 +292,12 @@ export function defineRemotePlugin(
         );
       }
 
-      const module = await loader(ref.entry);
+      const module = await loader(ref.entry, {
+        name: ref.name,
+        scope: ref.scope,
+        module: ref.module,
+        type: ref.type,
+      });
       const exported = ref.export ? module[ref.export] : module.default ?? module;
       if (!exported) {
         throw new Error(
@@ -274,8 +318,22 @@ export type FrontendExtensionRecord = {
   octicon?: string;
   emoji?: string;
   apiVersion?: string;
-  kind?: string;
   entry: string;
+  /**
+   * How the entry is delivered — the Python `FrontendExtension.kind`.
+   *
+   * `esm` (the default): a plain module, imported from its URL. `federated`: a
+   * Module Federation container, which comes with `remoteName` and `module`.
+   * The server says which because the server installed the distribution and
+   * read its declaration; the browser should not be guessing from a filename.
+   */
+  kind?: 'esm' | 'federated' | string;
+  /** The container's name, when `kind` is `federated`. */
+  remoteName?: string;
+  /** The exposed module holding the plugins, when `kind` is `federated`. */
+  module?: string;
+  /** How the container entry is built (`global`, `esm`, …). Optional. */
+  remoteType?: string;
   plugins: Array<Omit<RemotePluginRef, 'entry' | 'apiVersion'> & { export?: string }>;
 };
 
@@ -339,12 +397,30 @@ export async function bootstrapExtensions(
       ? extension.entry
       : `${backend}${extension.entry}`;
 
-    const plugins = (extension.plugins ?? []).map((plugin) =>
-      defineRemotePlugin(
-        { ...plugin, entry, apiVersion: extension.apiVersion },
-        remoteOptions,
-      ),
-    );
+    /*
+     * A container is loaded by a different loader, and the server is what
+     * knows which this is. `scope` may be stated per plugin or once for the
+     * whole extension — a distribution ships one container, so the second is
+     * the common case and the first is the escape hatch.
+     */
+    const federated = extension.kind === 'federated';
+    const plugins = (extension.plugins ?? []).map((plugin) => {
+      const scope = plugin.scope ?? extension.remoteName;
+      const module = plugin.module ?? extension.module;
+      const ref = {
+        ...plugin,
+        entry,
+        apiVersion: extension.apiVersion,
+        scope,
+        module,
+        // Empty means unset — a backend serialising its default must not
+        // turn into `type: ''` at the runtime, which would no longer detect.
+        type: plugin.type || extension.remoteType || undefined,
+      };
+      return (federated || plugin.scope) && scope
+        ? defineFederatedPlugin({ ...ref, scope }, remoteOptions)
+        : defineRemotePlugin(ref, remoteOptions);
+    });
 
     // Grouped, not flattened. The server knows these plugins arrived together
     // in one distribution, and dropping that on the way across the wire would

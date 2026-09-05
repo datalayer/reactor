@@ -1,0 +1,27 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reactor-extension-__NAME__"
+version = "0.1.0"
+description = "A Reactor extension: a Python plugin and its UI, in one wheel"
+requires-python = ">=3.10"
+dependencies = ["datalayer_reactor"]
+
+# Installing this distribution publishes the extension. The host scans this
+# group; nothing is hardcoded anywhere.
+[project.entry-points."datalayer.reactor.extensions"]
+__NAME__ = "__PACKAGE__:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["__PACKAGE__"]
+
+# The built container travels in the wheel under `share/` — the JupyterLab
+# convention — and Reactor serves it from there.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/__NAME__" = "share/datalayer/reactor/extensions/__NAME__"

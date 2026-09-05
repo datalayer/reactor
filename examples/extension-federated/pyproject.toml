@@ -1,0 +1,27 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reactor-extension-hello-federated"
+version = "0.1.0"
+description = "A Reactor extension whose frontend ships as a Module Federation container"
+requires-python = ">=3.10"
+dependencies = ["datalayer_reactor"]
+
+# Installing this distribution is publishing the extension: the host scans
+# this group and finds whatever is installed beside it.
+[project.entry-points."datalayer.reactor.extensions"]
+hello-federated = "hello_federated:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hello_federated"]
+
+# The built container travels in the wheel under `share/`, the JupyterLab
+# convention. `remoteEntry.js` and every chunk beside it are served from there.
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/hello-federated" = "share/datalayer/reactor/extensions/hello-federated"

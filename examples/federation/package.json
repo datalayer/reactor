@@ -11,7 +11,8 @@
   "dependencies": {
     "@datalayer/reactor": "file:../..",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@module-federation/runtime": "2.9.0"
   },
   "devDependencies": {
     "@rsbuild/core": "^2.2.1",

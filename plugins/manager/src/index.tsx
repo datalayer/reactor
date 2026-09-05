@@ -401,6 +401,13 @@ function PluginDetails({ row }: { row: ManagedPlugin }): JSX.Element {
  */
 const OVERLAY_TAKES_NO_FOCUS = {
   preventFocusOnOpen: true,
+  // Click-through. The companion is text beside a row, and where the panel
+  // sits against an edge of the window it can only open *over* the row —
+  // over the switch, which then could not be clicked. Nothing in it is
+  // interactive, so the pointer passes through it to whatever is underneath,
+  // and leaving the row still closes it: an overlay the pointer cannot enter
+  // is one it cannot keep open.
+  sx: { pointerEvents: 'none' },
   // React 19 types `RefObject<T>.current` as non-nullable and Primer 37 types
   // this prop with it, so a ref that deliberately points at nothing has to be
   // cast at the boundary. Pointing it anywhere real would reintroduce exactly
@@ -422,48 +429,37 @@ function PluginRowView({
   const hide = () => control.hide();
 
   return (
-    <Box
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-      sx={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 2,
-        py: 2,
-        borderBottom: '1px solid',
-        borderColor: 'border.muted',
-      }}
-    >
-      <AnchoredOverlay
-        open={open}
-        onOpen={show}
-        onClose={hide}
-        // The pointer stays in the row; the overlay is a companion to it, not
-        // somewhere to go — so it never takes focus, and never gives it back.
-        //
-        // This is what keeps the row's `onFocus`/`onBlur` safe. The overlay is
-        // portaled, but it is still a React child of this row, and React sends
-        // focus events up the element tree rather than the DOM one. An overlay
-        // that focused itself on open therefore told the row it had been
-        // focused; one that restored focus on close told the row so again, and
-        // the row answered by reopening it. Neither step waits for a paint, so
-        // the two ran against each other inside a single commit until React
-        // gave up with "Maximum update depth exceeded" — thrown, confusingly,
-        // from whichever ref happened to be detached at the time.
-        //
-        // Nothing here is focusable, so there is nothing to trap, zone, or
-        // return to: the details are text, and the row keeps the focus.
-        focusZoneSettings={{ disabled: true }}
-        focusTrapSettings={{ disabled: true }}
-        overlayProps={OVERLAY_TAKES_NO_FOCUS}
-        side="outside-left"
-        renderAnchor={anchorProps => (
-          <Box
-            {...(anchorProps as Record<string, unknown>)}
-            sx={{ minWidth: 0, flex: 1 }}
-          >
+    <AnchoredOverlay
+      open={open}
+      onOpen={show}
+      onClose={hide}
+      focusZoneSettings={{ disabled: true }}
+      focusTrapSettings={{ disabled: true }}
+      overlayProps={OVERLAY_TAKES_NO_FOCUS}
+      // Beside the row, never over it. The anchor is the *whole* row, switch
+      // included, so whichever side Primer finds room on — right of a panel
+      // on the left edge of the window, left of one on the right edge — the
+      // companion lands outside the row's own box. Anchored to the text alone
+      // it flipped to the text's right when the left was short of room, which
+      // is exactly where the switch sits.
+      side="outside-right"
+      renderAnchor={anchorProps => (
+        <Box
+          {...(anchorProps as Record<string, unknown>)}
+          onMouseEnter={show}
+          onMouseLeave={hide}
+          onFocus={show}
+          onBlur={hide}
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 2,
+            py: 2,
+            borderBottom: '1px solid',
+            borderColor: 'border.muted',
+          }}
+        >
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {row.emoji ? (
                 <Text sx={{ fontSize: 1 }} aria-hidden>
@@ -491,22 +487,22 @@ function PluginRowView({
               </Text>
             ) : null}
           </Box>
-        )}
-      >
-        <PluginDetails row={row} />
-      </AnchoredOverlay>
-      <ToggleSwitch
-        size={size}
-        checked={row.enabled}
-        disabled={!row.changeable || row.disabledBy === 'dependency'}
-        aria-labelledby={labelId}
-        onClick={() => {
-          if (row.changeable && row.disabledBy !== 'dependency') {
-            onToggle(row.name, !row.enabled);
-          }
-        }}
-      />
-    </Box>
+          <ToggleSwitch
+            size={size}
+            checked={row.enabled}
+            disabled={!row.changeable || row.disabledBy === 'dependency'}
+            aria-labelledby={labelId}
+            onClick={() => {
+              if (row.changeable && row.disabledBy !== 'dependency') {
+                onToggle(row.name, !row.enabled);
+              }
+            }}
+          />
+        </Box>
+      )}
+    >
+      <PluginDetails row={row} />
+    </AnchoredOverlay>
   );
 }
 

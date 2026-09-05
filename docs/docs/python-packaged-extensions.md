@@ -1,6 +1,6 @@
 ---
-sidebar_position: 6
-title: Packaging an Extension
+sidebar_position: 8
+title: Python-Packaged Extensions
 ---
 
 # One `pip install`, both tiers
@@ -11,7 +11,9 @@ usually spans both sides: the view and the endpoint behind it are one
 capability, and nobody wants to install them separately or discover they are at
 different versions.
 
-A `ReactorExtension` is a Python distribution carrying both.
+A `ReactorExtension` is a Python distribution carrying both. This page is both
+the guide to writing one and the record of why it is shaped this way; the
+design half sits at the end.
 
 ## The layout
 
@@ -168,10 +170,10 @@ belongs in that list as much as React does — which is why the runtime does not
 fix the set.
 
 :::note
-This is what Module Federation's `shared` does, with the machinery removed. It
-is deliberately a stopgap: `defineRemotePlugin` takes a `loader`, so swapping
-`import(url)` for `loadRemote()` when
-[federation](/roadmap/federation) lands is one function, not a rewrite.
+This is what Module Federation's `shared` does, with the machinery removed. An
+extension that ships a **container** gets the machinery back — see
+[Shipping a container](#shipping-a-container) — and the browser picks the
+loader from what the server says, so the two kinds coexist.
 :::
 
 ### Refusing a remote
@@ -182,8 +184,137 @@ is deliberately a stopgap: `defineRemotePlugin` takes a `loader`, so swapping
 - **Origin** — a remote runs with the shell's privileges, so same-origin always
   passes and anything else must be named in `allowedOrigins`.
 
-## A worked example
+## Shipping a container
+
+A plain `index.js` is enough to prove the chain and not enough for a real
+frontend: one that has chunks, or that wants React by version rather than off
+a global. For that the frontend half is a **Module Federation container**, and
+three fields say so:
+
+```python
+FrontendExtension(
+    directory=_FRONTEND,
+    entry="remoteEntry.js",          # the container entry a bundler emits
+    kind="federated",                # not "esm"
+    remote_name="acme_charts",       # the container's name — `name` in the build
+    module="./plugin",               # what it exposes
+    plugins=[FrontendPlugin(name="@acme/charts")],
+)
+```
+
+`GET /plugins/frontend-extensions` puts `kind`, `remoteName`, `module` (and an
+optional `remoteType`, for a hand-written ES-module entry) on the wire, and
+`bootstrapExtensions` loads that extension through
+[`defineFederatedPlugin`](/typescript-plugins/federation#containers) instead
+of `import()`. Same entry point, same `share/`, same one `pip install`.
+
+### Building into the wheel
+
+The build writes straight into `share/`, so the two halves cannot drift:
+
+```ts
+// frontend/rsbuild.config.ts
+pluginModuleFederation({
+  name: 'acme_charts',                              // == remote_name
+  exposes: { './plugin': './src/plugin.tsx' },
+  shared: { react: { singleton: true, requiredVersion: '^19.0.0' }, '@datalayer/reactor': { singleton: true } },
+  dts: true,
+}),
+output: { assetPrefix: 'auto', distPath: { root: '../share/datalayer/reactor/extensions/acme-charts' } }
+```
+
+```bash
+(cd frontend && npm run build)   # remoteEntry.js + chunks -> share/
+pip install .                    # one wheel, both halves, one version
+```
+
+`assetPrefix: 'auto'` is what lets the entry's chunks resolve from wherever
+the entry was served — which, in a wheel, is `/reactor-extensions/{name}/`.
+
+### Developing without rebuilding the wheel
+
+An editable install has to keep working, and it does, in two halves:
+
+```bash
+pip install -e .                 # the Python half, editable as usual
+(cd frontend && npm run dev)     # the container on a dev server, hot updates
+```
+
+Then point the running host at the dev server once, from its console:
+
+```ts
+updateFederatedRemote('acme_charts', 'http://localhost:5182/remoteEntry.js');
+```
+
+Edits to the TSX arrive on the next module the container hands out. No wheel
+is rebuilt and nothing restarts.
+
+### Starting one outside this repository
+
+[`examples/extension-template`](https://github.com/datalayer/reactor/tree/main/examples/extension-template)
+is the layout above with the names left blank and a script that fills them:
+
+```bash
+python examples/extension-template/new-extension.py acme-charts ~/src/acme-charts
+```
+
+It copies a directory and substitutes three placeholders. What comes out is a
+plain project you own, comments included.
+
+## Worked examples
 
 [`examples/extension`](https://github.com/datalayer/reactor/tree/main/examples/extension)
 is a complete distribution with both halves and no build step, so the chain is
 readable end to end.
+[`examples/extension-federated`](https://github.com/datalayer/reactor/tree/main/examples/extension-federated)
+is the same extension shipping a container — hand-written so it runs unbuilt,
+with the Rsbuild project that emits the real one beside it.
+
+
+---
+
+## Why it is shaped this way
+
+### The problem
+
+An [extension](/typescript-plugins/extensions) is the unit of delivery — *"what would I
+uninstall to lose this?"*. In an application with two tiers, the honest answer to
+that question usually spans both: the checkout view and the endpoint that prices
+a cart are one capability, and nobody wants to install them separately or
+discover they are at different versions.
+
+Today they are two installs. In the [music example](/examples/music/) that is
+five `pip install -e` lines *and* an `npm install`, and the two halves are kept
+in step by hand.
+
+### What already pointed the right way
+
+- **The Python tier already discovers plugins from distributions.**
+  `platform.discover(group)` registers whatever is advertised under an
+  entry-point group, so installing a distribution publishes its plugins and
+  nothing is hardcoded in the host. That is precisely the mechanism a packaged
+  extension would extend.
+- **The manifest already spans the wire.** A Python `PluginManifest` already
+  declares `frontend_dependencies` and the same four presentation fields as its
+  TypeScript counterpart. A distribution that carried both halves would not need
+  a new vocabulary — it would need somewhere to put the built JavaScript.
+- **Jupyter already proves the pattern.** A JupyterLab extension is a Python
+  distribution with a labextension shipped inside it; that is the shape being
+  aimed at here.
+
+### How the open questions were answered
+
+- **Where the frontend build lives in the wheel** — under
+  `share/datalayer/reactor/extensions/<name>/`, declared as `shared-data`; the
+  entry-point group `datalayer.reactor.extensions` advertises it.
+- **How the shell finds it at runtime** — `GET /plugins/frontend-extensions`
+  lists it with its manifests, `GET /reactor-extensions/{name}/{path}` serves
+  it, and the browser loads it through the same seam as any
+  [remote plugin](/typescript-plugins/federation) — as a plain module or as a
+  Module Federation container.
+- **Version coupling** — the container is built straight into `share/`, so
+  the two halves cannot ship at different versions.
+- **Development ergonomics** — the Python half stays `pip install -e`; the
+  frontend runs on a dev server and is hot-updated into the running host by
+  name.
+

@@ -74,12 +74,27 @@ export type ShellPluginConfig = {
   defaultView: string;
   /** Whether the selector is drawn at all. The store and command remain. */
   showSelector: boolean;
+  /**
+   * Whether the empty choice is offered at all. A workspace that shows a
+   * conversation beside an optional editor wants it; an application whose
+   * views are everything it shows does not — then the selector lists only
+   * the views, appears only once there are two, and the cycle command wraps
+   * among them.
+   */
+  allowNone: boolean;
   /** What the empty choice is called. */
   noneLabel: string;
   /** The selector's accessible name. */
   ariaLabel: string;
   /** Told of every choice; returns whether anyone was listening. */
   announce: ViewAnnouncer;
+  /**
+   * What the cycle command is called and says, for a host whose views are
+   * something more specific than "views" — a workspace's editors, say. The
+   * palette shows these; a host that leaves them alone gets the generic pair.
+   */
+  commandName: string;
+  commandDescription: string;
   /** The cycle command's id in the reactor registry. */
   commandId: string;
   /** Its keystroke. Empty disables the binding. */
@@ -105,10 +120,13 @@ export const ShellPlugin = definePlugin<
     slot: "header",
     defaultView: NONE_VIEW,
     showSelector: true,
+    allowNone: true,
     noneLabel: "None",
     ariaLabel: "View",
     announce: () => true,
     commandId: "shell.cycleView",
+    commandName: "Switch the view",
+    commandDescription: "Cycle through the contributed views, and none",
     keybinding: "Mod+Alt+E",
   },
   contributionPoints: [ShellView],
@@ -116,8 +134,8 @@ export const ShellPlugin = definePlugin<
     const undoAnnouncer = setViewAnnouncer(config.announce);
     const undoCommand = registerCommand({
       id: config.commandId,
-      name: "Switch the view",
-      description: "Cycle through the contributed views, and none",
+      name: config.commandName,
+      description: config.commandDescription,
       emoji: "\u{1F4D1}",
       category: "Workspace",
       keybinding: config.keybinding || undefined,
@@ -146,6 +164,7 @@ export const ShellPlugin = definePlugin<
                   describe={config.describe}
                   context={slotProps}
                   noneLabel={config.noneLabel}
+                  allowNone={config.allowNone}
                   ariaLabel={config.ariaLabel}
                 />
               ),
