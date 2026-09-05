@@ -11,6 +11,12 @@ one that knows which of its commands make sense as tools, what to call them,
 and what argument each takes. So the plugin says so, once, and every host
 that wants to hand a plugin's capabilities to an agent reads one place.
 
+The same goes for a plugin's *data*. Listing the decks, reading one, writing
+a slide: each is a command too — one that takes an argument and answers with
+a value — registered in the same registry, so an agent's whole reach into a
+plugin arrives from the plugin, and the agent's own specification names none
+of it.
+
 Nothing about a plugin's tools lives in the agent's own specification. An
 agent spec says *which plugins* it works with; what those plugins can do
 arrives from the plugins themselves, and follows them wherever they are
@@ -57,7 +63,7 @@ A bundle:
 | --- | --- |
 | `id`, `name`, `description` | how a list of bundles reads |
 | `plugin` | the plugin these are the commands of |
-| `commands[]` | one tool per command: `name` (what the model calls), `command` (the reactor command id), `description`, `parameters` (JSON Schema of the argument, passed whole; none for a command without one) |
+| `commands[]` | one tool per command: `name` (what the model calls), `command` (the reactor command id), `description`, `parameters` (JSON Schema of the argument, passed whole; none for a command without one). What the command's `execute` returns is the tool's result |
 | `toolset` | the tool names the bundle grants — every command's name unless the bundle says less |
 
 ## Reading them — a host
@@ -70,11 +76,14 @@ const bundles = agentToolBundles(reactor);   // or the hook, live, in a componen
 ```
 
 What a host does with a bundle is its business. A chat host turns each
-command into a tool whose handler is `reactor.executeCommand(command, args)`,
-and a host with a richer implementation of some tool keeps the bundle's name
-and description and supplies its own handler — the bundle is the contract
-with the model; the handler is the host's. The `toolset` is the
-least-privilege list: a harness that admits client tools by name admits these.
+command into a tool whose handler is `reactor.executeCommand(command, args)`
+and whose result is what the command returned — `executeCommand` resolves
+with the command's value, so a command that lists things answers with the
+list and one that returns nothing answers that it ran. A host with a richer
+implementation of some tool keeps the bundle's name and description and
+supplies its own handler — the bundle is the contract with the model; the
+handler is the host's. The `toolset` is the least-privilege list: a harness
+that admits client tools by name admits these.
 
 ## Declaring them — Python
 
@@ -96,11 +105,16 @@ GET /plugins/agent-tools
 
 `PluginPlatform.collect_agent_tools()` is the same list in-process.
 
-## What this is not
+## Data as commands
 
-Not the plugin's *backend* tools. What a plugin's Python half does — list
-decks, store one — is an ordinary tool bound to a callable, declared where the
-agent runtime declares its tools; this page is about the commands a plugin
-runs in the page. The [decks plugin](https://github.com/datalayer/datalayer-osp)
-does both, and its agent spec names only the backend tools: the commands
-arrive from the plugin.
+A plugin's reading and writing belong in the bundle too, as commands that
+return their answer. The [decks plugin](https://github.com/datalayer/datalayer-osp)
+registers `decks.listDecks`, `decks.getDeck`, `decks.createDeck`,
+`decks.updateSlide` and the rest beside `decks.open` and `decks.present`; each
+runs on the page — against the plugin's own store, which saves to the decks
+server when it was given one — and returns what the model needs next: the
+list, the spec and an outline, the id of what was made. Its agent spec names
+no tool at all. Keeping the data operations *in* the plugin, rather than as
+callables declared beside the agent, is what lets the agent's reach follow the
+plugin wherever it is mounted, and lets the two halves of the plugin ship one
+bundle: the TypeScript declares it, and the Python serves the same file.

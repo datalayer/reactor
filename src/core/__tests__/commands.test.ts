@@ -8,6 +8,36 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildReactorFromPlugins, definePlugin } from '../../index';
 
 describe('commands', () => {
+  it("hands back what a command returns, so a command can be an agent's tool", async () => {
+    const plugin = definePlugin({
+      name: 'answers',
+      register: ({ registerCommand }) => {
+        const undo = [
+          registerCommand<void, string[]>({
+            id: 'answers.list',
+            name: 'List',
+            execute: () => ['a', 'b'],
+          }),
+          registerCommand<{ id: string }, Promise<{ id: string; found: boolean }>>({
+            id: 'answers.get',
+            name: 'Get',
+            execute: async ({ id }) => ({ id, found: id === 'a' }),
+          }),
+          registerCommand({ id: 'answers.nothing', name: 'Nothing', execute: () => undefined }),
+        ];
+        return () => undo.forEach((fn) => fn());
+      },
+    });
+    const reactor = buildReactorFromPlugins([plugin]);
+    reactor.start();
+    await reactor.whenReady();
+    expect(await reactor.executeCommand('answers.list')).toEqual(['a', 'b']);
+    expect(await reactor.executeCommand('answers.get', { id: 'a' })).toEqual({ id: 'a', found: true });
+    // A command that answers nothing still resolves — with nothing.
+    expect(await reactor.executeCommand('answers.nothing')).toBeUndefined();
+    reactor.stop();
+  });
+
   it('registers what a plugin declares', () => {
     const reactor = buildReactorFromPlugins([
       definePlugin({
