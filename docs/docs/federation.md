@@ -5,26 +5,6 @@ title: Federation
 
 # Loading extensions via federation
 
-Tracked as [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9). This page keeps the design record: the problem, what the model already gave it, and what was built.
-
-## Status: shipped
-
-:::tip Shipped
-`defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
-adds one to a platform that is already running, and a refused or broken remote
-costs one plugin and says why. See [Remote plugins](/typescript-plugins/federation).
-
-**Module Federation containers** have landed too, through the same loader seam:
-`defineFederatedPlugin` loads a container, `initReactorFederation` turns the
-host's shared modules into a negotiated offer with versions, `updateFederatedRemote`
-hot-updates a container by name, and a build with `dts: true` gives a host the
-remote's type hints. See [Containers](/typescript-plugins/federation#containers)
-and the [federation example](https://github.com/datalayer/reactor/tree/main/examples/federation).
-
-What remains open is **trust**: what a marketplace listing must assert before a
-host will load it. `allowedOrigins` is the floor; a signed manifest is the
-question.
-:::
 
 ## The problem
 
@@ -96,24 +76,24 @@ platform that dictated a bundler to third parties would be making the same
 mistake as one that dictated a UI kit — the claim
 [the CMS example](/examples/cms/) exists to test, and passes.
 
-## What has to be designed
+## How each question was answered
 
-- **A remote reference.** Something like `defineRemotePlugin({ name, url,
-  scope, module, …manifest })` — carrying the full manifest, since the whole
-  point is that the host can describe the plugin before fetching it.
-- **Shared singletons.** React, the reactor itself, and the design system must
-  be shared, or a remote gets a second React and its hooks throw. The manifest
-  is the natural place to declare what a remote expects to share.
-- **Version compatibility.** The Python tier already has
-  `PluginCompatibility(api_version=…)`; a remote loaded at runtime needs the same
-  check, and needs it to *fail politely* — a bad remote should be one missing
-  plugin, exactly as [a module that fails to load is today](/typescript-plugins/lazy-loading).
-- **Trust.** A remote is third-party code in the shell's origin. What a
-  marketplace listing has to assert before a host will load it is an open
-  question, not an implementation detail.
+- **A remote reference.** `defineRemotePlugin({ name, entry, …manifest })` for a
+  plain module and `defineFederatedPlugin({ …, scope, module })` for a
+  container — both carry the full manifest, so a host describes the plugin
+  before fetching it. See [Remote plugins](/typescript-plugins/federation).
+- **Shared singletons.** `setReactorSharedModules` publishes the host's copies;
+  `initReactorFederation` turns them into a negotiated offer with versions for
+  containers. See [Containers](/typescript-plugins/federation#containers).
+- **Version compatibility.** `REACTOR_API_VERSION` refuses a remote built
+  against another runtime, and a container's `requiredVersion` is answered per
+  module — both politely, as a listed plugin with a reason.
+- **Trust.** Still open. `allowedOrigins` is the floor; what a marketplace
+  listing must assert, and how a host verifies it, is recorded on the
+  [roadmap](/roadmap/).
 
 ## Related
 
 Delivering the *server* half of the same extension is
-[#12](/python-packaged-extensions), and the two are meant to compose:
-one install, both tiers, loaded at runtime.
+[Python-packaged extensions](/python-packaged-extensions), and the two
+compose: one install, both tiers, loaded at runtime.

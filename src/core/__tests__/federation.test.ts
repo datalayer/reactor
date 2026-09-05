@@ -7,8 +7,8 @@
 /**
  * Remotes delivered as Module Federation containers.
  *
- * The runtime SDK is replaced by a recording fake: what these test is the
- * contract Reactor keeps with it — that the host is initialised once with what
+ * The runtime SDK is replaced by a recording fake: what these tests check is
+ * the contract Reactor keeps with it — that the host is initialised once with what
  * `setReactorSharedModules` published, that a container is registered before
  * it is read, that a plugin is still one lazy plugin in the platform, and that
  * an update re-registers by name rather than starting a second host.
@@ -66,6 +66,8 @@ describe('sharedFromHost', () => {
     setReactorSharedModules({ react: {}, zustand: {} });
     const shared = sharedFromHost({}, { zustand: { shareConfig: { singleton: false } } });
     expect(shared.zustand.shareConfig?.singleton).toBe(false);
+    // One field overridden, the other kept: the merge is per field.
+    expect(shared.zustand.shareConfig?.requiredVersion).toBe(false);
     expect(shared.react.shareConfig?.singleton).toBe(true);
   });
 });
@@ -83,6 +85,22 @@ describe('initReactorFederation', () => {
     expect(calls.init).toHaveLength(1);
     expect(calls.init[0]).toMatchObject({ name: 'shell' });
     expect((calls.init[0] as { shared: Record<string, unknown> }).shared).toHaveProperty('react');
+  });
+
+  it('forgets a failed init, so the next call tries again', async () => {
+    const broken: FederationRuntime = {
+      ...fakeRuntime().runtime,
+      init: vi.fn(() => {
+        throw new Error('no SDK');
+      }),
+    };
+    setFederationRuntime(broken);
+    await expect(initReactorFederation()).rejects.toThrow(/no SDK/);
+
+    const { runtime, calls } = fakeRuntime();
+    setFederationRuntime(runtime);
+    await expect(initReactorFederation({ name: 'second-try' })).resolves.toBe(runtime);
+    expect(calls.init[0]).toMatchObject({ name: 'second-try' });
   });
 });
 
@@ -167,6 +185,30 @@ describe('updateFederatedRemote', () => {
 });
 
 describe('bootstrapExtensions with a container', () => {
+  it('treats an empty remoteType as unset rather than as a type', async () => {
+    const { runtime, calls } = fakeRuntime({ 'acme_x/plugin': { default: CHARTS } });
+    setFederationRuntime(runtime);
+    const extensions = await bootstrapExtensions('http://localhost:8799', {
+      fetchJson: async () => [
+        {
+          name: 'x',
+          kind: 'federated',
+          remoteName: 'acme_x',
+          remoteType: '',
+          entry: '/reactor-extensions/x/remoteEntry.js',
+          plugins: [{ name: '@acme/x' }],
+        },
+      ],
+      allowedOrigins: ['http://localhost:8799'],
+    });
+    const reactor = buildReactorFromPlugins(extensions);
+    reactor.start();
+    await reactor.whenReady();
+    const registered = (calls.register[0] as { remotes: Array<Record<string, unknown>> }).remotes[0];
+    expect(registered.type).toBeUndefined();
+    expect('type' in registered ? registered.type : undefined).toBeUndefined();
+  });
+
   it('loads a packaged extension whose kind is federated through the container loader', async () => {
     const { runtime } = fakeRuntime({ 'hello_container/plugin': { default: CHARTS } });
     setFederationRuntime(runtime);

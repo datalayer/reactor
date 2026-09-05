@@ -382,6 +382,14 @@ def test_a_federated_frontend_is_described_as_one(tmp_path: Path) -> None:
     assert record["module"] == "./plugin"
     assert record["remoteType"] == "esm"
     assert record["entry"] == "/reactor-extensions/charts/remoteEntry.js"
-    # And a plain one says so, by omission of the container fields.
+    # And a plain one says so, by omission of the container fields — omission,
+    # not empty strings: ``remoteType: ""`` would reach the federation runtime
+    # as a type, and an empty type detects nothing.
     plain = make_extension(tmp_path, "plain")
     assert plain.frontend is not None and plain.frontend.kind == "esm"
+    other = PluginPlatform()
+    other._register_extension_object("plain", plain)  # noqa: SLF001
+    [plain_record] = other.frontend_extensions()
+    assert plain_record["kind"] == "esm"
+    for key in ("remoteName", "module", "remoteType"):
+        assert key not in plain_record

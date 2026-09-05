@@ -165,11 +165,15 @@ export function sharedFromHost(
   const published = getReactorSharedModules();
   const shared: Record<string, FederationShareSpec> = {};
   for (const [name, value] of Object.entries(published)) {
+    // `shareConfig` is merged a level deeper than the rest: an override that
+    // says `{ singleton: false }` means that one field, not "and forget
+    // `requiredVersion`".
+    const { shareConfig, ...override } = overrides[name] ?? {};
     shared[name] = {
       lib: () => value,
       version: versions[name],
-      shareConfig: { singleton: true, requiredVersion: false },
-      ...overrides[name],
+      ...override,
+      shareConfig: { singleton: true, requiredVersion: false, ...shareConfig },
     };
   }
   return shared;
@@ -207,7 +211,7 @@ export async function initReactorFederation(
   if (initialised) {
     return initialised;
   }
-  initialised = (async () => {
+  const pending = (async () => {
     const runtime = await federationRuntime();
     runtime.init({
       name: options.name ?? HOST_NAME,
@@ -216,7 +220,16 @@ export async function initReactorFederation(
     });
     return runtime;
   })();
-  return initialised;
+  initialised = pending;
+  // A failure — the SDK not installed, most often — is reported to this caller
+  // and forgotten, so the next call tries again rather than replaying the same
+  // rejection after the runtime has been provided through `setFederationRuntime`.
+  pending.catch(() => {
+    if (initialised === pending) {
+      initialised = undefined;
+    }
+  });
+  return pending;
 }
 
 /** Forget the host. For tests, and for a shell that tears itself down. */

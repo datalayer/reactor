@@ -172,7 +172,7 @@ page rather than two that share nothing.
 
 `buildReactorFromPlugins` takes the set an application was built with.
 `install` is for the set it did not know about — a URL somebody pasted, an
-extension the server reported after a [`pip install`](/python-plugins/packaging),
+extension the server reported after a [`pip install`](/python-packaged-extensions),
 anything a marketplace hands over.
 
 ```ts
@@ -190,7 +190,7 @@ looks like.
 When the plugins come from a Reactor backend, `bootstrapExtensions` does the
 whole round trip — including the manifests, so the plugin list is complete
 before any module is fetched. See
-[Packaging an extension](/python-plugins/packaging).
+[Packaging an extension](/python-packaged-extensions).
 
 ## A worked example
 

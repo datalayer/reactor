@@ -122,7 +122,7 @@ would be a silent failure.
 ## Shipping the interface
 
 The built UI travels in the wheel under `share/datalayer/reactor/apps/<name>/`,
-the same convention [an extension's frontend](/python-plugins/packaging) uses:
+the same convention [an extension's frontend](/python-packaged-extensions) uses:
 
 ```toml
 [tool.setuptools.data-files]
@@ -155,7 +155,7 @@ reason it needed two servers and a CORS policy.
 ## Discovery on boot
 
 `discover=True` scans the extension entry-point group before serving, so an
-installed [extension](/python-plugins/packaging) is present from the *first* request
+installed [extension](/python-packaged-extensions) is present from the *first* request
 rather than only once a browser has asked. Installing one while the host runs
 still works — the frontend-extensions endpoint rescans — but a host that was
 restarted should not need a page load to know what it is running.

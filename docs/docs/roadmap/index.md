@@ -17,7 +17,7 @@ with the rest of the documentation:
 | Shipped | Where it lives now |
 | --- | --- |
 | Plugins delivered as remotes at runtime — plain modules and Module Federation containers, with negotiated sharing and hot updates ([#9](https://github.com/datalayer/reactor/issues/9)) | [Federation](/federation) and [Remote plugins](/typescript-plugins/federation) |
-| One `pip install` delivering both halves of an extension, the frontend as a container built into the wheel ([#12](https://github.com/datalayer/reactor/issues/12)) | [Python-packaged extensions](/python-packaged-extensions) and [Packaging an extension](/python-plugins/packaging) |
+| One `pip install` delivering both halves of an extension, the frontend as a container built into the wheel ([#12](https://github.com/datalayer/reactor/issues/12)) | [Python-packaged extensions](/python-packaged-extensions) and [Packaging an extension](/python-packaged-extensions) |
 | Cross-tier activation and deactivation | [Lifecycle](/typescript-plugins/lifecycle) and [Cross-tier Dependencies](/cross-tier-dependencies) |
 | A second design system | [The CMS example](/examples/cms/) |
 

@@ -17,7 +17,7 @@ same two packages the rest of this documentation describes.
 | [Frontend + backend](/examples/frontend-backend) | both | The same, with a FastAPI backend and a gated slot. |
 | [CLI](/examples/cli) | Python | A command-line host extended by a plugin, with no browser anywhere. |
 | [Federation](/examples/federation) | TypeScript | Plugins fetched from a URL: one that works, one that fails on purpose, and one installed by pasting a link. |
-| [Extension](/python-plugins/packaging) | both | One `pip install` shipping a Python plugin and its UI — and appearing in a server that was already running. |
+| [Extension](/python-packaged-extensions) | both | One `pip install` shipping a Python plugin and its UI — and appearing in a server that was already running. |
 
 Start with the [music store demo](/examples/music/demo) if you want to see the
 model rather than read it — the Plugins panel on its right switches any plugin

@@ -885,6 +885,18 @@ class PluginPlatform:
         answer: list[dict[str, Any]] = []
         for name, frontend in self._frontend.items():
             manifest = self._extensions.get(name)
+            # The container fields only when they carry a value: a plain ESM
+            # extension serialised with ``remoteType: ""`` would reach the
+            # federation runtime as a type, and an empty type detects nothing.
+            container = {
+                key: value
+                for key, value in (
+                    ("remoteName", frontend.remote_name),
+                    ("module", frontend.module),
+                    ("remoteType", frontend.remote_type),
+                )
+                if value
+            }
             answer.append(
                 {
                     "name": name,
@@ -895,9 +907,7 @@ class PluginPlatform:
                     "emoji": manifest.emoji if manifest else "",
                     "apiVersion": frontend.api_version,
                     "kind": frontend.kind,
-                    "remoteName": frontend.remote_name,
-                    "module": frontend.module,
-                    "remoteType": frontend.remote_type,
+                    **container,
                     "entry": f"{base_url}/{name}/{frontend.entry}",
                     "plugins": [plugin.to_dict() for plugin in frontend.plugins],
                     # What this extension's Python half brought, so a host can

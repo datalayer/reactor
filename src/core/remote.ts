@@ -413,7 +413,9 @@ export async function bootstrapExtensions(
         apiVersion: extension.apiVersion,
         scope,
         module,
-        type: plugin.type ?? extension.remoteType,
+        // Empty means unset — a backend serialising its default must not
+        // turn into `type: ''` at the runtime, which would no longer detect.
+        type: plugin.type || extension.remoteType || undefined,
       };
       return (federated || plugin.scope) && scope
         ? defineFederatedPlugin({ ...ref, scope }, remoteOptions)
