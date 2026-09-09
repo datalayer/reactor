@@ -43,6 +43,7 @@
  */
 
 import { defineRemotePlugin, getReactorSharedModules, type DefineRemoteOptions, type RemoteModuleLoader, type RemotePluginRef } from './remote';
+import { assertOriginAllowed } from './origins';
 import type { LazyPluginRef } from './plugin';
 
 /* ── The SDK, as little of it as is used ──────────────────────────────── */
@@ -243,11 +244,18 @@ export function resetReactorFederation(): void {
  * `force` is the whole hot-update story: Module Federation keys a container by
  * name, so re-registering the same name with a different entry is how new code
  * gets behind a plugin that is already running.
+ *
+ * The entry's origin is checked here as well as at the plugin — and it has to
+ * be, because this is a *second* door to the same room. A container registered
+ * by name runs with the shell's privileges exactly as a plugin does, and
+ * `force` means the name a host trusted can be pointed somewhere it did not.
+ * See {@link module:core/origins}.
  */
 export async function registerFederatedRemote(
   remote: FederationRemoteEntry,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; allowedOrigins?: readonly string[] } = {},
 ): Promise<void> {
+  assertOriginAllowed(remote.entry, options.allowedOrigins, `the container ${remote.name}`);
   const runtime = await initReactorFederation();
   runtime.registerRemotes([remote], { force: options.force ?? false });
 }
@@ -268,13 +276,22 @@ export async function registerFederatedRemote(
 export async function updateFederatedRemote(
   name: string,
   entry: string,
-  options: { bust?: boolean } = {},
+  options: { bust?: boolean; allowedOrigins?: readonly string[] } = {},
 ): Promise<void> {
   const bust = options.bust ?? true;
   const url = bust
     ? `${entry}${entry.includes('?') ? '&' : '?'}t=${Date.now()}`
     : entry;
-  await registerFederatedRemote({ name, entry: url }, { force: true });
+  // Through `registerFederatedRemote`, so the origin is checked. An update is
+  // the one call that takes a URL from a person — a console, a dev server, a
+  // marketplace's *"a new version is available"* — and hands it the name of
+  // something already trusted. Developing against a dev server on another port
+  // is therefore a `setAllowedOrigins` line, which is the same thing every
+  // other remote asks for.
+  await registerFederatedRemote(
+    { name, entry: url },
+    { force: true, allowedOrigins: options.allowedOrigins },
+  );
   const runtime = await initReactorFederation();
   await runtime.preloadRemote([{ nameOrAlias: name }]);
 }
@@ -284,7 +301,7 @@ export async function updateFederatedRemote(
 /**
  * A {@link RemoteModuleLoader} that reads a Module Federation container.
  *
- * This is the swap the roadmap promised: `defineRemotePlugin` does not change,
+ * The swap the seam was designed for: `defineRemotePlugin` does not change,
  * the lifecycle does not change, and the only thing that moves is how the
  * module is fetched. A ref with a `scope` is a container; one without is a
  * plain ES module and never reaches here.
@@ -298,7 +315,10 @@ export function createFederationLoader(): RemoteModuleLoader {
           'pass `scope` on the remote reference.',
       );
     }
-    await registerFederatedRemote({ name: scope, entry, type: ref?.type });
+    await registerFederatedRemote(
+      { name: scope, entry, type: ref?.type },
+      { allowedOrigins: ref?.allowedOrigins },
+    );
     const runtime = await initReactorFederation();
     const id = `${scope}/${(ref?.module ?? './plugin').replace(/^\.\//, '')}`;
     const module = await runtime.loadRemote<Record<string, unknown>>(id);

@@ -33,6 +33,7 @@ import {
   defineFederatedPlugin,
   defineRemotePlugin,
   definePlugin,
+  isOriginAllowed,
   updateFederatedRemote,
 } from '@datalayer/reactor';
 import {
@@ -163,6 +164,12 @@ function InstallBox() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Asked before offering, rather than explained afterwards. The load-time
+  // check is the one that matters — nothing loads from an origin this page did
+  // not name — but a marketplace that lets somebody install a plugin and then
+  // shows them a `loadError` has made the refusal look like a breakage.
+  const allowed = isOriginAllowed(url);
+
   const install = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -204,15 +211,25 @@ function InstallBox() {
           onChange={(event) => setUrl(event.target.value)}
           aria-label="Module URL"
         />
-        <button onClick={() => void install()} disabled={busy}>
+        <button onClick={() => void install()} disabled={busy || !allowed}>
           {busy ? 'Installing…' : 'Install'}
         </button>
       </div>
       {error ? <div className="error">{error}</div> : null}
       <p className="lede" style={{ marginBottom: 0 }}>
-        Try an absolute URL on another origin: it is refused, because a remote
-        runs with this page’s privileges and “anywhere” is not a default anybody
-        should get by accident.
+        {allowed ? (
+          <>
+            Try an absolute URL on another origin: it is refused, because a
+            remote runs with this page’s privileges and “anywhere” is not a
+            default anybody should get by accident.
+          </>
+        ) : (
+          <>
+            That origin is not allowed, so nothing will be fetched from it. A
+            host names the origins it will load remotes from — once, with{' '}
+            <code>setAllowedOrigins</code>, or per plugin.
+          </>
+        )}
       </p>
     </div>
   );

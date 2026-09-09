@@ -27,10 +27,11 @@ there, and only there. Source in [`docs/`](./docs).
 | [Why Reactor](https://reactor.datalayer.tech/overview/why) | what this targets that a hook callback does not |
 | [Architecture](https://reactor.datalayer.tech/overview/architecture) | the seven constructs, and the two distinctions the model rests on |
 | [Get started in TypeScript](https://reactor.datalayer.tech/getting-started/typescript) · [in Python](https://reactor.datalayer.tech/getting-started/python) | install, and a plugin running |
-| [TypeScript runtime](https://reactor.datalayer.tech/typescript/) | plugins, lifecycle, contribution points, extensions, activation, lazy loading, React bindings, signals |
-| [Python runtime](https://reactor.datalayer.tech/python/) | manifests, contribution points, extensions, tenants, the HTTP API |
-| [Across the tiers](https://reactor.datalayer.tech/cross-tier/declaring-dependencies) | what a plugin may declare about its counterpart, and why it is not enforced |
-| [Roadmap](https://reactor.datalayer.tech/roadmap/) | federation, cross-tier activation, Python-packaged extensions, shadcn/ui |
+| [TypeScript runtime](https://reactor.datalayer.tech/typescript-plugins/) | plugins, lifecycle, contribution points, extensions, activation, lazy loading, remote plugins, allowed origins, React bindings, signals |
+| [Python runtime](https://reactor.datalayer.tech/python-plugins/) | manifests, contribution points, extensions, tenants, the HTTP API |
+| [Across the tiers](https://reactor.datalayer.tech/cross-tier-dependencies/) | what a plugin may declare about its counterpart, and why it is not enforced |
+| [Federation](https://reactor.datalayer.tech/federation/) | plugins that arrive from a URL, containers, and where one is allowed to come from |
+| [Python-packaged extensions](https://reactor.datalayer.tech/python-packaged-extensions/) | one `pip install` shipping both tiers, the frontend built into the wheel |
 
 ### 🎵 The music store, running in the page
 
@@ -44,7 +45,7 @@ tiers. Untick one and watch what it contributed leave.
 | --- | --- |
 | `src/` | TypeScript package source for `@datalayer/reactor` |
 | `reactor/` | Python package source for `datalayer_reactor` |
-| `plugins/` | reusable plugins shipped alongside the runtime — the [manager](https://reactor.datalayer.tech/plugins/manager) and the [graph](https://reactor.datalayer.tech/plugins/graph) |
+| `plugins/` | reusable plugins shipped alongside the runtime — the [manager](https://reactor.datalayer.tech/core-plugins/manager) and the [graph](https://reactor.datalayer.tech/core-plugins/graph) |
 | `examples/` | the demos, including [the music store](./examples/music) |
 | `docs/` | the documentation site |
 

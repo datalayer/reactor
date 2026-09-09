@@ -86,11 +86,18 @@ between a slow network, a refused origin and a broken module — three different
 things to do about it.
 
 Origins are refused by default: a remote runs with the shell's privileges, so
-same-origin always passes and anything else must be named.
+same-origin always passes and anything else must be named — once for the page,
+or for one plugin.
 
 ```ts
-defineRemotePlugin(ref, { allowedOrigins: ['https://plugins.example.com'] });
+setAllowedOrigins(['https://plugins.example.com']);            // the shell, once
+defineRemotePlugin(ref, { allowedOrigins: ['https://cdn.acme.com'] });  // or one plugin
 ```
+
+The same list gates every seam where a URL turns into code, the
+[hot update](#hot-updates) included, and `isOriginAllowed` answers the question
+before a marketplace offers the install. See
+[Allowed origins](/typescript-plugins/allowed-origins).
 
 ## Containers
 
@@ -153,6 +160,12 @@ already on screen keeps running; the next module the container hands out is
 the new code. A plugin that must itself be replaced is `uninstall` then
 `install`, the same story a local plugin has.
 
+The new entry's origin is checked, exactly as the first one was. This is the
+call that takes a URL from a person and hands it the name of something the host
+already trusts, so pointing at a dev server on another port is one
+[`setAllowedOrigins`](/typescript-plugins/allowed-origins) line rather than a
+hole in the policy.
+
 ### Type hints
 
 Build the container with `dts: true` and it emits `@mf-types/`; a host can then
@@ -172,7 +185,7 @@ page rather than two that share nothing.
 
 `buildReactorFromPlugins` takes the set an application was built with.
 `install` is for the set it did not know about — a URL somebody pasted, an
-extension the server reported after a [`pip install`](/python-packaged-extensions),
+extension the server reported after a [`pip install`](/python-packaged-extensions/),
 anything a marketplace hands over.
 
 ```ts
@@ -190,7 +203,7 @@ looks like.
 When the plugins come from a Reactor backend, `bootstrapExtensions` does the
 whole round trip — including the manifests, so the plugin list is complete
 before any module is fetched. See
-[Packaging an extension](/python-packaged-extensions).
+[Packaging an extension](/python-packaged-extensions/).
 
 ## A worked example
 

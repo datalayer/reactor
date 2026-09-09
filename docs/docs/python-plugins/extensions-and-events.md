@@ -82,4 +82,4 @@ A backend plugin going down stands its frontend dependants down, and brings
 them back when it returns: `setBackendPlugins()` on the browser side applies
 the server's state, and `GET /events/stream` (consumed by
 `useBackendPluginStream()`) is what keeps the two in step without polling.
-See [Cross-tier Dependencies](/cross-tier-dependencies).
+See [Cross-tier Dependencies](/cross-tier-dependencies/).

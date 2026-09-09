@@ -35,7 +35,7 @@ export default function App() {
 ```
 
 `isBackendPluginAvailable` is the predicate that decides whether a component
-gated on [`requiredBackendPlugins`](/cross-tier-dependencies) renders.
+gated on [`requiredBackendPlugins`](/cross-tier-dependencies/) renders.
 Pass it as a hook result, not a bare function, so that the reactor is told when
 the answer changes.
 

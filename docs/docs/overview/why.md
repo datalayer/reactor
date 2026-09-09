@@ -32,7 +32,7 @@ same names and the same presentation fields, so that:
   the same way.
 
 See [Architecture](/overview/architecture) for the constructs, and
-[Cross-tier Dependencies](/cross-tier-dependencies) for what a plugin may say
+[Cross-tier Dependencies](/cross-tier-dependencies/) for what a plugin may say
 about its counterpart.
 
 ## What is deliberately not here
@@ -45,5 +45,5 @@ about its counterpart.
 - **Enforcement across the wire.** Backend `dependencies` are checked at
   registration and refused outright. A frontend dependency cannot be — the
   plugins live in a browser the platform cannot see. Reactor declares those and
-  [answers questions about them](/cross-tier-dependencies) instead of
+  [answers questions about them](/cross-tier-dependencies/) instead of
   pretending to enforce them.

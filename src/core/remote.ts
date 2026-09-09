@@ -35,6 +35,7 @@
 import { defineExtension, type ReactorExtension } from './extension';
 import { defineFederatedPlugin } from './federation';
 import { defineLazyPlugin, type LazyPluginRef } from './plugin';
+import { assertOriginAllowed } from './origins';
 import type { ActivationEvent } from './activation';
 
 /** Where the host parks the modules it is willing to share. */
@@ -131,6 +132,14 @@ export type RemoteLoadContext = {
   module?: string;
   /** How the container's entry is built — see `RemotePluginRef.type`. */
   type?: string;
+  /**
+   * What this plugin was allowed beyond the host's standing policy.
+   *
+   * Carried through the seam because a loader may reach a *second* URL — a
+   * container is registered with the federation runtime before it is read —
+   * and a gate the loader could not see would be a gate around one door.
+   */
+  allowedOrigins?: readonly string[];
 };
 
 /** How a remote module is fetched. The seam Module Federation plugs into. */
@@ -197,53 +206,20 @@ export type DefineRemoteOptions = {
   /** What this host speaks. Defaults to {@link REACTOR_API_VERSION}. */
   apiVersion?: string;
   /**
-   * Origins a remote may be loaded from, beyond the page's own.
+   * Origins this plugin may be loaded from, beyond the page's own.
    *
    * A remote runs in the shell's origin with the shell's privileges, so
    * "anywhere" is not a default anybody should get by accident. Same-origin
-   * always passes; anything else has to be named.
+   * always passes; anything else has to be named — here for one plugin, or
+   * once for the page with {@link setAllowedOrigins}. The two are added
+   * together: this list widens the host's policy for this plugin and never
+   * narrows it. `https://*.cdn.example.com` matches subdomains, as in a CSP.
    */
   allowedOrigins?: string[];
 };
 
 /** Thrown by the loader, so the runtime reports it as a plugin that failed. */
 class RemoteRefused extends Error {}
-
-function assertAllowed(entry: string, allowed: string[] | undefined): void {
-  const base =
-    typeof location !== 'undefined' && location?.href ? location.href : undefined;
-
-  // Resolved rather than pattern-matched, because "does this look absolute?"
-  // has a wrong answer: `//evil.example/x.js` is *protocol-relative*, and the
-  // browser loads it cross-origin while a `^[a-z]+://` test says it is a local
-  // path. Handing the URL to `new URL` with the page as the base is the only
-  // way to learn where an import would actually go.
-  let origin: string | undefined;
-  try {
-    origin = base
-      ? new URL(entry, base).origin
-      : /^[a-z]+:\/\//i.test(entry)
-        ? new URL(entry).origin
-        : undefined;
-  } catch {
-    throw new RemoteRefused(`Refusing to load a remote from an unreadable URL: ${entry}`);
-  }
-
-  // No page to resolve against — a test, or a server — and a relative entry.
-  // There is no origin to check and nothing a check could protect.
-  if (origin === undefined) {
-    return;
-  }
-
-  const here = base ? new URL(base).origin : undefined;
-  if (origin === here || allowed?.includes(origin)) {
-    return;
-  }
-  throw new RemoteRefused(
-    `Refusing to load a remote from ${origin}: not an allowed origin. ` +
-      'Pass allowedOrigins to accept it.',
-  );
-}
 
 /**
  * Declare a plugin whose module is fetched from a URL.
@@ -281,7 +257,7 @@ export function defineRemotePlugin(
           `${ref.name} declares API version ${ref.apiVersion}; this host speaks ${apiVersion}.`,
         );
       }
-      assertAllowed(ref.entry, allowedOrigins);
+      assertOriginAllowed(ref.entry, allowedOrigins, ref.name);
 
       const missing = missingSharedModules();
       if (missing.length > 0) {
@@ -297,6 +273,7 @@ export function defineRemotePlugin(
         scope: ref.scope,
         module: ref.module,
         type: ref.type,
+        allowedOrigins,
       });
       const exported = ref.export ? module[ref.export] : module.default ?? module;
       if (!exported) {
@@ -362,17 +339,35 @@ export type BootstrapOptions = DefineRemoteOptions & {
  * A backend that cannot be reached yields an empty list rather than throwing.
  * A shell that refused to start because the extension server was down would be
  * failing for the wrong reason: its own bundled plugins are fine.
+ *
+ * **The backend's own origin is allowed for what the backend serves.** Writing
+ * this call is naming the origin — `backendUrl` is in the host's source, not
+ * in anything an attacker supplies — so a host does not restate it in
+ * `allowedOrigins`. What that does *not* extend to is an entry the server
+ * points somewhere else: a record whose `entry` is an absolute URL on a third
+ * origin is checked like any other remote, because the origin a host named is
+ * the server, not everywhere the server can point.
  */
 export async function bootstrapExtensions(
   backendUrl: string,
   options: BootstrapOptions = {},
 ): Promise<(LazyPluginRef | ReactorExtension)[]> {
-  const { fetchJson, ...remoteOptions } = options;
+  const { fetchJson, allowedOrigins, ...rest } = options;
   // Normalised once. A caller that passes `http://host/` and one that passes
   // `http://host` should not produce two different URLs, two cache entries and
   // two subtly different origins to compare against.
   const backend = backendUrl.replace(/\/+$/, '');
   const url = `${backend}/plugins/frontend-extensions`;
+  const remoteOptions = {
+    ...rest,
+    // Only when it is absolute: a host that points at its own server with
+    // `/api` has named no origin, and everything it serves is same-origin
+    // anyway. Adding an unparseable entry would earn a warning about a policy
+    // the caller never wrote.
+    allowedOrigins: /^[a-z]+:\/\//i.test(backend)
+      ? [...(allowedOrigins ?? []), backend]
+      : allowedOrigins,
+  };
 
   let records: FrontendExtensionRecord[];
   try {

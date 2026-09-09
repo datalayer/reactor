@@ -36,9 +36,23 @@ referenced by no code in this application and is not in its plugin list. That is
 a marketplace install with the marketplace removed — and nothing already running
 is restarted.
 
-Try an absolute URL on another origin. It is refused, and says so: a remote runs
-with this page's privileges, so "anywhere" is not a default anybody should get
-by accident.
+Try an absolute URL on another origin. The *Install* button goes dead and says
+why, because `isOriginAllowed` is asked before the plugin is offered: a remote
+runs with this page's privileges, so "anywhere" is not a default anybody should
+get by accident. A host that wants one names it —
+`setAllowedOrigins(['https://cdn.example.com'])`, once, for the page — and the
+same list is what a container registration and a hot update are held to. See
+[Allowed origins](https://reactor.datalayer.tech/typescript-plugins/allowed-origins).
+
+**4. A container negotiates what a plain module borrows.** `@remote/charts` is a
+Module Federation container. It does not read React off a global; the host hands
+it one through the share scope, version and all. `public/remotes/charts/remoteEntry.js`
+is that container written by hand — forty lines, which is the whole protocol —
+and [`remote-charts/`](remote-charts/) is the same plugin as an Rsbuild build,
+with `shared`, `requiredVersion` and type hints.
+
+**5. A container updates in place.** Edit `remoteEntry.js`, press *Update
+reactor_charts*, and the name is pointed at the new code. Nothing restarts.
 
 ## How the remotes are written
 
@@ -57,21 +71,3 @@ plugin a *second* React, whose hooks throw from inside a component that looks
 perfectly fine. The host publishes its copies with `setReactorSharedModules`
 (see `src/main.tsx`), and `REACTOR_SHARED_MODULES` is the floor the runtime
 warns about when a host forgets.
-
-## What is not here yet
-
-Module Federation containers. `defineRemotePlugin` takes a `loader`, and the
-default one is a dynamic `import()` of a URL — so moving to MF's `loadRemote`
-is one function, not a rewrite. See [REACTOR.md](../../REACTOR.md) §3 and
-[the roadmap](https://reactor.datalayer.tech/roadmap/federation).
-
-**4. A container negotiates what a plain module borrows.** `@remote/charts` is a
-Module Federation container. It does not read React off a global; the host hands
-it one through the share scope, version and all. `public/remotes/charts/remoteEntry.js`
-is that container written by hand — forty lines, which is the whole protocol —
-and [`remote-charts/`](remote-charts/) is the same plugin as an Rsbuild build,
-with `shared`, `requiredVersion` and type hints.
-
-**5. A container updates in place.** Edit `remoteEntry.js`, press *Update
-reactor_charts*, and the name is pointed at the new code. Nothing restarts.
-

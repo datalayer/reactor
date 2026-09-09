@@ -1,6 +1,7 @@
 ---
-sidebar_position: 6
+sidebar_position: 0
 title: Cross-tier Dependencies
+slug: /cross-tier-dependencies/
 ---
 
 # Declaring what a plugin needs from the other tier

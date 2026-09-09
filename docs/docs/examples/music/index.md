@@ -106,7 +106,7 @@ reactor commands list
 reactor catalog songs
 ```
 
-See [the command registry](/commands-registry) and
+See [the command registry](/commands-registry/) and
 [extending the command line](/python-plugins/cli).
 
 ## Read on

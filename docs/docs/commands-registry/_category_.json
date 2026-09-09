@@ -1,0 +1,8 @@
+{
+  "label": "Commands Registry",
+  "position": 5,
+  "link": {
+    "type": "doc",
+    "id": "commands-registry/index"
+  }
+}

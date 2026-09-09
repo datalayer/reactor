@@ -14,9 +14,10 @@ npm run dev            # serves the container on http://localhost:5181
 ```
 
 Point the parent example at it by changing `CHARTS_ENTRY` in `src/App.tsx` to
-`http://localhost:5181/remoteEntry.js` and adding that origin to
-`allowedOrigins` — and drop `type: 'esm'`, since a built entry is a `global`
-script, which is the runtime's default.
+`http://localhost:5181/remoteEntry.js` and allowing that origin —
+`setAllowedOrigins(['http://localhost:5181'])` in `src/main.tsx`, since a dev
+server on another port is another origin. Drop `type: 'esm'` too: a built entry
+is a `global` script, which is the runtime's default.
 
 What the build adds over the hand-written file:
 

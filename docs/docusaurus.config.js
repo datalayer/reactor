@@ -197,8 +197,8 @@ module.exports = {
           position: 'left',
         },
         {
-          to: '/roadmap/',
-          label: 'Roadmap',
+          to: '/federation/',
+          label: 'Federation',
           position: 'left',
         },
         {

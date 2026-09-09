@@ -20,6 +20,7 @@ import { buildReactorFromPlugins } from '../reactor';
 import { definePlugin } from '../plugin';
 import { onView } from '../activation';
 import { bootstrapExtensions, setReactorSharedModules } from '../remote';
+import { setAllowedOrigins } from '../origins';
 import {
   defineFederatedPlugin,
   initReactorFederation,
@@ -50,7 +51,19 @@ function fakeRuntime(modules: Record<string, unknown> = {}) {
 afterEach(() => {
   resetReactorFederation();
   setFederationRuntime(undefined);
+  setAllowedOrigins([]);
 });
+
+/** Stand a page up, so that "same origin" means something. */
+async function onPage(href: string, body: () => Promise<void>): Promise<void> {
+  const original = (globalThis as Record<string, unknown>).location;
+  (globalThis as Record<string, unknown>).location = { href, origin: new URL(href).origin };
+  try {
+    await body();
+  } finally {
+    (globalThis as Record<string, unknown>).location = original;
+  }
+}
 
 describe('sharedFromHost', () => {
   it('turns what the host published into singletons', () => {
@@ -168,6 +181,30 @@ describe('defineFederatedPlugin', () => {
 });
 
 describe('updateFederatedRemote', () => {
+  it('refuses to point a trusted name at an origin nobody named', async () => {
+    const { runtime, calls } = fakeRuntime();
+    setFederationRuntime(runtime);
+    await onPage('https://app.example/page', async () => {
+      await initReactorFederation();
+
+      // The hot-update path is the one that takes a URL from a *person* — a
+      // console, a dev server, a marketplace's "new version available" — and
+      // hands it the name of a container the host already trusts. A gate on
+      // `defineRemotePlugin` alone would be a gate around one of two doors.
+      await expect(
+        updateFederatedRemote('acme_charts', 'https://evil.example/remoteEntry.js'),
+      ).rejects.toThrow(/not an allowed origin/);
+      expect(calls.register).toHaveLength(0);
+      expect(runtime.preloadRemote).not.toHaveBeenCalled();
+
+      // Naming it is all it takes, and it is the same sentence every other
+      // remote asks for.
+      setAllowedOrigins(['https://evil.example']);
+      await updateFederatedRemote('acme_charts', 'https://evil.example/remoteEntry.js');
+      expect(calls.register).toHaveLength(1);
+    });
+  });
+
   it('re-registers the same name with new code and pulls it in', async () => {
     const { runtime, calls } = fakeRuntime();
     setFederationRuntime(runtime);

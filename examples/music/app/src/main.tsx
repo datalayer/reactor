@@ -46,11 +46,12 @@ setReactorSharedModules({
  * server, and the modules are still on the wire.
  */
 async function main() {
-  const remotes = await bootstrapExtensions(CATALOG_BACKEND_URL, {
-    // The server that listed the extension is the server serving it, and it is
-    // not this page's origin in development.
-    allowedOrigins: [CATALOG_BACKEND_URL],
-  });
+  // The server that listed the extension is the server serving it, and in
+  // development that is another port — a different origin, which a remote
+  // normally has to be allowed for by name. Writing this call *is* the name:
+  // `CATALOG_BACKEND_URL` is in this file, not in anything the network said.
+  // An entry the server points at some *third* origin is still refused.
+  const remotes = await bootstrapExtensions(CATALOG_BACKEND_URL);
 
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

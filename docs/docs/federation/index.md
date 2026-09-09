@@ -1,6 +1,7 @@
 ---
-sidebar_position: 7
+sidebar_position: 0
 title: Federation
+slug: /federation/
 ---
 
 # Loading extensions via federation
@@ -88,12 +89,45 @@ mistake as one that dictated a UI kit — the claim
 - **Version compatibility.** `REACTOR_API_VERSION` refuses a remote built
   against another runtime, and a container's `requiredVersion` is answered per
   module — both politely, as a listed plugin with a reason.
-- **Trust.** Still open. `allowedOrigins` is the floor; what a marketplace
-  listing must assert, and how a host verifies it, is recorded on the
-  [roadmap](/roadmap/).
+- **Trust.** Answered as far as *where* a module comes from, and open past
+  that. Nothing loads from an origin the host has not named — the page's own
+  always passes, everything else is written down, and the same list gates the
+  declaration, the container registration, the hot update and the server
+  bootstrap. See [Allowed origins](/typescript-plugins/allowed-origins).
+
+## What is still open
+
+One question, and it is a design question rather than a missing feature.
+
+An origin says **where** a module is served from. It does not say **what** the
+module is or who wrote it, and the gap between those two is where a marketplace
+lives: what a listing must assert before a host will load it — a publisher
+identity, a signature over the entry, a hash — and how a host verifies that.
+Subresource integrity covers a fixed entry and says nothing about the chunks a
+container fetches afterwards; a signature needs a key somebody distributes, and
+distributing keys is the same problem one layer down.
+
+Until that is decided, naming an origin is a host's statement that it trusts
+whoever operates that server to serve it code — which is what loading a script
+from a CDN has always meant, now said out loud and checked.
+[Allowed origins](/typescript-plugins/allowed-origins#what-is-still-open)
+carries the same note beside the feature it qualifies.
+
+## How the pieces fit together
+
+```mermaid
+flowchart LR
+  federation["Federation\nload a remote at runtime"] --> packaging["Python packaging\nship both tiers as one install"]
+```
+
+Federation is what makes a plugin arrive at runtime;
+[packaging](/python-packaged-extensions/) is what makes it arrive with its
+server half. The third leg — the pair behaving as one thing once it has
+arrived — is switching a plugin
+[carrying to its dependants, across the wire](/cross-tier-dependencies/).
 
 ## Related
 
 Delivering the *server* half of the same extension is
-[Python-packaged extensions](/python-packaged-extensions), and the two
+[Python-packaged extensions](/python-packaged-extensions/), and the two
 compose: one install, both tiers, loaded at runtime.

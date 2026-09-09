@@ -43,7 +43,7 @@ setReactorSharedModules({
  */
 async function main() {
   const backend = window.location.origin;
-  const remotes = await bootstrapExtensions(backend, { allowedOrigins: [backend] });
+  const remotes = await bootstrapExtensions(backend);
 
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

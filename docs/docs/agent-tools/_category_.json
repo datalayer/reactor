@@ -1,0 +1,8 @@
+{
+  "label": "Agent Tools",
+  "position": 9,
+  "link": {
+    "type": "doc",
+    "id": "agent-tools/index"
+  }
+}
