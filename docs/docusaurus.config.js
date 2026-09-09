@@ -197,11 +197,6 @@ module.exports = {
           position: 'left',
         },
         {
-          to: '/federation/',
-          label: 'Federation',
-          position: 'left',
-        },
-        {
           href: 'https://discord.gg/YQFwvmSSuR',
           position: 'right',
           className: 'header-discord-link',
