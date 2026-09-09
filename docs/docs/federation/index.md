@@ -1,24 +1,11 @@
 ---
-sidebar_position: 1
-title: Loading Extensions via Federation
+sidebar_position: 0
+title: Federation
+slug: /federation/
 ---
 
 # Loading extensions via federation
 
-**Tracking: [datalayer/reactor#9](https://github.com/datalayer/reactor/issues/9)**
-
-## Status: loading a remote at runtime has landed
-
-:::tip Shipped
-`defineRemotePlugin` fetches a plugin's module from a URL, `reactor.install()`
-adds one to a platform that is already running, and a refused or broken remote
-costs one plugin and says why. See [Remote plugins](/typescript-plugins/federation).
-
-What is still open is below: **Module Federation containers** rather than plain
-ES modules — shared-dependency negotiation, remote type hints, and hot updates
-for consumed remotes. The loader is a seam, so that is a swap rather than a
-rewrite.
-:::
 
 ## The problem
 
@@ -90,24 +77,57 @@ platform that dictated a bundler to third parties would be making the same
 mistake as one that dictated a UI kit — the claim
 [the CMS example](/examples/cms/) exists to test, and passes.
 
-## What has to be designed
+## How each question was answered
 
-- **A remote reference.** Something like `defineRemotePlugin({ name, url,
-  scope, module, …manifest })` — carrying the full manifest, since the whole
-  point is that the host can describe the plugin before fetching it.
-- **Shared singletons.** React, the reactor itself, and the design system must
-  be shared, or a remote gets a second React and its hooks throw. The manifest
-  is the natural place to declare what a remote expects to share.
-- **Version compatibility.** The Python tier already has
-  `PluginCompatibility(api_version=…)`; a remote loaded at runtime needs the same
-  check, and needs it to *fail politely* — a bad remote should be one missing
-  plugin, exactly as [a module that fails to load is today](/typescript-plugins/lazy-loading).
-- **Trust.** A remote is third-party code in the shell's origin. What a
-  marketplace listing has to assert before a host will load it is an open
-  question, not an implementation detail.
+- **A remote reference.** `defineRemotePlugin({ name, entry, …manifest })` for a
+  plain module and `defineFederatedPlugin({ …, scope, module })` for a
+  container — both carry the full manifest, so a host describes the plugin
+  before fetching it. See [Remote plugins](/typescript-plugins/federation).
+- **Shared singletons.** `setReactorSharedModules` publishes the host's copies;
+  `initReactorFederation` turns them into a negotiated offer with versions for
+  containers. See [Containers](/typescript-plugins/federation#containers).
+- **Version compatibility.** `REACTOR_API_VERSION` refuses a remote built
+  against another runtime, and a container's `requiredVersion` is answered per
+  module — both politely, as a listed plugin with a reason.
+- **Trust.** Answered as far as *where* a module comes from, and open past
+  that. Nothing loads from an origin the host has not named — the page's own
+  always passes, everything else is written down, and the same list gates the
+  declaration, the container registration, the hot update and the server
+  bootstrap. See [Allowed origins](/typescript-plugins/allowed-origins).
+
+## What is still open
+
+One question, and it is a design question rather than a missing feature.
+
+An origin says **where** a module is served from. It does not say **what** the
+module is or who wrote it, and the gap between those two is where a marketplace
+lives: what a listing must assert before a host will load it — a publisher
+identity, a signature over the entry, a hash — and how a host verifies that.
+Subresource integrity covers a fixed entry and says nothing about the chunks a
+container fetches afterwards; a signature needs a key somebody distributes, and
+distributing keys is the same problem one layer down.
+
+Until that is decided, naming an origin is a host's statement that it trusts
+whoever operates that server to serve it code — which is what loading a script
+from a CDN has always meant, now said out loud and checked.
+[Allowed origins](/typescript-plugins/allowed-origins#what-is-still-open)
+carries the same note beside the feature it qualifies.
+
+## How the pieces fit together
+
+```mermaid
+flowchart LR
+  federation["Federation\nload a remote at runtime"] --> packaging["Python packaging\nship both tiers as one install"]
+```
+
+Federation is what makes a plugin arrive at runtime;
+[packaging](/python-packaged-extensions/) is what makes it arrive with its
+server half. The third leg — the pair behaving as one thing once it has
+arrived — is switching a plugin
+[carrying to its dependants, across the wire](/cross-tier-dependencies/).
 
 ## Related
 
 Delivering the *server* half of the same extension is
-[#12](/roadmap/python-packaged-extensions), and the two are meant to compose:
-one install, both tiers, loaded at runtime.
+[Python-packaged extensions](/python-packaged-extensions/), and the two
+compose: one install, both tiers, loaded at runtime.

@@ -38,10 +38,14 @@ import type { Keybinding } from './keys';
  * only a function forces every surface to keep a parallel table of labels —
  * which then drifts from the commands themselves.
  *
- * The type parameter is the argument `execute` takes. Most commands take
- * nothing; one invoked from a context menu might take the thing clicked.
+ * The first type parameter is the argument `execute` takes. Most commands take
+ * nothing; one invoked from a context menu might take the thing clicked. The
+ * second is what it answers with: nothing, for most — a keystroke has nowhere
+ * to put an answer — but a command an agent calls as a tool ("list the decks",
+ * "read this one") *is* its answer, and the value comes back to whoever ran it
+ * through {@link CommandRegistry.execute}.
  */
-export type ReactorCommand<A = void> = {
+export type ReactorCommand<A = void, R = void> = {
   /**
    * Stable, unique identity — `music.playRandom`, not "Play a random song".
    *
@@ -91,12 +95,16 @@ export type ReactorCommand<A = void> = {
    * than pretending it was never there.
    */
   isEnabled?: () => boolean;
-  /** Do the thing. May be async; may throw — see {@link CommandRegistry.execute}. */
-  execute: (argument: A) => void | Promise<void>;
+  /**
+   * Do the thing. May be async; may throw — see {@link CommandRegistry.execute}.
+   * Whatever it returns is handed back to the caller, so a command that is
+   * also an agent's tool answers the agent from here.
+   */
+  execute: (argument: A) => R | Promise<R>;
 };
 
 /** A command as handed back to a host, with the plugin that registered it. */
-export type RegisteredCommand<A = any> = ReactorCommand<A> & {
+export type RegisteredCommand<A = any, R = any> = ReactorCommand<A, R> & {
   /** Name of the plugin that registered it — for hosts, and for debugging. */
   plugin: string;
 };
@@ -105,7 +113,7 @@ export type RegisteredCommand<A = any> = ReactorCommand<A> & {
 type StoredCommand = {
   plugin: string;
   seq: number;
-  command: ReactorCommand<any>;
+  command: ReactorCommand<any, any>;
 };
 
 /**
@@ -129,7 +137,7 @@ export class CommandRegistry {
    *
    * @throws if `id` is already registered. See {@link ReactorCommand.id}.
    */
-  add<A>(pluginName: string, command: ReactorCommand<A>): Dispose {
+  add<A, R = void>(pluginName: string, command: ReactorCommand<A, R>): Dispose {
     if (!command.id) {
       throw new Error('CommandRegistry.add: a command needs an id');
     }
@@ -145,7 +153,7 @@ export class CommandRegistry {
     const entry: StoredCommand = {
       plugin: pluginName,
       seq: this.seq++,
-      command: command as ReactorCommand<any>,
+      command: command as ReactorCommand<any, any>,
     };
     this.byId.set(command.id, entry);
 
@@ -198,11 +206,13 @@ export class CommandRegistry {
    * Always async, even for a synchronous command, so a caller never has to ask
    * which kind it invoked. A command that throws rejects here rather than
    * taking down the surface that invoked it — the caller decides what a failed
-   * command looks like, because only it knows where to say so.
+   * command looks like, because only it knows where to say so. Resolves with
+   * whatever the command returned: nothing for most, the answer for one that
+   * is an agent's tool.
    *
    * @throws if no such command is registered, or if it is currently disabled.
    */
-  async execute<A = void>(id: string, argument?: A): Promise<void> {
+  async execute<A = void, R = unknown>(id: string, argument?: A): Promise<R> {
     const entry = this.byId.get(id);
     if (!entry) {
       throw new Error(`CommandRegistry.execute: no command '${id}' is registered`);
@@ -210,7 +220,7 @@ export class CommandRegistry {
     if (entry.command.isEnabled && !entry.command.isEnabled()) {
       throw new Error(`CommandRegistry.execute: command '${id}' is not available right now`);
     }
-    await entry.command.execute(argument as never);
+    return (await entry.command.execute(argument as never)) as R;
   }
 
   /**

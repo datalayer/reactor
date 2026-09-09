@@ -1,8 +1,8 @@
 {
-  "label": "Roadmap",
+  "label": "Agent Tools",
   "position": 9,
   "link": {
     "type": "doc",
-    "id": "roadmap/index"
+    "id": "agent-tools/index"
   }
 }

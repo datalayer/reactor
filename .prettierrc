@@ -1,0 +1,17 @@
+{
+  "singleQuote": true,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "overrides": [
+    {
+      "files": [
+        "plugins/shell/**"
+      ],
+      "options": {
+        "singleQuote": false,
+        "printWidth": 80
+      }
+    }
+  ]
+}

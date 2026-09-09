@@ -165,7 +165,7 @@ export type PhaseContext<C, I, O> = {
    * The imperative twin of {@link ReactorPlugin.commands}: use this when the
    * command closes over build output, that when it does not.
    */
-  registerCommand: <A>(command: ReactorCommand<A>) => Dispose;
+  registerCommand: <A, R = void>(command: ReactorCommand<A, R>) => Dispose;
 };
 
 export type PluginState<C, I, O> = {
@@ -263,7 +263,7 @@ export interface ReactorPlugin<C, I, O> extends PluginPresentation {
    * command does not need build output; use `ctx.registerCommand` when it does,
    * or when the command appears later.
    */
-  commands?: ReactorCommand<any>[];
+  commands?: ReactorCommand<any, any>[];
   register?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
   afterRegistration?: (ctx: PhaseContext<C, I, O>) => void | Dispose;
 }

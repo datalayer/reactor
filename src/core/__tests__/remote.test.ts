@@ -12,7 +12,7 @@
  * one plugin or the platform — so those are what these test.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildReactorFromPlugins } from '../reactor';
 import { definePlugin } from '../plugin';
@@ -26,6 +26,22 @@ import {
   setReactorSharedModules,
   type RemoteModuleLoader,
 } from '../remote';
+import { setAllowedOrigins } from '../origins';
+
+/** Stand a page up, so that "same origin" means something. */
+async function onPage(href: string, body: () => Promise<void>): Promise<void> {
+  const original = (globalThis as Record<string, unknown>).location;
+  (globalThis as Record<string, unknown>).location = { href, origin: new URL(href).origin };
+  try {
+    await body();
+  } finally {
+    (globalThis as Record<string, unknown>).location = original;
+  }
+}
+
+afterEach(() => {
+  setAllowedOrigins([]);
+});
 
 const PANEL = definePlugin({
   name: '@hello/panel',
@@ -65,7 +81,7 @@ describe('defineRemotePlugin', () => {
 
     await reactor.fire(onView('hello'));
 
-    expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js');
+    expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js', expect.objectContaining({ name: expect.any(String) }));
     expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
     expect(reactor.getOutput('@hello/panel')).toEqual({ greeting: 'hello' });
   });
@@ -160,6 +176,24 @@ describe('defineRemotePlugin', () => {
     } finally {
       (globalThis as Record<string, unknown>).location = original;
     }
+  });
+
+  it('takes the host’s standing policy, so a shell states it once', async () => {
+    await onPage('https://app.example/page', async () => {
+      // Naming the origin at every call site is how a policy ends up stated in
+      // four places and enforced in three. `setAllowedOrigins` is the page
+      // saying it once, and a plugin defined anywhere is held to it.
+      setAllowedOrigins(['https://plugins.example.com']);
+      const reactor = buildReactorFromPlugins([
+        defineRemotePlugin(
+          { name: '@hello/panel', entry: 'https://plugins.example.com/index.js' },
+          { loader: loaderFor({ default: PANEL }) },
+        ),
+      ]);
+      reactor.start();
+      await reactor.whenReady();
+      expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
+    });
   });
 
   it('refuses a cross-origin remote unless the origin was named', async () => {
@@ -261,6 +295,7 @@ describe('bootstrapExtensions', () => {
     // A relative entry is resolved against the server that listed it.
     expect(load).toHaveBeenCalledWith(
       'http://localhost:8799/reactor-extensions/hello/index.js',
+      expect.objectContaining({ name: expect.any(String) }),
     );
   });
 
@@ -282,7 +317,53 @@ describe('bootstrapExtensions', () => {
     await reactor.whenReady();
     expect(load).toHaveBeenCalledWith(
       'http://localhost:8799/reactor-extensions/hello/index.js',
+      expect.objectContaining({ name: expect.any(String) }),
     );
+  });
+
+  it('trusts the backend it was pointed at, without restating the origin', async () => {
+    const load = loaderFor({ default: PANEL });
+    await onPage('https://app.example/page', async () => {
+      // `backendUrl` is written in the host's own source. Making the host
+      // repeat it in `allowedOrigins` is ceremony that teaches people to copy
+      // an allow-list around, which is how allow-lists stop meaning anything.
+      const remotes = await bootstrapExtensions('http://localhost:8799', {
+        fetchJson: async () => answer,
+        loader: load,
+      });
+      const reactor = buildReactorFromPlugins(remotes);
+      reactor.start();
+      await reactor.whenReady();
+      expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
+      expect(load).toHaveBeenCalledWith(
+        'http://localhost:8799/reactor-extensions/hello/index.js',
+        expect.objectContaining({ name: expect.any(String) }),
+      );
+    });
+  });
+
+  it('does not let the backend point anywhere it likes', async () => {
+    await onPage('https://app.example/page', async () => {
+      // The origin the host named is the *server*, not everywhere the server
+      // can point. A record whose entry is absolute and elsewhere is checked
+      // like any other remote — otherwise one trusted backend would be a way
+      // to launder every other origin.
+      const remotes = await bootstrapExtensions('http://localhost:8799', {
+        fetchJson: async () => [
+          {
+            name: 'hello',
+            entry: 'https://cdn.evil.example/index.js',
+            plugins: [{ name: '@hello/panel' }],
+          },
+        ],
+        loader: loaderFor({ default: PANEL }),
+      });
+      const reactor = buildReactorFromPlugins(remotes);
+      reactor.start();
+      await reactor.whenReady();
+      expect(reactor.getManifest('@hello/panel')?.loaded).toBe(false);
+      expect(reactor.getManifest('@hello/panel')?.loadError).toMatch(/cdn\.evil\.example/);
+    });
   });
 
   it('an unreachable backend costs the extensions, not the shell', async () => {

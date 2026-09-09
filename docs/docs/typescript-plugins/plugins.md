@@ -55,7 +55,7 @@ Dependencies decide activation order and are what
 [deactivation](/typescript-plugins/deactivation) walks when it stands dependants down.
 
 For the other wire — what this plugin needs from the Python tier — see
-[Cross-tier Dependencies](/cross-tier-dependencies).
+[Cross-tier Dependencies](/cross-tier-dependencies/).
 
 ## What a plugin contributes
 

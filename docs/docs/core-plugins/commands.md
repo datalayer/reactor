@@ -30,7 +30,7 @@ somewhere to live.
 
 ## It owns none of the commands it shows
 
-The plugin reads the reactor's [command registry](/commands-registry), which
+The plugin reads the reactor's [command registry](/commands-registry/), which
 is where commands already live. A plugin gets a palette entry by registering a
 command, **not** by knowing this plugin exists:
 

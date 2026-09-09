@@ -27,8 +27,14 @@ export const NONE_VIEW = "none";
 type ViewChoiceState = {
   /** What was last asked for: `'none'` or a view id. */
   viewId: string;
-  /** View ids on offer, in display order. `'none'` is implicit and first. */
+  /** View ids on offer, in display order. */
   options: readonly string[];
+  /**
+   * Whether `'none'` is a choice — implicit and first when it is. A host
+   * whose views are the whole application, rather than a panel beside
+   * something, has nothing for "none" to mean and says so.
+   */
+  allowNone: boolean;
 };
 
 /**
@@ -41,7 +47,11 @@ type ViewChoiceState = {
  */
 export type ViewAnnouncer = (viewId: string) => boolean;
 
-let state: ViewChoiceState = { viewId: NONE_VIEW, options: [] };
+let state: ViewChoiceState = {
+  viewId: NONE_VIEW,
+  options: [],
+  allowNone: true,
+};
 let announcer: ViewAnnouncer = () => true;
 const listeners = new Set<() => void>();
 
@@ -76,15 +86,27 @@ export function setViewAnnouncer(next: ViewAnnouncer): () => void {
 /**
  * What the selector has to offer, published each time the contributions
  * change — how the cycle command knows the views without React.
+ *
+ * With `allowNone` false the store never rests on `'none'` while a view is
+ * on offer: a choice that is not (or no longer) among the options moves to
+ * the first one, seeded rather than announced, as a default is.
  */
-export function setViewOptions(options: readonly string[]): void {
+export function setViewOptions(
+  options: readonly string[],
+  allowNone = true,
+): void {
   if (
+    allowNone === state.allowNone &&
     options.length === state.options.length &&
     options.every((id, index) => id === state.options[index])
   ) {
     return;
   }
-  state = { ...state, options };
+  const viewId =
+    !allowNone && !options.includes(state.viewId)
+      ? (options[0] ?? NONE_VIEW)
+      : state.viewId;
+  state = { viewId, options, allowNone };
   notify();
 }
 
@@ -114,9 +136,14 @@ export function seedViewChoice(viewId: string): void {
   notify();
 }
 
-/** The choice after the current one, wrapping through `'none'`. */
+/** The choice after the current one, wrapping — through `'none'` if it is offered. */
 export function nextView(): string {
-  const all = [NONE_VIEW, ...state.options];
+  const all = state.allowNone
+    ? [NONE_VIEW, ...state.options]
+    : [...state.options];
+  if (all.length === 0) {
+    return NONE_VIEW;
+  }
   const index = all.indexOf(state.viewId);
   return all[(index + 1) % all.length];
 }

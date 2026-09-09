@@ -242,6 +242,16 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
         names = [name.strip() for name in active.split(",") if name.strip()]
         return runtime.frontend_requirements(names)
 
+    @app.get("/plugins/agent-tools")
+    def agent_tools(tenant_id: str | None = None) -> list[dict]:
+        """What the plugins offer an AI agent: their commands, as tool bundles.
+
+        The same shape the browser reads from the ``AgentTools`` contribution
+        point, so an agent runtime can learn a plugin's tools from the server
+        that serves it — see the *Agent tools* page of the documentation.
+        """
+        return runtime.collect_agent_tools(tenant_id)
+
     @app.get("/contributions")
     def contributions(tenant_id: str | None = None) -> list[dict]:
         """Every contribution point that holds something, and what each holds.

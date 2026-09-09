@@ -1,6 +1,7 @@
 ---
 sidebar_position: 0
-title: What it Implements
+title: TypeScript Runtime
+slug: /typescript-plugins/
 ---
 
 # The TypeScript runtime

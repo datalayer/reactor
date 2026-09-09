@@ -25,7 +25,7 @@ python examples/cli/host.py
 See [extending the command line](/python-plugins/cli) for the `reactor` command itself —
 this example is the same mechanism with a host you write. The commands
 `provide_slash_commands` registers are described under
-[the command registry](/commands-registry).
+[the command registry](/commands-registry/).
 
 It is worth reading precisely because it has no frontend: the constructs on the
 [Python runtime](/python-plugins/) pages are not a mirror of the browser's, they are the

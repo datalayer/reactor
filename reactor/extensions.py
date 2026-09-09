@@ -164,6 +164,12 @@ class FrontendExtension:
     kind: str = "esm"
     remote_name: str = ""
     module: str = ""
+    #: How a federated entry is built, in Module Federation's terms: ``global``
+    #: (a script setting ``globalThis[remote_name]``, what bundlers emit and
+    #: the runtime's default) or ``esm`` (a module exporting ``init`` and
+    #: ``get``). Empty leaves the choice to the browser runtime. Only read
+    #: when ``kind`` is ``federated``.
+    remote_type: str = ""
 
     def resolve(self, relative: str) -> Path | None:
         """Resolve a request against this extension's directory, or refuse.

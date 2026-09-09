@@ -70,6 +70,13 @@ export type ViewSelectorProps = {
   context: unknown;
   noneLabel: string;
   ariaLabel: string;
+  /**
+   * Whether "none" is offered. True by default — the loop's chat stands on
+   * its own beside an empty editor. False for a host whose views *are* the
+   * application: the control then draws only the views, and not at all until
+   * there are two, since a choice of one is furniture.
+   */
+  allowNone?: boolean;
 };
 
 export function ViewSelector({
@@ -78,6 +85,7 @@ export function ViewSelector({
   context,
   noneLabel,
   ariaLabel,
+  allowNone = true,
 }: ViewSelectorProps): JSX.Element | null {
   const contributions = useContributions(point);
   const choice = useSyncExternalStore(subscribeViewChoice, getViewChoice);
@@ -120,10 +128,13 @@ export function ViewSelector({
   // Published for the cycle command, which runs outside React and cannot
   // read contributions itself.
   useEffect(() => {
-    setViewOptions(ordered.map((view) => view.id));
-  }, [ordered]);
+    setViewOptions(
+      ordered.map((view) => view.id),
+      allowNone,
+    );
+  }, [ordered, allowNone]);
 
-  if (ordered.length === 0) {
+  if (ordered.length < (allowNone ? 1 : 2)) {
     // Nothing to choose between. A control with one option is furniture, and
     // the views arrive with the plugins that contribute them.
     return null;
@@ -146,12 +157,14 @@ export function ViewSelector({
       }}
     >
       <SegmentedControl aria-label={ariaLabel} size="small">
-        <SegmentedControl.Button
-          selected={choice.viewId === NONE_VIEW}
-          onClick={() => chooseView(NONE_VIEW)}
-        >
-          {noneLabel}
-        </SegmentedControl.Button>
+        {allowNone ? (
+          <SegmentedControl.Button
+            selected={choice.viewId === NONE_VIEW}
+            onClick={() => chooseView(NONE_VIEW)}
+          >
+            {noneLabel}
+          </SegmentedControl.Button>
+        ) : null}
         {ordered.map((view) => (
           <SegmentedControl.Button
             key={view.id}

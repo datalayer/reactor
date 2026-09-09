@@ -1,17 +1,19 @@
 # ⚛️ Reactor — plan for `feat/federation`
 
-Covers the four open roadmap issues:
+Covered the four issues below. All four have shipped, and the documentation
+site no longer has a roadmap section: each page moved to where the feature
+lives, which is the convention §10 describes.
 
-| Issue | Title | Roadmap page |
+| Issue | Title | Where it is documented |
 | --- | --- | --- |
-| [#9](https://github.com/datalayer/reactor/issues/9) | Support Extension Loading via Federation | [/roadmap/federation](./docs/docs/roadmap/federation.md) |
-| [#10](https://github.com/datalayer/reactor/issues/10) | Activation/Deactivation should carry to dependants (cross front/backend also) | [/roadmap/cross-tier-activation](./docs/docs/roadmap/cross-tier-activation.md) |
-| [#11](https://github.com/datalayer/reactor/issues/11) | Add `shadcn/ui` examples | [/roadmap/shadcn-ui](./docs/docs/roadmap/shadcn-ui.md) |
-| [#12](https://github.com/datalayer/reactor/issues/12) | Package + load a frontend+backend extension as a Python package | [/roadmap/python-packaged-extensions](./docs/docs/roadmap/python-packaged-extensions.md) |
+| [#9](https://github.com/datalayer/reactor/issues/9) | Support Extension Loading via Federation | [/federation](./docs/docs/federation/index.md) and [remote plugins](./docs/docs/typescript-plugins/federation.md) |
+| [#10](https://github.com/datalayer/reactor/issues/10) | Activation/Deactivation should carry to dependants (cross front/backend also) | [/cross-tier-dependencies](./docs/docs/cross-tier-dependencies/index.md) |
+| [#11](https://github.com/datalayer/reactor/issues/11) | Add `shadcn/ui` examples | [the CMS example](./docs/docs/examples/cms/index.md) |
+| [#12](https://github.com/datalayer/reactor/issues/12) | Package + load a frontend+backend extension as a Python package | [/python-packaged-extensions](./docs/docs/python-packaged-extensions/index.md) |
 
-This document is the working plan. The roadmap pages are the *public* statement
-of the problem; this is how we intend to solve it, in what order, and what has
-to be decided before we can.
+This document is the working plan: how we intended to solve them, in what order,
+and what had to be decided before we could. The pages above are the *public*
+statement, and they are where a reader should be sent.
 
 ---
 
@@ -635,15 +637,24 @@ while the migration runs.**
 
 ## 10. Documentation to move as each lands
 
-Each roadmap page is written to state a problem and what is missing. When a
-milestone lands, its page moves out of `/roadmap/` and becomes a real page —
-and the roadmap index row goes with it. Do not leave a shipped feature
-described as planned.
+A page that states a problem and what is missing is written while the work is
+open. When a milestone lands, its page moves to where the feature lives and is
+rewritten as documentation of what exists. Do not leave a shipped feature
+described as planned, and do not keep a roadmap section as a graveyard of
+things that have already happened — this repository has no `/roadmap/` for
+exactly that reason.
 
-| Lands | `docs/docs/roadmap/…` → |
+Where each one went:
+
+| Landed | Now at |
 | --- | --- |
-| M1–M2 | `federation.md` → `typescript/federation.md`, linked from `typescript/lazy-loading.md` |
-| M2 | `cross-tier-activation.md` → folded into `cross-tier/declaring-dependencies.md` and `typescript/deactivation.md` |
-| M3 | `python-packaged-extensions.md` → `python/packaging.md` |
-| M4 | a new `python/host.md`, and the music example's README rewritten around one command |
-| M5 | `shadcn-ui.md` → `examples/cms` |
+| M1–M2 | `federation/index.md` (the design) and `typescript-plugins/federation.md` (the API), linked from `typescript-plugins/lazy-loading.md` |
+| M2 | `cross-tier-dependencies/index.md` and `typescript-plugins/deactivation.md` |
+| M3 | `python-packaged-extensions/` — the guide, `containers.md`, and `design.md` |
+| M4 | `python-plugins/host.md`, and the music example's README rewritten around one command |
+| M5 | `examples/cms/` |
+| Origin policy | `typescript-plugins/allowed-origins.md`, with the open trust question on `federation/index.md` |
+
+Every top-level entry in the sidebar is a folder with its own `_category_.json`
+and an `index.md` carrying the section's slug. A new section is a directory, not
+a loose file beside the others.

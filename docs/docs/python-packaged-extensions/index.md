@@ -1,6 +1,7 @@
 ---
-sidebar_position: 6
-title: Packaging an Extension
+sidebar_position: 0
+title: Python-Packaged Extensions
+slug: /python-packaged-extensions/
 ---
 
 # One `pip install`, both tiers
@@ -11,7 +12,11 @@ usually spans both sides: the view and the endpoint behind it are one
 capability, and nobody wants to install them separately or discover they are at
 different versions.
 
-A `ReactorExtension` is a Python distribution carrying both.
+A `ReactorExtension` is a Python distribution carrying both. This page is the
+guide to writing one; [why it is shaped this way](/python-packaged-extensions/design)
+is the record of the decisions behind it, and
+[shipping a container](/python-packaged-extensions/containers) is the frontend
+half built the real way.
 
 ## The layout
 
@@ -168,10 +173,10 @@ belongs in that list as much as React does — which is why the runtime does not
 fix the set.
 
 :::note
-This is what Module Federation's `shared` does, with the machinery removed. It
-is deliberately a stopgap: `defineRemotePlugin` takes a `loader`, so swapping
-`import(url)` for `loadRemote()` when
-[federation](/roadmap/federation) lands is one function, not a rewrite.
+This is what Module Federation's `shared` does, with the machinery removed. An
+extension that ships a **container** gets the machinery back — see
+[Shipping a container](/python-packaged-extensions/containers) — and the browser
+picks the loader from what the server says, so the two kinds coexist.
 :::
 
 ### Refusing a remote
@@ -180,10 +185,27 @@ is deliberately a stopgap: `defineRemotePlugin` takes a `loader`, so swapping
   refused, and the plugin stays listed with the reason rather than throwing
   during a render.
 - **Origin** — a remote runs with the shell's privileges, so same-origin always
-  passes and anything else must be named in `allowedOrigins`.
+  passes and everywhere else has to be named. The backend you passed to
+  `bootstrapExtensions` counts as named: `backendUrl` is written in the host's
+  own source, so a server on another port in development needs no ceremony. An
+  entry that server points at some *third* origin is refused like any other
+  remote — the origin a host named is the server, not everywhere the server can
+  point. See [Allowed origins](/typescript-plugins/allowed-origins).
 
-## A worked example
+## Worked examples
 
 [`examples/extension`](https://github.com/datalayer/reactor/tree/main/examples/extension)
 is a complete distribution with both halves and no build step, so the chain is
 readable end to end.
+[`examples/extension-federated`](https://github.com/datalayer/reactor/tree/main/examples/extension-federated)
+is the same extension shipping a container — hand-written so it runs unbuilt,
+with the Rsbuild project that emits the real one beside it.
+
+## Where this carries on
+
+- [Shipping a container](/python-packaged-extensions/containers) — the frontend
+  half as a Module Federation container, built straight into the wheel, and
+  hot-updated from a dev server without rebuilding it.
+- [Why it is shaped this way](/python-packaged-extensions/design) — the problem
+  this answers, what already pointed at the answer, and how each open question
+  was decided.

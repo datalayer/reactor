@@ -1,0 +1,25 @@
+{
+  "name": "@datalayer/reactor-example-remote-charts",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The Charts plugin, built as a Module Federation container with Rsbuild",
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview"
+  },
+  "dependencies": {
+    "@datalayer/reactor": "file:../../..",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@module-federation/rsbuild-plugin": "^0.20.0",
+    "@rsbuild/core": "^2.2.1",
+    "@rsbuild/plugin-react": "^1.4.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "typescript": "5.9.3"
+  }
+}

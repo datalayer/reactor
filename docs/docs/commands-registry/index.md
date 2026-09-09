@@ -1,6 +1,7 @@
 ---
-sidebar_position: 5
+sidebar_position: 0
 title: Commands Registry
+slug: /commands-registry/
 ---
 
 # The command registry
@@ -157,3 +158,6 @@ instance, shows the message and stays open with the query intact.
 On the Python tier a command belonging to a plugin the tenant may not use reads
 as *no such command* rather than as *not allowed* — a tenant should not learn
 what it cannot have.
+
+A plugin may also offer some of its commands to an AI agent, as tools; see
+[Agent tools](/agent-tools/).

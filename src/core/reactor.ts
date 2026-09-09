@@ -267,9 +267,10 @@ export type ReactorPlatform = ReactorPlatformView & {
    * Run a command by id. Rejects if there is no such command, if it is
    * currently unavailable, or if the command itself throws — the caller
    * decides what a failed command looks like, because only it knows where to
-   * say so.
+   * say so. Resolves with what the command returned, which is how a command
+   * that doubles as an agent's tool answers the agent.
    */
-  executeCommand: <A = void>(id: string, argument?: A) => Promise<void>;
+  executeCommand: <A = void, R = unknown>(id: string, argument?: A) => Promise<R>;
   /** The dependency graph of this plugin, by name. */
   getDependencies: (name: string) => string[];
   /**
@@ -666,7 +667,7 @@ export function buildReactorFromPlugins(
           emitChange();
         };
       },
-      registerCommand<A>(command: ReactorCommand<A>): Dispose {
+      registerCommand<A, R = void>(command: ReactorCommand<A, R>): Dispose {
         const dispose = commands.add(name, command);
         emitChange();
 
@@ -1287,8 +1288,8 @@ export function buildReactorFromPlugins(
     getCommand(id: string) {
       return commands.get(id);
     },
-    executeCommand<A = void>(id: string, argument?: A) {
-      return commands.execute<A>(id, argument);
+    executeCommand<A = void, R = unknown>(id: string, argument?: A) {
+      return commands.execute<A, R>(id, argument);
     },
     getDependencies(name: string): string[] {
       return (state.get(name)?.plugin.dependencies ?? []).map(

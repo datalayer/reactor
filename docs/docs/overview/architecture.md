@@ -117,7 +117,7 @@ flowchart LR
   repl["REPL slash menu"] -->|invokes| registry
 ```
 
-The registry is documented on [Commands Registry](/commands-registry); the
+The registry is documented on [Commands Registry](/commands-registry/); the
 palette that draws it is the
 [commands core plugin](/core-plugins/commands), and the terminal surfaces
 are the [Extensible CLI](/python-plugins/cli) and

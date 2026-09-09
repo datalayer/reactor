@@ -117,12 +117,12 @@ package:
 
 | Group | For |
 | --- | --- |
-| `datalayer.reactor.extensions` | anything already shipping a UI or a backend — [extensions](/python-plugins/packaging) declare this group anyway, so no second declaration is needed to also ship commands |
+| `datalayer.reactor.extensions` | anything already shipping a UI or a backend — [extensions](/python-packaged-extensions/) declare this group anyway, so no second declaration is needed to also ship commands |
 | `datalayer.reactor.cli` | a distribution that *only* extends the command line and has no reason to be loaded by a server |
 
 ## Commands on the command line
 
-`provide_cli` and [`provide_slash_commands`](/commands-registry) answer
+`provide_cli` and [`provide_slash_commands`](/commands-registry/) answer
 different questions, and both reach the CLI.
 
 `provide_cli` is *"what commands does this plugin add to the command line?"* —
