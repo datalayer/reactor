@@ -91,13 +91,25 @@ type OriginRule =
  * should say which entry was the typo. Throwing would take the shell down at
  * module scope over a misplaced character in a list of CDNs.
  */
+/**
+ * A wildcard, and only in the place a wildcard may be: the leftmost label of
+ * the host.
+ *
+ * Anchored rather than searched for. `https://cdn.acme.com/assets/*.js` is a
+ * path with a glob in it, and reading the `*.` anywhere in the string would
+ * turn that into *"every subdomain of cdn.acme.com"* — a widening nobody
+ * wrote. An allow-list entry that fails to parse must fail closed; one that
+ * parses into something broader than it reads is worse than either.
+ */
+const LEFTMOST_WILDCARD = /^[a-z][a-z0-9+.-]*:\/\/\*\./i;
+
 function parseOriginRule(pattern: string): OriginRule | undefined {
   const written = pattern.trim();
   if (written === ANY_ORIGIN) {
     return { kind: 'any' };
   }
   try {
-    if (written.includes('*.')) {
+    if (LEFTMOST_WILDCARD.test(written)) {
       // Parsed by removing the wildcard label, so the rest goes through the
       // same URL parser as everything else — ports, schemes and IDNs included.
       const url = new URL(written.replace('*.', ''));
@@ -218,9 +230,11 @@ export function isOriginAllowed(url: string, extra: readonly string[] = []): boo
   if (origin === undefined || origin === pageOrigin()) {
     return true;
   }
-  // `null` is what an opaque origin serialises to — a `data:` or `blob:` URL,
-  // or a sandboxed frame. It is not an origin anybody can name, so it cannot
-  // be allowed by naming one.
+  // `null` is what an opaque origin serialises to — a `data:` URL, or a
+  // sandboxed frame. It is not an origin anybody can name, so it cannot be
+  // allowed by naming one. (A `blob:` URL is *not* this: it carries the origin
+  // of the page that created it, and a page's own blob is same-origin code the
+  // page itself made.)
   if (origin === 'null') {
     return false;
   }

@@ -110,6 +110,21 @@ describe('patterns', () => {
     });
   });
 
+  it('reads a wildcard only where a wildcard may be', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onPage('https://app.example/page', () => {
+      // A glob in a *path* is not a subdomain wildcard. Reading `*.` anywhere
+      // in the string would turn this entry into "every subdomain of
+      // cdn.acme.com" — a widening nobody wrote, which is worse than an entry
+      // that simply fails.
+      setAllowedOrigins(['https://cdn.acme.com/assets/*.js']);
+      expect(isOriginAllowed('https://evil.cdn.acme.com/x.js')).toBe(false);
+      // It is still that origin, read as one.
+      expect(isOriginAllowed('https://cdn.acme.com/x.js')).toBe(true);
+    });
+    warn.mockRestore();
+  });
+
   it('allows everything only when a host types so', () => {
     onPage('https://app.example/page', () => {
       setAllowedOrigins([ANY_ORIGIN]);

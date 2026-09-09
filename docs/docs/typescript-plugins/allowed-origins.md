@@ -134,11 +134,13 @@ a local path; the browser loads it from `evil.example`. Every URL is therefore
 resolved against the page — `new URL(entry, location.href).origin` — because
 that is the only way to learn where an import would actually go.
 
-Two consequences fall out of the same decision. A `data:` or `blob:` URL
-serialises to the opaque origin `null`, which is not an origin anybody can
-name, so it cannot be allowed by naming one. And when there is no page to
-resolve against — a test, a server-side render — a relative URL has no origin,
-nothing a check could protect, and is left alone.
+Two consequences fall out of the same decision. A `data:` URL serialises to the
+opaque origin `null`, which is not an origin anybody can name, so it cannot be
+allowed by naming one. (A `blob:` URL is not that: it carries the origin of the
+page that made it, so a page's own blob is same-origin and passes — which is
+right, because the page made it.) And when there is no page to resolve against
+— a test, a server-side render — a relative URL has no origin, nothing a check
+could protect, and is left alone.
 
 ## It is a gate, not a sandbox
 
