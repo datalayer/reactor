@@ -10,6 +10,7 @@ Run these commands from the Reactor repository root:
 ```bash
 make cms-astro-install
 make cms-astro-seed
+make cms-astro-ai
 make cms-astro
 ```
 
@@ -23,6 +24,9 @@ The development environment exposes:
 
 `make cms-astro` starts the API on port `8791`, starts Astro on port `4321`,
 and sets `CMS_API_URL` for the frontend server.
+
+`make cms-astro-ai` builds and installs the independently discoverable AI
+Agents extension. Omit it when running Core without AI authoring.
 
 The install target supports both repository layouts. In the full Datalayer
 monorepo it reuses the root npm workspace links, so the CMS consumes the local
@@ -94,7 +98,8 @@ with the authentication requirements of your application.
 make cms-astro-package
 ```
 
-This produces Core, AI Agents, Pro and x402 wheels. The Core wheel contains the standalone
+This produces Core, AI Agents, Pro and x402 wheels. The Core wheel contains the
+standalone
 Astro build and installs two commands:
 
 ```bash

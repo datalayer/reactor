@@ -1,9 +1,9 @@
 ---
 sidebar_position: 5
-title: Pro and x402 Extensions
+title: Optional Extensions
 ---
 
-# Pro and x402 extensions
+# AI Agents, Pro and x402 extensions
 
 Core declares contribution points for CMS content types, Astro layout themes,
 editor actions and dashboard widgets. Optional Python distributions contribute
@@ -16,6 +16,7 @@ Astro layout.
 From the Reactor repository root:
 
 ```bash
+make cms-astro-ai
 make cms-astro-pro
 make cms-astro-x402
 ```
@@ -25,6 +26,13 @@ manifest and an embedded JavaScript module under
 `share/datalayer/reactor/extensions/`. Refresh the admin page after installing
 one so the frontend asks the running Reactor host for the current extension
 list.
+
+## AI Agents
+
+AI Agents packages the authenticated `ChatFloating` authoring assistant and
+its CMS frontend-tool contract. Its frontend is built separately and embedded
+in the wheel, while Core exposes only the generic mount point used by public
+site extensions. See [AI-assisted publishing](/examples/cms-astro/ai-authoring).
 
 ## Pro
 
