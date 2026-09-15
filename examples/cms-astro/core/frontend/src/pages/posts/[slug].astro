@@ -1,0 +1,21 @@
+<!--
+  ~ Copyright (c) 2026-Present Datalayer, Inc.
+  ~
+  ~ Datalayer License
+-->
+
+---
+import Base from '../../layouts/Base.astro';
+import { cms } from '../../lib/cms';
+import { getLiveEntry } from 'astro:content';
+const bootstrap = await cms.bootstrap();
+const { entry, error } = await getLiveEntry('posts', { slug: Astro.params.slug! });
+if (error || !entry) return Astro.rewrite('/404');
+const post = entry.data;
+---
+<Base {bootstrap} title={`${post.title} — ${bootstrap.site.name}`}>
+  <article>
+    <header class="article-header"><p class="eyebrow">Journal</p><h1>{post.title}</h1><p>{post.excerpt}</p></header>
+    <div class="article-body">{post.body}</div>
+  </article>
+</Base>

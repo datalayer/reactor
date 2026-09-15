@@ -5,6 +5,11 @@
 dist
 lib
 
+# Authored Astro integration modules; the generic lib rule above is for build
+# output and must not exclude these source files from standalone checkouts.
+!examples/cms-astro/core/frontend/src/lib/
+!examples/cms-astro/core/frontend/src/lib/*.ts
+
 # Include
 !**/.*ignore
 !**/.*rc

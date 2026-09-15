@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-pro cms-astro-x402 cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -26,6 +26,12 @@ help:
 	@echo "  make cms               Build, install and launch the CMS example"
 	@echo "  make cms-pro           Add the CMS paid tier, while the CMS is running"
 	@echo "  make cms-build         Build and install the CMS without launching it"
+	@echo "  make cms-astro         Run the SQLite CMS backend and Astro site"
+	@echo "  make cms-astro-seed    Seed admin/admin, user1/user1 and user2/user2"
+	@echo "  make cms-astro-install Install Core from this monorepo"
+	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
+	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
+	@echo "  make cms-astro-package Build the Core, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
 	@echo "  make music             Run the music example with a frontend dev server"
 	@echo "  make frontend          Run the frontend-only React example"
@@ -143,6 +149,45 @@ cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
 	@echo
 	@echo "Installed. Refresh the browser — no restart needed."
 	@echo "A regular install, not editable: a .pth file is only read at startup."
+
+cms-astro-install: build-js ## install the Astro CMS Core package from this monorepo
+	@if [ -L ../../../node_modules/@datalayer/jupyter-lexical ]; then \
+		echo "Using the monorepo @datalayer/jupyter-lexical workspace link"; \
+	else \
+		$(NPM) --prefix examples/cms-astro/core/frontend install --workspaces=false; \
+	fi
+	$(PIP) install -e examples/cms-astro/core
+
+cms-astro-seed: ## seed the documented accounts and initial website
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH=examples/cms-astro/core $(PYTHON) -m cms_astro_core.seed
+
+cms-astro-build: cms-astro-install ## typecheck and build the Astro SSR site
+	$(NPM) --prefix examples/cms-astro/core/frontend run build
+	mkdir -p examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro
+	rm -rf examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/*
+	cp -r examples/cms-astro/core/frontend/dist/. examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/
+
+cms-astro: cms-astro-install ## run the CMS API and Astro SSR site in development
+	@set -e; \
+	trap 'kill $$CMS_ASTRO_PID 2>/dev/null || true' EXIT INT TERM; \
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
+	CMS_ASTRO_PID=$$!; \
+	echo "CMS API: http://localhost:8791/docs"; \
+	echo "Astro site: http://localhost:4321 (admin at /_cms/admin)"; \
+	CMS_API_URL=http://localhost:8791 $(NPM) --prefix examples/cms-astro/core/frontend run dev
+
+cms-astro-pro: ## install Pro as a separately discoverable wheel
+	$(PIP) install examples/cms-astro/pro
+	@echo "Installed CMS Pro. Refresh the Astro admin page."
+
+cms-astro-x402: ## install x402 as a separately discoverable wheel
+	$(PIP) install examples/cms-astro/x402
+	@echo "Installed CMS x402. Refresh the Astro admin page."
+
+cms-astro-package: cms-astro-build ## build locally installable Core, Pro and x402 wheels
+	$(PYTHON) -m build --wheel examples/cms-astro/core
+	$(PYTHON) -m build --wheel examples/cms-astro/pro
+	$(PYTHON) -m build --wheel examples/cms-astro/x402
 
 music-app: build-js ## build the music store as one installable application
 	@set -e; \

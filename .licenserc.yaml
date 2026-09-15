@@ -40,3 +40,12 @@ header:
     - 'patches/'
 
   comment: on-failure
+
+  # Astro components mix frontmatter, HTML and scripts. HTML comments are
+  # valid before the frontmatter fence and keep the generated header valid for
+  # every kind of .astro component.
+  language:
+    Astro:
+      extensions:
+        - '.astro'
+      comment_style_id: AngleBracket

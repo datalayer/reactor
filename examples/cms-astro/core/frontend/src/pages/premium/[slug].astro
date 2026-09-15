@@ -1,0 +1,24 @@
+<!--
+  ~ Copyright (c) 2026-Present Datalayer, Inc.
+  ~
+  ~ Datalayer License
+-->
+
+---
+import { getLiveEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { cms } from '../../lib/cms';
+
+const { entry, error } = await getLiveEntry('posts', { slug: Astro.params.slug! });
+if (error || !entry) return Astro.rewrite('/404');
+const post = entry.data;
+const payment = await Astro.locals.x402({
+  price: String(post.data.x402Price ?? '0.01'),
+  description: `Read ${post.title}`,
+});
+if (payment instanceof Response) return payment;
+const bootstrap = await cms.bootstrap();
+---
+<Base {bootstrap} title={`${post.title} — ${bootstrap.site.name}`}>
+  <article><h1>{post.title}</h1><p>{post.excerpt}</p><pre>{post.body}</pre></article>
+</Base>

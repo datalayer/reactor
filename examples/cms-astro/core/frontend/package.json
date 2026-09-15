@@ -1,0 +1,32 @@
+{
+  "name": "@datalayer-examples/cms-astro-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/node": "^10.0.0",
+    "@astrojs/react": "^5.0.0",
+    "@datalayer/jupyter-lexical": "^1.0.21",
+    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/reactor": "file:../../../..",
+    "@primer/octicons-react": "^19.35.0",
+    "@primer/react": "^37.31.0",
+    "astro": "^6.0.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "styled-components": "^5.3.10",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "typescript": "^5.9.0"
+  }
+}
