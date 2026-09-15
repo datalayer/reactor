@@ -83,6 +83,20 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     assert api.get(f"/api/content/acme/entries/{entry['slug']}").json()["title"] == "A new Astro story"
     revisions = api.get(f"/api/cms/sites/site-main/entries/{entry['id']}/revisions", headers=headers)
     assert len(revisions.json()) == 1
+    assert api.get(
+        f"/api/cms/sites/site-main/entries/{entry['id']}/revisions",
+        headers={"X-CMS-User": "u-user2"},
+    ).status_code == 403
+
+    second_site = api.post(
+        "/api/cms/sites",
+        headers={"X-CMS-User": "u-admin"},
+        json={"slug": "other", "name": "Other site"},
+    ).json()
+    assert api.get(
+        f"/api/cms/sites/{second_site['id']}/entries/{entry['id']}/revisions",
+        headers={"X-CMS-User": "u-admin"},
+    ).status_code == 404
 
 
 def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
@@ -157,6 +171,11 @@ def test_admin_can_create_a_second_site_and_add_a_user(tmp_path: Path) -> None:
     assert updated.status_code == 200
     assert updated.json()["username"] == "updated-writer"
     assert api.patch("/api/cms/sites/site-main/users/u-admin", headers=headers, json={"disabled": True}).status_code == 409
+    assert api.put(
+        "/api/cms/sites/site-main/memberships",
+        headers=headers,
+        json={"user_id": "u-admin", "role": "author"},
+    ).status_code == 409
     assert api.delete("/api/cms/sites/site-main/users/u-admin", headers=headers).status_code == 409
     assert api.delete(f"/api/cms/sites/site-main/users/{user['id']}", headers=headers).status_code == 204
     assert all(member["id"] != user["id"] for member in api.get("/api/cms/sites/site-main/users", headers=headers).json())
@@ -174,3 +193,9 @@ def test_search_media_taxonomy_and_menu_management(tmp_path: Path) -> None:
     menu = api.post("/api/cms/sites/site-main/menus", headers=headers, json={"slug":"footer","name":"Footer"}).json()
     item = api.post(f"/api/cms/sites/site-main/menus/{menu['id']}/items", headers=headers, json={"label":"About","url":"/about"})
     assert item.status_code == 201
+    unsafe_item = api.post(
+        f"/api/cms/sites/site-main/menus/{menu['id']}/items",
+        headers=headers,
+        json={"label": "Unsafe", "url": "javascript:alert(1)"},
+    )
+    assert unsafe_item.status_code == 422

@@ -68,7 +68,7 @@ class MenuCreate(BaseModel):
 
 class MenuItemCreate(BaseModel):
     label: str
-    url: str
+    url: str = Field(pattern=r"^(?:https?://|/|#)[^\s]*$")
     parent_id: str | None = None
     position: int = 0
 
@@ -308,6 +308,17 @@ async def set_membership(site_id: str, payload: MembershipCreate, request: Reque
         except Exception as error: fail(error)
         if not db.execute("SELECT 1 FROM users WHERE id=?", (payload.user_id,)).fetchone():
             raise HTTPException(404, "user not found")
+        current = db.execute(
+            "SELECT role FROM memberships WHERE site_id=? AND user_id=?",
+            (site_id, payload.user_id),
+        ).fetchone()
+        if current and current["role"] == "admin" and payload.role != "admin":
+            admin_count = db.execute(
+                "SELECT COUNT(*) count FROM memberships WHERE site_id=? AND role='admin'",
+                (site_id,),
+            ).fetchone()["count"]
+            if admin_count <= 1:
+                raise HTTPException(409, "a site must keep at least one administrator")
         db.execute("INSERT INTO memberships(site_id,user_id,role) VALUES(?,?,?) ON CONFLICT(site_id,user_id) DO UPDATE SET role=excluded.role", (site_id, payload.user_id, payload.role))
         return {"site_id": site_id, "user_id": payload.user_id, "role": payload.role}
 
@@ -366,8 +377,16 @@ async def publish(site_id: str, entry_id: str, request: Request, user_id: str = 
 @router.get("/api/cms/sites/{site_id}/entries/{entry_id}/revisions")
 async def revisions(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> list[dict]:
     with store(request).connect() as db:
-        try: store(request).require(db, site_id, user_id, "viewer")
+        try: role = store(request).require(db, site_id, user_id, "viewer")
         except Exception as error: fail(error)
+        entry = db.execute(
+            "SELECT author_id FROM entries WHERE id=? AND site_id=?",
+            (entry_id, site_id),
+        ).fetchone()
+        if not entry:
+            raise HTTPException(404, "entry not found")
+        if role == "author" and entry["author_id"] != user_id:
+            raise HTTPException(403, "authors may read revisions only for their own entries")
         return [dict(row) | {"snapshot": json.loads(row["snapshot"])} for row in db.execute("SELECT * FROM revisions WHERE entry_id=? ORDER BY id DESC", (entry_id,))]
 
 

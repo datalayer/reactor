@@ -78,11 +78,21 @@ class X402Plugin:
             }],
         }
 
+    def _signature_message(self, payload: dict[str, Any], timestamp: int, payer: str) -> str:
+        requirements = _b64(
+            json.dumps(
+                self.requirements(payload),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        )
+        return f"{payload.get('method', 'GET').upper()}\n{payload.get('path', '/')}\n{timestamp}\n{payer}\n{requirements}"
+
     def issue_demo_signature(self, payload: dict[str, Any]) -> str:
         """Issue a local-only signature, useful in tests and the example UI."""
         timestamp = int(payload.get("timestamp") or time.time())
         payer = _b64(str(payload.get("payer") or "demo-payer").encode())
-        message = f"{payload.get('method', 'GET').upper()}\n{payload.get('path', '/')}\n{timestamp}\n{payer}"
+        message = self._signature_message(payload, timestamp, payer)
         digest = hmac.new(self.secret, message.encode(), hashlib.sha256).hexdigest()
         return f"v1.{timestamp}.{payer}.{digest}"
 
@@ -92,11 +102,12 @@ class X402Plugin:
             timestamp = int(stamp)
             if version != "v1" or abs(int(time.time()) - timestamp) > self.timeout:
                 raise ValueError("expired payment signature")
-            message = f"{payload.get('method', 'GET').upper()}\n{payload.get('path', '/')}\n{timestamp}\n{payer}"
+            message = self._signature_message(payload, timestamp, payer)
             expected = hmac.new(self.secret, message.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(supplied, expected):
                 raise ValueError("invalid payment signature")
-            return {"valid": True, "payer": _decode(payer).decode(), "network": self.network}
+            network = self.requirements(payload)["accepts"][0]["network"]
+            return {"valid": True, "payer": _decode(payer).decode(), "network": network}
         except (ValueError, UnicodeError) as error:
             return {"valid": False, "reason": str(error)}
 

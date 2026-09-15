@@ -26,3 +26,26 @@ def test_x402_rejects_invalid_signature() -> None:
     result = X402Plugin().invoke_action("enforce", {"path": "/premium", "paymentSignature": "invalid"})
     assert result["status"] == 402
     assert "error" in result["body"]
+
+
+def test_x402_signature_is_bound_to_payment_requirements() -> None:
+    plugin = X402Plugin()
+    payload = {
+        "method": "GET",
+        "path": "/premium/launch",
+        "price": "0.25",
+        "network": "eip155:84532",
+        "asset": "USDC",
+        "payTo": "0x1111111111111111111111111111111111111111",
+    }
+    signature = plugin.issue_demo_signature(payload)
+
+    for changed in (
+        {"price": "0.01"},
+        {"network": "eip155:1"},
+        {"asset": "DAI"},
+        {"payTo": "0x2222222222222222222222222222222222222222"},
+    ):
+        result = plugin.enforce(payload | changed | {"paymentSignature": signature})
+        assert result["status"] == 402
+        assert result["body"]["error"] == "invalid payment signature"
