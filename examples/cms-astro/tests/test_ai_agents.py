@@ -10,7 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "ai-agents"))
 
-from cms_astro_ai_agents import AI_AGENTS_MANIFEST, CMS_AI_AGENT_TOOLS, extension
+from cms_astro_ai_agents import (  # noqa: E402
+    AI_AGENTS_MANIFEST,
+    CMS_AI_AGENT_TOOLS,
+    extension,
+)
 
 
 def test_ai_agents_is_an_independent_python_packaged_extension() -> None:

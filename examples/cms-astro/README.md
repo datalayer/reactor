@@ -98,9 +98,13 @@ available while editing an individual website alongside its general settings.
 Install Pro while the host is running, then refresh the browser extension list:
 
 ```bash
+pip install examples/cms-astro/ai-agents
 pip install examples/cms-astro/pro
 pip install examples/cms-astro/x402
 ```
+
+Build the AI frontend first with `make cms-astro-ai-build`; the combined
+`make cms-astro-ai` target performs both the frontend build and installation.
 
 `make cms-astro` sets `CMS_API_URL` for the Astro server automatically.
 

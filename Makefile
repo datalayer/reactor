@@ -32,7 +32,7 @@ help:
 	@echo "  make cms-astro-ai      Add the separately packaged AI authoring extension"
 	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
 	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
-	@echo "  make cms-astro-package Build the Core, Pro and x402 wheels"
+	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
 	@echo "  make music             Run the music example with a frontend dev server"
 	@echo "  make frontend          Run the frontend-only React example"
