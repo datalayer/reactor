@@ -6,7 +6,7 @@
 
 ---
 import type { Bootstrap } from '../lib/cms';
-import CmsSiteAgent from '../components/CmsSiteAgent';
+import PublicExtensionHost from '../components/PublicExtensionHost.astro';
 
 interface Props { bootstrap: Bootstrap; title?: string; description?: string }
 const { bootstrap, title = bootstrap.site.name, description = bootstrap.site.tagline } = Astro.props;
@@ -68,11 +68,10 @@ const appearanceCss = `:root[data-color-mode='light']{color-scheme:light;${decla
         <a href="/_cms/content">Manage content</a>
       </div>
     </footer>
-    <CmsSiteAgent
+    <PublicExtensionHost
       apiUrl={apiUrl}
       siteId={bootstrap.site.id}
       siteName={bootstrap.site.name}
-      client:only="react"
     />
   </body>
 </html>

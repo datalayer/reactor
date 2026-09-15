@@ -29,7 +29,7 @@ editorial workflow and administration.
   runs the `worker-cms-astro` loop in the browser with a short-lived anonymous
   inference key and CMS-session-scoped frontend tools for public blog crawling,
   WordPress REST discovery, and draft/publish operations.
-- Core, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
+- Core, AI Agents, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
   carries its browser plugin under `share/datalayer/reactor/extensions/`.
 - An optional x402 extension with HTTP `402`, `PAYMENT-REQUIRED`, and
   `PAYMENT-RESPONSE` handling for paid Astro routes.
@@ -44,6 +44,7 @@ isolated tests.
 cms-astro/
   core/                 installable host + Astro SSR site + Core extension
     frontend/           Astro routes, live loader and Primer React admin
+  ai-agents/            optional AI agent Python/JavaScript extension
   pro/                  separately installable Pro Python/JavaScript extension
   x402/                 separately installable paid-content extension
   tests/                database and HTTP acceptance tests
@@ -57,9 +58,10 @@ From the Reactor monorepo root:
 make cms-astro-install       # Core, editable from this checkout
 make cms-astro-seed          # demo site + admin/admin, user1/user1, user2/user2
 make cms-astro               # backend + Astro development server
+make cms-astro-ai            # optional authenticated AI authoring extension
 make cms-astro-pro           # optional, in another terminal
 make cms-astro-x402          # optional paid-content extension
-make cms-astro-package       # local Core, Pro, and x402 wheels
+make cms-astro-package       # local Core, AI Agents, Pro, and x402 wheels
 ```
 
 In the full Datalayer monorepo, `cms-astro-install` reuses the root npm
@@ -82,8 +84,10 @@ The client-side administration UI starts at <http://localhost:4321/_cms/login>
 and exposes history-aware React routes under `/_cms/content`, `/_cms/users`,
 `/_cms/sites`, `/_cms/appearance`, and `/_cms/extensions`. Astro provides only
 the thin application mount for these routes; it renders the public content pages.
-After login, return to the published website to see the floating **Astro CMS
-Author**. Anonymous visitors do not load or see the agent. Its header displays
+Install the optional agent with `make cms-astro-ai`. After login, return to the
+published website to see the floating **Astro CMS Author**. The public site
+discovers its embedded JavaScript at runtime; Core does not depend on the AI
+runtime packages. Anonymous visitors do not load or see the agent. Its header displays
 the anonymous inference-key timer; CMS writes still use the signed-in user's
 bearer session and are checked against the active site's role.
 Its Appearance section uses Primer Addons to select the personal Primer theme

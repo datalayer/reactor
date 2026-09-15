@@ -12,8 +12,6 @@
   "dependencies": {
     "@astrojs/node": "^10.0.0",
     "@astrojs/react": "^5.0.0",
-    "@datalayer/core": "^1.2.6",
-    "@datalayer/agent-runtimes": "^1.3.10",
     "@datalayer/jupyter-lexical": "^1.0.21",
     "@datalayer/primer-addons": "^1.0.17",
     "@datalayer/reactor": "file:../../../..",

@@ -12,8 +12,7 @@ import { ChatFloating } from '@datalayer/agent-runtimes/lib/chat/ChatFloating.js
 import { useBrowserInference } from '@datalayer/agent-runtimes/lib/hooks/useBrowserInference.js';
 import { browserProtocolConfig } from '@datalayer/agent-runtimes/lib/runtimes/browser/protocol.js';
 import { getAgentspecs } from '@datalayer/agent-runtimes/lib/specs/agents/index.js';
-import { createCmsAgentTools } from '../lib/cmsAgent';
-import type { CmsSiteSession } from './CmsSiteAgent';
+import { createCmsAgentTools, type CmsSiteSession } from './tools';
 
 type Props = {
   apiUrl: string;
@@ -24,11 +23,7 @@ type Props = {
 
 const spec = (() => {
   const value = getAgentspecs('worker-cms-astro');
-  if (!value) {
-    throw new Error(
-      'worker-cms-astro is missing; run `make specs` in agent-runtimes and rebuild it.',
-    );
-  }
+  if (!value) throw new Error('worker-cms-astro is missing; run `make specs` in agent-runtimes and rebuild it.');
   return value;
 })();
 
@@ -60,10 +55,7 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
 
   if (anonymous.status === 'failed') {
     return (
-      <Flash
-        variant="danger"
-        sx={{ position: 'fixed', right: 3, bottom: 3, zIndex: 1001 }}
-      >
+      <Flash variant="danger" sx={{ position: 'fixed', right: 3, bottom: 3, zIndex: 1001 }}>
         The CMS agent could not obtain an anonymous inference key.
       </Flash>
     );
@@ -99,7 +91,7 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
   );
 }
 
-export default function CmsSiteAgentRuntime(props: Props) {
+export default function AgentRuntime(props: Props) {
   return (
     <ThemedProvider useStore={useThemeStore}>
       <Runtime {...props} />

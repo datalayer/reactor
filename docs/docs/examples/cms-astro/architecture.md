@@ -17,7 +17,10 @@ FastAPI + Reactor host ───────► SQLite
           │ published JSON      themes, media, menus and search
 Astro SSR server
   └── live content loader ─────► public website response
-  └── authenticated ChatFloating island
+  └── generic public extension host
+          │ discovers optional AI Agents wheel
+          ▼
+      authenticated ChatFloating
           │ anonymous inference key + public crawl results
           ▼
       browser agent loop
@@ -42,6 +45,12 @@ used as the model credential.
 This is the [Python-packaged extension](/python-packaged-extensions/) pattern:
 one installation delivers both tiers, while Reactor still discovers the Core
 plugin through the same public mechanism used for third-party extensions.
+
+AI support follows that mechanism independently. `ai-agents/pyproject.toml`
+packages its Python plugin, Reactor `AgentTools` contract, and built frontend
+under `share/datalayer/reactor/extensions/cms-astro-ai-agents`. Core supplies
+only a generic public-extension host, so installing or removing AI Agents does
+not change or rebuild the CMS application.
 
 ## Astro live content
 

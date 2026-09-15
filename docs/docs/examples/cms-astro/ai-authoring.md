@@ -5,10 +5,14 @@ title: AI-assisted Publishing
 
 # AI-assisted publishing
 
-The published Astro website mounts an **Astro CMS Author** with
-`ChatFloating`. The island first validates the `cms-session` bearer token and
-checks that its user belongs to the site being rendered. Without that
-membership it renders nothing and does not load the larger agent bundle.
+AI authoring is the optional `datalayer-cms-astro-ai-agents` extension rather
+than part of Core. Build and install it with `make cms-astro-ai`. The published
+site's generic extension host discovers the wheel's embedded JavaScript and
+mounts an **Astro CMS Author** with `ChatFloating`. The extension first
+validates the `cms-session` bearer token and checks that its user belongs to
+the site being rendered. Without that membership it renders nothing and does
+not load the larger agent bundle. Removing the extension removes the agent
+without rebuilding Core.
 
 The loop runs in the browser. `useBrowserInference` obtains a short-lived
 anonymous inference key, and `AnonymousKeyTimer` is passed to the chat through
@@ -33,7 +37,7 @@ not repeat the model identifier in application code.
 
 ## Frontend tools
 
-Core contributes one `AgentTools` bundle with four commands:
+The AI Agents plugin contributes one `AgentTools` bundle with four commands:
 
 | Tool | Effect |
 | --- | --- |

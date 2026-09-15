@@ -94,7 +94,7 @@ with the authentication requirements of your application.
 make cms-astro-package
 ```
 
-This produces Core, Pro and x402 wheels. The Core wheel contains the standalone
+This produces Core, AI Agents, Pro and x402 wheels. The Core wheel contains the standalone
 Astro build and installs two commands:
 
 ```bash

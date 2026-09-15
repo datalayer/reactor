@@ -1,0 +1,60 @@
+<!--
+  ~ Copyright (c) 2026-Present Datalayer, Inc.
+  ~
+  ~ Datalayer License
+-->
+
+---
+interface Props {
+  apiUrl: string;
+  siteId: string;
+  siteName: string;
+}
+
+const { apiUrl, siteId, siteName } = Astro.props;
+---
+
+<div
+  id="cms-public-extensions"
+  data-api-url={apiUrl}
+  data-site-id={siteId}
+  data-site-name={siteName}
+></div>
+
+<script>
+  type PublicExtensionRecord = { name: string; entry: string };
+  type PublicExtensionModule = {
+    mountPublicSiteExtension?: (options: {
+      apiUrl: string;
+      siteId: string;
+      siteName: string;
+      element: HTMLElement;
+    }) => void | (() => void);
+  };
+
+  const element = document.querySelector<HTMLElement>('#cms-public-extensions');
+  if (element) {
+    const apiUrl = element.dataset.apiUrl ?? '';
+    const siteId = element.dataset.siteId ?? '';
+    const siteName = element.dataset.siteName ?? '';
+    void fetch(`${apiUrl}/plugins/frontend-extensions`)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<PublicExtensionRecord[]>;
+      })
+      .then(records =>
+        Promise.allSettled(
+          records.map(async record => {
+            const entry = new URL(record.entry, `${apiUrl}/`).href;
+            const extension = (await import(/* @vite-ignore */ entry)) as PublicExtensionModule;
+            if (!extension.mountPublicSiteExtension) return;
+            const mount = document.createElement('div');
+            mount.dataset.extension = record.name;
+            element.append(mount);
+            extension.mountPublicSiteExtension({ apiUrl, siteId, siteName, element: mount });
+          }),
+        ),
+      )
+      .catch(error => console.warn('[cms-astro] could not load public extensions:', error));
+  }
+</script>
