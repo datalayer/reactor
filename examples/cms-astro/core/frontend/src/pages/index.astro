@@ -8,6 +8,13 @@ if (error) throw error;
 const posts = livePosts ?? [];
 ---
 <Base {bootstrap}>
-  <h1>{bootstrap.site.tagline}</h1>
-  {posts.map(({ data: post }) => <article><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></article>)}
+  <section class="hero">
+    <p class="eyebrow">Stories, notes and ideas</p>
+    <h1>{bootstrap.site.tagline}</h1>
+    <p class="hero-copy">A living publication powered by Astro, edited collaboratively, and delivered from the Reactor CMS.</p>
+  </section>
+  <section>
+    <div class="section-heading"><h2>Latest stories</h2><a href="/blog">View the journal →</a></div>
+    <div class="post-grid">{posts.map(({ data: post }) => <article class="post-card"><div><span class="post-meta">Journal</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><a href={`/posts/${post.slug}`}>Read story →</a></article>)}</div>
+  </section>
 </Base>

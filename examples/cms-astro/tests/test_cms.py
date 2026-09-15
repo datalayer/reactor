@@ -14,20 +14,57 @@ from cms_astro_core.host import create_app
 def client(tmp_path: Path) -> TestClient:
     # Extension discovery is covered by Reactor itself; API tests stay isolated
     # from whichever unrelated example wheels are installed in the environment.
-    return TestClient(create_app(database=tmp_path / "cms.sqlite3", discover=False))
+    return TestClient(create_app(database=tmp_path / "cms.sqlite3", discover=False, allow_identity_header=True))
 
 
 def test_seed_is_multi_user_multi_site_ready(tmp_path: Path) -> None:
     api = client(tmp_path)
-    response = api.get("/api/cms/sites", headers={"X-CMS-User": "u-editor"})
+    response = api.get("/api/cms/sites", headers={"X-CMS-User": "u-user1"})
     assert response.status_code == 200
-    assert response.json()[0]["role"] == "editor"
+    assert response.json()[0]["role"] == "author"
     assert response.json()[0]["theme_slug"] == "editorial"
+    assert response.json()[0]["member_count"] == 3
+    assert response.json()[0]["entry_count"] == 1
+
+
+def test_password_login_and_admin_boundaries(tmp_path: Path) -> None:
+    api = TestClient(create_app(database=tmp_path / "secure.sqlite3", discover=False))
+    admin_login = api.post("/api/cms/auth/login", json={"username": "admin", "password": "admin"})
+    user_login = api.post("/api/cms/auth/login", json={"username": "user1", "password": "user1"})
+    user2_login = api.post("/api/cms/auth/login", json={"username": "user2", "password": "user2"})
+    assert admin_login.status_code == 200
+    assert user_login.status_code == 200
+    assert user2_login.status_code == 200
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['token']}"}
+    user_headers = {"Authorization": f"Bearer {user_login.json()['token']}"}
+    user2_headers = {"Authorization": f"Bearer {user2_login.json()['token']}"}
+    assert api.get("/api/cms/sites/site-main/users", headers=admin_headers).status_code == 200
+    assert api.get("/api/cms/sites/site-main/users", headers=user_headers).status_code == 403
+    assert api.get("/api/cms/sites/site-main/entries", headers=user_headers).status_code == 200
+    assert api.get("/api/cms/sites", headers=user2_headers).json()[0]["id"] == "site-main"
+    assert api.post("/api/cms/sites", headers=user_headers, json={"slug":"forbidden","name":"Forbidden"}).status_code == 403
+    assert api.patch("/api/cms/sites/site-main/theme", headers=user_headers, json={"theme":"studio"}).status_code == 403
+    assert api.post("/api/cms/auth/login", json={"username": "user2", "password": "wrong"}).status_code == 401
+
+
+def test_authenticated_browser_request_allows_cors_preflight(tmp_path: Path) -> None:
+    api = TestClient(create_app(database=tmp_path / "cors.sqlite3", discover=False))
+    response = api.options(
+        "/api/cms/sites",
+        headers={
+            "Origin": "http://localhost:4321",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+    assert "authorization" in response.headers["access-control-allow-headers"].lower()
 
 
 def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     api = client(tmp_path)
-    headers = {"X-CMS-User": "u-author"}
+    headers = {"X-CMS-User": "u-user1"}
     created = api.post("/api/cms/sites/site-main/entries", headers=headers, json={"collection":"posts","title":"A new Astro story","body":"# Story\n\nLive content."})
     assert created.status_code == 201
     entry = created.json()
@@ -43,7 +80,7 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
 
 def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     api = client(tmp_path)
-    response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-author"}, json={"title":"Taken over"})
+    response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
 
 
@@ -64,7 +101,10 @@ def test_admin_can_create_a_second_site_and_add_a_user(tmp_path: Path) -> None:
     site = api.post("/api/cms/sites", headers=headers, json={"slug":"studio","name":"Studio Site","theme":"studio"})
     assert site.status_code == 201
     assert len(api.get("/api/cms/sites", headers=headers).json()) == 2
-    user = api.post("/api/cms/sites/site-main/users", headers=headers, json={"email":"writer@example.test","name":"New Writer"}).json()
+    updated_site = api.patch(f"/api/cms/sites/{site.json()['id']}", headers=headers, json={"name":"Studio Journal","tagline":"A second publication"})
+    assert updated_site.status_code == 200
+    assert updated_site.json()["tagline"] == "A second publication"
+    user = api.post("/api/cms/sites/site-main/users", headers=headers, json={"username":"writer","password":"writer-password","email":"writer@example.test","name":"New Writer"}).json()
     membership = api.put("/api/cms/sites/site-main/memberships", headers=headers, json={"user_id":user["id"],"role":"author"})
     assert membership.status_code == 201
     members = api.get("/api/cms/sites/site-main/users", headers=headers)
@@ -72,7 +112,13 @@ def test_admin_can_create_a_second_site_and_add_a_user(tmp_path: Path) -> None:
     disabled = api.patch(f"/api/cms/sites/site-main/users/{user['id']}", headers=headers, json={"disabled": True})
     assert disabled.status_code == 200
     assert disabled.json()["disabled"] == 1
+    updated = api.patch(f"/api/cms/sites/site-main/users/{user['id']}", headers=headers, json={"name": "Updated Writer", "username": "updated-writer", "email": "updated@example.test"})
+    assert updated.status_code == 200
+    assert updated.json()["username"] == "updated-writer"
     assert api.patch("/api/cms/sites/site-main/users/u-admin", headers=headers, json={"disabled": True}).status_code == 409
+    assert api.delete("/api/cms/sites/site-main/users/u-admin", headers=headers).status_code == 409
+    assert api.delete(f"/api/cms/sites/site-main/users/{user['id']}", headers=headers).status_code == 204
+    assert all(member["id"] != user["id"] for member in api.get("/api/cms/sites/site-main/users", headers=headers).json())
 
 
 def test_search_media_taxonomy_and_menu_management(tmp_path: Path) -> None:

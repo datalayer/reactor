@@ -1,0 +1,16 @@
+---
+import { getLiveCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { cms } from '../lib/cms';
+
+const bootstrap = await cms.bootstrap();
+const { entries, error } = await getLiveCollection('posts', { limit: 100 });
+if (error) throw error;
+const posts = entries ?? [];
+---
+<Base {bootstrap} title={`Journal — ${bootstrap.site.name}`} description={`All stories from ${bootstrap.site.name}`}>
+  <header class="article-header"><p class="eyebrow">The journal</p><h1>All stories</h1><p>Published notes, ideas, and updates from {bootstrap.site.name}.</p></header>
+  <div class="post-grid">
+    {posts.map(({ data: post }) => <article class="post-card"><div><span class="post-meta">Published</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><a href={`/posts/${post.slug}`}>Read story →</a></article>)}
+  </div>
+</Base>

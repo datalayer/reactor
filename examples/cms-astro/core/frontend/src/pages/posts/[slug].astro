@@ -8,5 +8,8 @@ if (error || !entry) return Astro.rewrite('/404');
 const post = entry.data;
 ---
 <Base {bootstrap} title={`${post.title} — ${bootstrap.site.name}`}>
-  <article><h1>{post.title}</h1><p>{post.excerpt}</p><pre>{post.body}</pre></article>
+  <article>
+    <header class="article-header"><p class="eyebrow">Journal</p><h1>{post.title}</h1><p>{post.excerpt}</p></header>
+    <div class="article-body">{post.body}</div>
+  </article>
 </Base>

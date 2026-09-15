@@ -20,23 +20,25 @@ editorial workflow and administration.
   stores the active theme and its design tokens.
 - Astro 6 live content collections backed by the published-content API, with
   request-time loading and cache tags.
-- A responsive Astro admin route implemented as a React island with locally
-  owned shadcn-style components, Tailwind tokens, and appearance controls.
+- A responsive, client-side React administration application with Primer
+  React, `ThemedProvider`, and the Primer Addons appearance store used by the
+  Reactor music example.
+- Lexical rich-text authoring with persisted editor JSON and plain-text search.
 - Core, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
   carries its browser plugin under `share/datalayer/reactor/extensions/`.
 - An optional x402 extension with HTTP `402`, `PAYMENT-REQUIRED`, and
   `PAYMENT-RESPONSE` handling for paid Astro routes.
 
-The example intentionally uses a simple development identity header,
-`X-CMS-User`. It demonstrates authorization and tenancy, not production login.
-Replace it with passkeys/OAuth/session middleware before deployment.
+The example uses PBKDF2 password hashes and expiring bearer sessions. The
+`X-CMS-User` shortcut is available only when a host explicitly enables it for
+isolated tests.
 
 ## Layout
 
 ```text
 cms-astro/
   core/                 installable host + Astro SSR site + Core extension
-    frontend/           Astro routes, live loader and shadcn React admin
+    frontend/           Astro routes, live loader and Primer React admin
   pro/                  separately installable Pro Python/JavaScript extension
   x402/                 separately installable paid-content extension
   tests/                database and HTTP acceptance tests
@@ -48,6 +50,7 @@ From the Reactor monorepo root:
 
 ```bash
 make cms-astro-install       # Core, editable from this checkout
+make cms-astro-seed          # admin/admin, user1/user1, user2/user2
 make cms-astro               # backend + Astro development server
 make cms-astro-pro           # optional, in another terminal
 make cms-astro-x402          # optional paid-content extension
@@ -59,9 +62,18 @@ The standalone console command remains available as
 `cms-astro-site`; run it in a second terminal with `CMS_API_URL` pointing at
 the backend to serve the wheel-embedded Astro application.
 
-Open the API documentation at <http://localhost:8791/docs>. The seed users are
-`u-admin`, `u-editor`, and `u-author`; send one as `X-CMS-User` to admin routes.
-The administration UI is at <http://localhost:4321/_cms/admin>.
+Open the API documentation at <http://localhost:8791/docs>. The seeded logins
+are `admin/admin`, `user1/user1`, and `user2/user2`. Admin manages sites,
+themes, extensions, users, and roles. User1 and user2 are content authors on
+the initial Acme Journal site and cannot reach those administrative APIs.
+The client-side administration UI starts at <http://localhost:4321/_cms/login>
+and exposes history-aware React routes under `/_cms/content`, `/_cms/users`,
+`/_cms/sites`, `/_cms/appearance`, and `/_cms/extensions`. Astro provides only
+the thin application mount for these routes; it renders the public content pages.
+Its Appearance section uses Primer Addons to select the personal Primer theme
+and light, dark, or system color mode, while site administrators can separately
+choose the active public website theme. The same Appearance experience is
+available while editing an individual website alongside its general settings.
 
 Install Pro while the host is running, then refresh the browser extension list:
 
@@ -82,9 +94,11 @@ boundary to a real x402 facilitator.
 
 | Endpoint | Purpose |
 | --- | --- |
+| `POST /api/cms/auth/login` | Password login and bearer session creation |
 | `GET /api/cms/sites` | Sites visible to the current user |
 | `GET /api/cms/sites/{site}/users` | Site-scoped user and role listing |
-| `PATCH /api/cms/sites/{site}/users/{user}` | Enable, disable, or rename a user |
+| `PATCH /api/cms/sites/{site}/users/{user}` | Edit profile, credentials, or status |
+| `DELETE /api/cms/sites/{site}/users/{user}` | Remove site access and orphaned accounts |
 | `GET/POST /api/cms/sites/{site}/entries` | Editorial content management |
 | `POST /api/cms/sites/{site}/entries/{id}/publish` | Publish with a revision |
 | `GET /api/cms/sites/{site}/search?q=...` | FTS5 search |

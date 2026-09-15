@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
@@ -83,19 +84,35 @@ class SiteCreate(BaseModel):
     theme: str = "editorial"
 
 
+class SiteUpdate(BaseModel):
+    slug: str | None = Field(default=None, min_length=1, max_length=120, pattern="^[a-z0-9-]+$")
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    tagline: str | None = Field(default=None, max_length=300)
+
+
 class UserCreate(BaseModel):
+    username: str = Field(min_length=1, max_length=120, pattern="^[a-zA-Z0-9._-]+$")
+    password: str = Field(min_length=6, max_length=256)
     email: str
     name: str
 
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    username: str | None = Field(default=None, min_length=1, max_length=120, pattern="^[a-zA-Z0-9._-]+$")
+    email: str | None = None
+    password: str | None = Field(default=None, min_length=6, max_length=256)
     disabled: bool | None = None
 
 
 class MembershipCreate(BaseModel):
     user_id: str
     role: str = Field(pattern="^(admin|editor|author|viewer)$")
+
+
+class Login(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=1, max_length=256)
 
 
 def store(request: Request) -> Store:
@@ -116,10 +133,32 @@ def fail(error: Exception) -> None:
     raise error
 
 
+@router.post("/api/cms/auth/login")
+async def login(payload: Login, request: Request) -> dict:
+    cms = store(request)
+    user = cms.authenticate(payload.username, payload.password)
+    if not user:
+        raise HTTPException(401, "invalid username or password")
+    token = cms.create_session(user["id"])
+    with cms.connect() as db:
+        memberships = db.execute("SELECT site_id,role FROM memberships WHERE user_id=?", (user["id"],)).fetchall()
+    return {
+        "token": token,
+        "user": {key: user[key] for key in ("id", "username", "email", "name", "disabled")},
+        "memberships": [dict(row) for row in memberships],
+    }
+
+
+@router.delete("/api/cms/auth/logout", status_code=204)
+async def logout(request: Request, authorization: str | None = Header(default=None)) -> None:
+    if authorization and authorization.lower().startswith("bearer "):
+        store(request).revoke_session(authorization[7:].strip())
+
+
 @router.get("/api/cms/session")
 async def session(request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
     with store(request).connect() as db:
-        user = db.execute("SELECT id,email,name,disabled FROM users WHERE id=?", (user_id,)).fetchone()
+        user = db.execute("SELECT id,username,email,name,disabled FROM users WHERE id=?", (user_id,)).fetchone()
         if not user or user["disabled"]:
             raise HTTPException(401, "unknown or disabled user")
         memberships = db.execute("SELECT site_id,role FROM memberships WHERE user_id=?", (user_id,)).fetchall()
@@ -129,7 +168,9 @@ async def session(request: Request, user_id: str = Header(alias="X-CMS-User")) -
 @router.get("/api/cms/sites")
 async def sites(request: Request, user_id: str = Header(alias="X-CMS-User")) -> list[dict]:
     with store(request).connect() as db:
-        rows = db.execute("""SELECT s.*,m.role,t.slug theme_slug,t.name theme_name,t.tokens
+        rows = db.execute("""SELECT s.*,m.role,t.slug theme_slug,t.name theme_name,t.tokens,
+          (SELECT COUNT(*) FROM memberships sm WHERE sm.site_id=s.id) member_count,
+          (SELECT COUNT(*) FROM entries se WHERE se.site_id=s.id) entry_count
           FROM sites s JOIN memberships m ON m.site_id=s.id JOIN themes t ON t.id=s.theme_id
           WHERE m.user_id=? ORDER BY s.name""", (user_id,)).fetchall()
         return [store(request).row(row) for row in rows]
@@ -142,12 +183,30 @@ async def create_site(payload: SiteCreate, request: Request, user_id: str = Head
     with store(request).connect() as db:
         if not db.execute("SELECT 1 FROM users WHERE id=? AND disabled=0", (user_id,)).fetchone():
             raise HTTPException(401, "unknown or disabled user")
+        if not db.execute("SELECT 1 FROM memberships WHERE user_id=? AND role='admin'", (user_id,)).fetchone():
+            raise HTTPException(403, "administrator role required to create sites")
         theme = db.execute("SELECT id FROM themes WHERE slug=?", (payload.theme,)).fetchone()
         if not theme: raise HTTPException(404, "theme not found")
         site_id, stamp = f"site-{uuid4().hex}", now()
         db.execute("INSERT INTO sites VALUES(?,?,?,?,?,?,?)", (site_id, payload.slug, payload.name, payload.tagline, theme["id"], stamp, stamp))
         db.execute("INSERT INTO memberships VALUES(?,?,?)", (site_id, user_id, "admin"))
         return store(request).row(db.execute("SELECT * FROM sites WHERE id=?", (site_id,)).fetchone()) or {}
+
+
+@router.patch("/api/cms/sites/{site_id}")
+async def update_site(site_id: str, payload: SiteUpdate, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    from .store import now
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "admin")
+        except Exception as error: fail(error)
+        changes = payload.model_dump(exclude_none=True)
+        changes["updated_at"] = now()
+        assignments = ",".join(f"{column}=?" for column in changes)
+        try:
+            db.execute(f"UPDATE sites SET {assignments} WHERE id=?", (*changes.values(), site_id))
+        except sqlite3.IntegrityError as error:
+            raise HTTPException(409, "site slug is already in use") from error
+        return dict(db.execute("SELECT * FROM sites WHERE id=?", (site_id,)).fetchone())
 
 
 @router.post("/api/cms/sites/{site_id}/users", status_code=201)
@@ -158,8 +217,10 @@ async def create_user(site_id: str, payload: UserCreate, request: Request, user_
         try: store(request).require(db, site_id, user_id, "admin")
         except Exception as error: fail(error)
         new_id = f"user-{uuid4().hex}"
-        db.execute("INSERT INTO users VALUES(?,?,?,?,?)", (new_id, payload.email, payload.name, 0, now()))
-        return dict(db.execute("SELECT id,email,name,disabled,created_at FROM users WHERE id=?", (new_id,)).fetchone())
+        db.execute("INSERT INTO users(id,email,name,disabled,created_at,username,password_hash) VALUES(?,?,?,?,?,?,?)", (
+            new_id, payload.email, payload.name, 0, now(), payload.username, store(request).password_hash(payload.password)
+        ))
+        return dict(db.execute("SELECT id,username,email,name,disabled,created_at FROM users WHERE id=?", (new_id,)).fetchone())
 
 
 @router.get("/api/cms/sites/{site_id}/users")
@@ -168,7 +229,7 @@ async def users(site_id: str, request: Request, user_id: str = Header(alias="X-C
     with store(request).connect() as db:
         try: store(request).require(db, site_id, user_id, "admin")
         except Exception as error: fail(error)
-        rows = db.execute("""SELECT u.id,u.email,u.name,u.disabled,u.created_at,m.role
+        rows = db.execute("""SELECT u.id,u.username,u.email,u.name,u.disabled,u.created_at,m.role
           FROM memberships m JOIN users u ON u.id=m.user_id
           WHERE m.site_id=? ORDER BY u.name,u.email""", (site_id,)).fetchall()
         return [dict(row) for row in rows]
@@ -184,13 +245,50 @@ async def update_user(site_id: str, member_id: str, payload: UserUpdate, request
         if member_id == user_id and payload.disabled:
             raise HTTPException(409, "administrators cannot disable their own account")
         changes = payload.model_dump(exclude_none=True)
+        if "password" in changes:
+            changes["password_hash"] = store(request).password_hash(changes.pop("password"))
         if changes:
             assignments = ",".join(f"{column}=?" for column in changes)
-            db.execute(f"UPDATE users SET {assignments} WHERE id=?", (*[int(value) if isinstance(value, bool) else value for value in changes.values()], member_id))
-        row = db.execute("""SELECT u.id,u.email,u.name,u.disabled,u.created_at,m.role
+            try:
+                db.execute(f"UPDATE users SET {assignments} WHERE id=?", (*[int(value) if isinstance(value, bool) else value for value in changes.values()], member_id))
+            except sqlite3.IntegrityError as error:
+                raise HTTPException(409, "username or email is already in use") from error
+        row = db.execute("""SELECT u.id,u.username,u.email,u.name,u.disabled,u.created_at,m.role
           FROM memberships m JOIN users u ON u.id=m.user_id
           WHERE m.site_id=? AND u.id=?""", (site_id, member_id)).fetchone()
         return dict(row)
+
+
+@router.delete("/api/cms/sites/{site_id}/users/{member_id}", status_code=204)
+async def delete_user(site_id: str, member_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> None:
+    """Remove a member from this site and delete an orphaned user account."""
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "admin")
+        except Exception as error: fail(error)
+        membership = db.execute(
+            "SELECT role FROM memberships WHERE site_id=? AND user_id=?",
+            (site_id, member_id),
+        ).fetchone()
+        if not membership:
+            raise HTTPException(404, "site member not found")
+        if member_id == user_id:
+            raise HTTPException(409, "administrators cannot remove their own account")
+        if membership["role"] == "admin":
+            admins = db.execute(
+                "SELECT COUNT(*) count FROM memberships WHERE site_id=? AND role='admin'",
+                (site_id,),
+            ).fetchone()["count"]
+            if admins <= 1:
+                raise HTTPException(409, "a site must keep at least one administrator")
+        db.execute("DELETE FROM memberships WHERE site_id=? AND user_id=?", (site_id, member_id))
+        remaining = db.execute("SELECT 1 FROM memberships WHERE user_id=? LIMIT 1", (member_id,)).fetchone()
+        if not remaining:
+            authored = db.execute("SELECT 1 FROM entries WHERE author_id=? LIMIT 1", (member_id,)).fetchone()
+            if authored:
+                db.execute("UPDATE users SET disabled=1 WHERE id=?", (member_id,))
+                db.execute("DELETE FROM sessions WHERE user_id=?", (member_id,))
+            else:
+                db.execute("DELETE FROM users WHERE id=?", (member_id,))
 
 
 @router.put("/api/cms/sites/{site_id}/memberships", status_code=201)

@@ -1,0 +1,11 @@
+---
+import AdminApp from '../../components/AdminApp';
+if (Astro.params.cms !== '_cms') return Astro.rewrite('/404');
+const apiUrl = import.meta.env.CMS_API_URL ?? 'http://localhost:8791';
+---
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>Reactor CMS</title></head>
+  <body><AdminApp {apiUrl} client:only="react" /></body>
+</html>
+<style is:global>html,body{margin:0;min-height:100%;}</style>

@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro cms-astro cms-astro-install cms-astro-build cms-astro-pro cms-astro-x402 cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-pro cms-astro-x402 cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -27,6 +27,7 @@ help:
 	@echo "  make cms-pro           Add the CMS paid tier, while the CMS is running"
 	@echo "  make cms-build         Build and install the CMS without launching it"
 	@echo "  make cms-astro         Run the SQLite CMS backend and Astro site"
+	@echo "  make cms-astro-seed    Seed admin/admin, user1/user1 and user2/user2"
 	@echo "  make cms-astro-install Install Core from this monorepo"
 	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
 	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
@@ -152,6 +153,9 @@ cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
 cms-astro-install: build-js ## install the Astro CMS Core package from this monorepo
 	$(NPM) --prefix examples/cms-astro/core/frontend install
 	$(PIP) install -e examples/cms-astro/core
+
+cms-astro-seed: ## seed the documented accounts and initial website
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH=examples/cms-astro/core $(PYTHON) -m cms_astro_core.seed
 
 cms-astro-build: cms-astro-install ## typecheck and build the Astro SSR site
 	$(NPM) --prefix examples/cms-astro/core/frontend run build
