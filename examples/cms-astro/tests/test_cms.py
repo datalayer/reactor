@@ -85,6 +85,8 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
 
 def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     api = client(tmp_path)
+    visible = api.get("/api/cms/sites/site-main/entries", headers={"X-CMS-User":"u-user1"})
+    assert [entry["id"] for entry in visible.json()] == ["entry-welcome"]
     response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
 
@@ -99,7 +101,7 @@ def test_admin_can_model_content_and_switch_theme(tmp_path: Path) -> None:
     assert theme.status_code == 200
     assert api.get("/api/content/acme/bootstrap").json()["site"]["theme_slug"] == "studio"
     appearance = api.patch("/api/cms/sites/site-main/appearance", headers=headers, json={
-        "theme": "spatial", "color_mode": "auto",
+        "theme": "spatial", "color_mode": "auto", "layout_theme": "editorial",
         "light": {"--bgColor-default": "#ffffff", "--fgColor-default": "#111827", "--fgColor-accent": "#3730a3"},
         "dark": {"--bgColor-default": "#111827", "--fgColor-default": "#e0e7ff", "--fgColor-accent": "#6366f1"},
     })
@@ -108,6 +110,7 @@ def test_admin_can_model_content_and_switch_theme(tmp_path: Path) -> None:
     assert settings["appearance.theme"] == "spatial"
     assert settings["appearance.colorMode"] == "auto"
     assert json.loads(settings["appearance.tokens.dark"])["--fgColor-accent"] == "#6366f1"
+    assert api.get("/api/content/acme/bootstrap").json()["site"]["theme_slug"] == "editorial"
 
 
 def test_admin_can_create_a_second_site_and_add_a_user(tmp_path: Path) -> None:

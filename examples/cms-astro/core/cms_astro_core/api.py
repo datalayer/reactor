@@ -80,6 +80,7 @@ class ThemeUpdate(BaseModel):
 class AppearanceUpdate(BaseModel):
     theme: str = Field(pattern="^(datalayer|spatial|lovely|matrix|earth|sand|ivory|sun)$")
     color_mode: str = Field(pattern="^(light|dark|auto)$")
+    layout_theme: str | None = None
     light: dict[str, str]
     dark: dict[str, str]
 
@@ -334,14 +335,12 @@ async def create_collection(site_id: str, payload: CollectionCreate, request: Re
 @router.get("/api/cms/sites/{site_id}/entries")
 async def entries(site_id: str, request: Request, status: str | None = None, user_id: str = Header(alias="X-CMS-User")) -> list[dict]:
     with store(request).connect() as db:
-        try: role = store(request).require(db, site_id, user_id, "viewer")
+        try: store(request).require(db, site_id, user_id, "viewer")
         except Exception as error: fail(error)
         sql = "SELECT e.*,c.slug collection FROM entries e JOIN collections c ON c.id=e.collection_id WHERE e.site_id=?"
         args: list[Any] = [site_id]
         if status:
             sql += " AND e.status=?"; args.append(status)
-        if role == "author":
-            sql += " AND e.author_id=?"; args.append(user_id)
         sql += " ORDER BY e.updated_at DESC"
         return [store(request).row(row) for row in db.execute(sql, args)]
 
@@ -505,8 +504,13 @@ async def set_appearance(site_id: str, payload: AppearanceUpdate, request: Reque
             "INSERT INTO settings(site_id,key,value) VALUES(?,?,?) ON CONFLICT(site_id,key) DO UPDATE SET value=excluded.value",
             ((site_id, key, value) for key, value in values.items()),
         )
+        if payload.layout_theme:
+            layout_theme = db.execute("SELECT id FROM themes WHERE slug=?", (payload.layout_theme,)).fetchone()
+            if not layout_theme:
+                raise HTTPException(404, "theme not found")
+            db.execute("UPDATE sites SET theme_id=? WHERE id=?", (layout_theme["id"], site_id))
         db.execute("UPDATE sites SET updated_at=? WHERE id=?", (now(), site_id))
-        return {"site_id": site_id, "theme": payload.theme, "color_mode": payload.color_mode}
+        return {"site_id": site_id, "theme": payload.theme, "color_mode": payload.color_mode, "layout_theme": payload.layout_theme}
 
 
 @router.get("/api/cms/sites/{site_id}/search")
