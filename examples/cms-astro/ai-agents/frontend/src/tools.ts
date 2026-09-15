@@ -159,7 +159,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         if (!Object.keys(changes).length) throw new Error('No content changes were provided.');
         const target = values.entry_id
           ? `/api/cms/sites/${context.siteId}/entries/${values.entry_id}`
-          : `/api/cms/sites/${context.siteId}/entries/by-slug/${encodeURIComponent(values.existing_slug ?? '')}`;
+          : `/api/cms/sites/${context.siteId}/entries/by-slug/${encodeURIComponent(values.existing_slug ?? '')}?collection=${values.collection}`;
         let entry = await cmsRequest<EntryResult>(context, target, {
           method: 'PATCH',
           body: JSON.stringify(changes),

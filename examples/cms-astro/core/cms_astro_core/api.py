@@ -398,7 +398,14 @@ async def create_entry(site_id: str, payload: EntryCreate, request: Request, use
 
 
 @router.patch("/api/cms/sites/{site_id}/entries/by-slug/{slug}")
-async def update_entry_by_slug(site_id: str, slug: str, payload: EntryUpdate, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+async def update_entry_by_slug(
+    site_id: str,
+    slug: str,
+    payload: EntryUpdate,
+    request: Request,
+    collection: str = Query(pattern="^(posts|pages)$"),
+    user_id: str = Header(alias="X-CMS-User"),
+) -> dict:
     """Update an exact slug without exposing the site's private entry listing."""
     cms_store = store(request)
     try:
@@ -407,8 +414,8 @@ async def update_entry_by_slug(site_id: str, slug: str, payload: EntryUpdate, re
             row = db.execute(
                 """SELECT e.id,c.slug collection FROM entries e
                 JOIN collections c ON c.id=e.collection_id
-                WHERE e.site_id=? AND e.slug=?""",
-                (site_id, slug),
+                WHERE e.site_id=? AND e.slug=? AND c.slug=?""",
+                (site_id, slug, collection),
             ).fetchone()
     except Exception as error:
         fail(error)

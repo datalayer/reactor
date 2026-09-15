@@ -6,15 +6,17 @@ from __future__ import annotations
 
 import json
 import sys
+from email.message import Message
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "core"))
 
 from cms_astro_core.host import create_app
-from cms_astro_core.crawler import parse_page
+from cms_astro_core.crawler import fetch_url, parse_page
 from cms_astro_core.seed import seed_database
 from cms_astro_core.store import Store
 
@@ -118,6 +120,76 @@ def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
     assert wordpress == "https://example.test/wp-json/"
 
 
+def test_crawler_pins_the_validated_dns_address(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    opened: dict[str, object] = {}
+
+    class Response:
+        status = 200
+        headers = Message()
+        headers["Content-Type"] = "text/html; charset=utf-8"
+
+        def read(self, _limit: int) -> bytes:
+            return b"<title>Pinned</title>"
+
+    class Connection:
+        def __init__(
+            self,
+            host: str,
+            port: int,
+            family: int,
+            protocol: int,
+            socket_address: tuple[object, ...],
+            timeout: float,
+        ) -> None:
+            opened.update(
+                host=host,
+                port=port,
+                family=family,
+                protocol=protocol,
+                socket_address=socket_address,
+                timeout=timeout,
+            )
+
+        def request(self, method: str, path: str, headers: dict[str, str]) -> None:
+            opened.update(method=method, path=path, headers=headers)
+
+        def getresponse(self) -> Response:
+            return Response()
+
+        def close(self) -> None:
+            opened["closed"] = True
+
+    resolutions = 0
+
+    def resolve(*_args, **_kwargs):
+        nonlocal resolutions
+        resolutions += 1
+        return [(2, 1, 6, "", ("93.184.216.34", 80))]
+
+    monkeypatch.setattr(crawler.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(crawler, "_PinnedHTTPConnection", Connection)
+    final_url, content_type, body = fetch_url("http://example.test/blog")
+    assert resolutions == 1
+    assert opened["socket_address"] == ("93.184.216.34", 80)
+    assert opened["host"] == "example.test"
+    assert opened["closed"] is True
+    assert (final_url, content_type, body) == (
+        "http://example.test/blog",
+        "text/html",
+        "<title>Pinned</title>",
+    )
+
+
+def test_fetch_rejects_an_expired_crawl_deadline(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    monkeypatch.setattr(crawler.time, "monotonic", lambda: 20.0)
+    with pytest.raises(ValueError, match="45 second deadline"):
+        fetch_url("https://example.test/blog", deadline=19.0)
+
+
 def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     api = client(tmp_path)
     headers = {"X-CMS-User": "u-user1"}
@@ -156,8 +228,18 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     }
     response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
+    duplicate = api.post(
+        "/api/cms/sites/site-main/entries",
+        headers={"X-CMS-User": "u-user1"},
+        json={
+            "collection": "pages",
+            "title": "Same slug, different collection",
+            "slug": "design-systems-that-travel",
+        },
+    )
+    assert duplicate.status_code == 201
     by_slug = api.patch(
-        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel",
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=posts",
         headers={"X-CMS-User": "u-user1"},
         json={"excerpt": "Updated safely by an exact slug."},
     )
@@ -168,6 +250,13 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
         "status": "published",
         "collection": "posts",
     }
+    page = api.patch(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=pages",
+        headers={"X-CMS-User": "u-user1"},
+        json={"excerpt": "Only the standalone page."},
+    )
+    assert page.status_code == 200
+    assert page.json()["id"] == duplicate.json()["id"]
 
 
 def test_reseed_requires_confirmation_and_removes_existing_data(tmp_path: Path) -> None:

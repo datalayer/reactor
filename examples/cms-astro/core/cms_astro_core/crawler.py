@@ -7,70 +7,196 @@
 from __future__ import annotations
 
 import html
+import http.client
 import ipaddress
 import json
 import re
 import socket
+import ssl
+import time
 from html.parser import HTMLParser
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.parse import (
+    ParseResult,
+    parse_qsl,
+    urlencode,
+    urljoin,
+    urlparse,
+    urlunparse,
+)
 
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_PAGE_TEXT = 50_000
 MAX_REDIRECTS = 5
+CRAWL_TIMEOUT_SECONDS = 45
 USER_AGENT = "Datalayer-Reactor-CMS/0.1 (+https://datalayer.ai)"
 
 
-def _public_url(value: str) -> str:
-    """Validate an HTTP URL and reject hosts resolving to non-public networks."""
+def _public_target(
+    value: str,
+) -> tuple[str, ParseResult, int, int, tuple[Any, ...]]:
+    """Validate a URL and return one public address to pin for the connection."""
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username:
         raise ValueError("a public http or https URL is required")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
-        addresses = {
-            item[4][0]
-            for item in socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
-        }
-    except socket.gaierror as error:
+        targets = socket.getaddrinfo(
+            parsed.hostname,
+            port,
+            type=socket.SOCK_STREAM,
+        )
+    except (OSError, ValueError) as error:
         raise ValueError(f"could not resolve {parsed.hostname}") from error
-    if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
-        raise ValueError("private, local, reserved, and link-local hosts cannot be crawled")
-    return urlunparse(parsed._replace(fragment=""))
+    if not targets or any(
+        not ipaddress.ip_address(target[4][0]).is_global for target in targets
+    ):
+        raise ValueError(
+            "private, local, reserved, and link-local hosts cannot be crawled"
+        )
+    family, _, protocol, _, socket_address = targets[0]
+    return (
+        urlunparse(parsed._replace(fragment="")),
+        parsed,
+        family,
+        protocol,
+        socket_address,
+    )
 
 
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
-        return None
+def _connect_pinned(
+    family: int,
+    protocol: int,
+    socket_address: tuple[Any, ...],
+    timeout: float,
+    source_address: tuple[str, int] | None,
+) -> socket.socket:
+    sock = socket.socket(family, socket.SOCK_STREAM, protocol)
+    try:
+        sock.settimeout(timeout)
+        if source_address:
+            sock.bind(source_address)
+        sock.connect(socket_address)
+        return sock
+    except BaseException:
+        sock.close()
+        raise
 
 
-def fetch_url(value: str, *, accept: str = "text/html,application/xhtml+xml,application/json") -> tuple[str, str, str]:
-    """Fetch a bounded public response, revalidating every redirect target."""
-    current = value
-    opener = build_opener(_NoRedirect)
-    for _ in range(MAX_REDIRECTS + 1):
-        current = _public_url(current)
-        request = Request(current, headers={"Accept": accept, "User-Agent": USER_AGENT})
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """Connect to the address already approved by the SSRF validation."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        family: int,
+        protocol: int,
+        socket_address: tuple[Any, ...],
+        timeout: float,
+    ) -> None:
+        super().__init__(host, port, timeout=timeout)
+        self._family = family
+        self._protocol = protocol
+        self._socket_address = socket_address
+
+    def connect(self) -> None:
+        self.sock = _connect_pinned(
+            self._family,
+            self._protocol,
+            self._socket_address,
+            self.timeout,
+            self.source_address,
+        )
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Pin the TCP peer while retaining the hostname for TLS verification."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        family: int,
+        protocol: int,
+        socket_address: tuple[Any, ...],
+        timeout: float,
+    ) -> None:
+        super().__init__(
+            host, port, timeout=timeout, context=ssl.create_default_context()
+        )
+        self._family = family
+        self._protocol = protocol
+        self._socket_address = socket_address
+
+    def connect(self) -> None:
+        sock = _connect_pinned(
+            self._family,
+            self._protocol,
+            self._socket_address,
+            self.timeout,
+            self.source_address,
+        )
         try:
-            response = opener.open(request, timeout=12)
-        except HTTPError as error:
-            if error.code not in {301, 302, 303, 307, 308}:
-                raise ValueError(f"the remote site returned HTTP {error.code}") from error
-            location = error.headers.get("Location")
-            if not location:
-                raise ValueError("the remote site returned a redirect without a location") from error
-            current = urljoin(current, location)
-            continue
-        except (TimeoutError, URLError) as error:
-            raise ValueError(f"could not fetch {current}: {error.reason if isinstance(error, URLError) else error}") from error
-        with response:
+            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+        except BaseException:
+            sock.close()
+            raise
+
+
+def fetch_url(
+    value: str,
+    *,
+    accept: str = "text/html,application/xhtml+xml,application/json",
+    deadline: float | None = None,
+) -> tuple[str, str, str]:
+    """Fetch a bounded response pinned to the address validated for each hop."""
+    current = value
+    for _ in range(MAX_REDIRECTS + 1):
+        remaining = 12.0 if deadline is None else deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError("the crawl exceeded its 45 second deadline")
+        current, parsed, family, protocol, socket_address = _public_target(current)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        connection_type = (
+            _PinnedHTTPSConnection
+            if parsed.scheme == "https"
+            else _PinnedHTTPConnection
+        )
+        connection = connection_type(
+            parsed.hostname,
+            port,
+            family,
+            protocol,
+            socket_address,
+            min(12.0, remaining),
+        )
+        path = urlunparse(("", "", parsed.path or "/", parsed.params, parsed.query, ""))
+        try:
+            connection.request(
+                "GET", path, headers={"Accept": accept, "User-Agent": USER_AGENT}
+            )
+            response = connection.getresponse()
+            if response.status in {301, 302, 303, 307, 308}:
+                location = response.getheader("Location")
+                if not location:
+                    raise ValueError(
+                        "the remote site returned a redirect without a location"
+                    )
+                current = urljoin(current, location)
+                continue
+            if response.status < 200 or response.status >= 300:
+                raise ValueError(f"the remote site returned HTTP {response.status}")
             content_type = response.headers.get_content_type()
             charset = response.headers.get_content_charset() or "utf-8"
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise ValueError("the remote response is larger than 2 MB")
-            return response.geturl(), content_type, raw.decode(charset, errors="replace")
+            return current, content_type, raw.decode(charset, errors="replace")
+        except (OSError, http.client.HTTPException) as error:
+            raise ValueError(f"could not fetch {current}: {error}") from error
+        finally:
+            connection.close()
     raise ValueError("the remote site redirected too many times")
 
 
@@ -107,11 +233,18 @@ class PageParser(HTMLParser):
                 self.wordpress_api = values.get("href", "")
         if tag == "a" and values.get("href") and not self._ignored:
             self.links.append(values["href"])
-        if tag in {"p", "div", "article", "main", "section", "li", "h1", "h2", "h3", "br"} and not self._ignored:
+        if (
+            tag
+            in {"p", "div", "article", "main", "section", "li", "h1", "h2", "h3", "br"}
+            and not self._ignored
+        ):
             self._text.append("\n")
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "svg", "noscript", "nav", "footer"} and self._ignored:
+        if (
+            tag in {"script", "style", "svg", "noscript", "nav", "footer"}
+            and self._ignored
+        ):
             self._ignored -= 1
         if tag == "title":
             self._in_title = False
@@ -151,7 +284,11 @@ def parse_page(markup: str, url: str) -> tuple[dict[str, Any], list[str], str]:
         "excerpt": parser.description,
         "body": parser.text[:MAX_PAGE_TEXT],
     }
-    return page, parser.links, urljoin(url, parser.wordpress_api) if parser.wordpress_api else ""
+    return (
+        page,
+        parser.links,
+        urljoin(url, parser.wordpress_api) if parser.wordpress_api else "",
+    )
 
 
 def _same_origin_links(base: str, links: list[str]) -> list[str]:
@@ -163,7 +300,9 @@ def _same_origin_links(base: str, links: list[str]) -> list[str]:
         parsed = urlparse(candidate)
         if parsed.scheme not in {"http", "https"} or parsed.netloc != origin.netloc:
             continue
-        if re.search(r"\.(?:jpg|jpeg|png|gif|svg|webp|pdf|zip)(?:$|\?)", parsed.path, re.I):
+        if re.search(
+            r"\.(?:jpg|jpeg|png|gif|svg|webp|pdf|zip)(?:$|\?)", parsed.path, re.I
+        ):
             continue
         normalized = urlunparse(parsed._replace(fragment=""))
         if normalized not in seen:
@@ -174,30 +313,47 @@ def _same_origin_links(base: str, links: list[str]) -> list[str]:
 
 def crawl_blog(url: str, limit: int = 12) -> dict[str, Any]:
     """Discover same-origin links on a blog index and extract each page."""
-    final_url, content_type, markup = fetch_url(url)
+    deadline = time.monotonic() + CRAWL_TIMEOUT_SECONDS
+    final_url, content_type, markup = fetch_url(url, deadline=deadline)
     if content_type not in {"text/html", "application/xhtml+xml"}:
         raise ValueError("the blog URL did not return HTML")
     index, links, wordpress_api = parse_page(markup, final_url)
     pages: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
-    candidates = [item for item in _same_origin_links(final_url, links) if item.rstrip("/") != final_url.rstrip("/")]
+    candidates = [
+        item
+        for item in _same_origin_links(final_url, links)
+        if item.rstrip("/") != final_url.rstrip("/")
+    ]
     blog_path = urlparse(final_url).path.rstrip("/")
     if blog_path:
-        under_blog = [item for item in candidates if urlparse(item).path.startswith(f"{blog_path}/")]
+        under_blog = [
+            item
+            for item in candidates
+            if urlparse(item).path.startswith(f"{blog_path}/")
+        ]
         if under_blog:
             candidates = under_blog
     for candidate in candidates[:limit]:
         try:
-            page_url, page_type, page_markup = fetch_url(candidate)
+            page_url, page_type, page_markup = fetch_url(candidate, deadline=deadline)
             if page_type in {"text/html", "application/xhtml+xml"}:
                 page, _, _ = parse_page(page_markup, page_url)
                 if len(page["body"]) >= 80:
                     pages.append(page)
         except ValueError as error:
             errors.append({"url": candidate, "error": str(error)})
+            if time.monotonic() >= deadline:
+                break
     if not pages:
         pages.append(index)
-    return {"source": final_url, "kind": "blog", "wordpress_api": wordpress_api or None, "pages": pages, "errors": errors}
+    return {
+        "source": final_url,
+        "kind": "blog",
+        "wordpress_api": wordpress_api or None,
+        "pages": pages,
+        "errors": errors,
+    }
 
 
 def _plain_text(markup: str) -> str:
@@ -221,7 +377,9 @@ def crawl_wordpress(url: str, limit: int = 12) -> dict[str, Any]:
     endpoint = urljoin(api_root.rstrip("/") + "/", "wp/v2/posts")
     parsed_endpoint = urlparse(endpoint)
     query = dict(parse_qsl(parsed_endpoint.query))
-    query.update({"_embed": "1", "per_page": str(limit), "orderby": "date", "order": "desc"})
+    query.update(
+        {"_embed": "1", "per_page": str(limit), "orderby": "date", "order": "desc"}
+    )
     endpoint = urlunparse(parsed_endpoint._replace(query=urlencode(query)))
     response_url, response_type, source = fetch_url(endpoint, accept="application/json")
     if response_type != "application/json":
@@ -238,14 +396,24 @@ def crawl_wordpress(url: str, limit: int = 12) -> dict[str, Any]:
             continue
         title = _plain_text(str((post.get("title") or {}).get("rendered", "")))
         excerpt = _plain_text(str((post.get("excerpt") or {}).get("rendered", "")))
-        body = _plain_text(str((post.get("content") or {}).get("rendered", "")))[:MAX_PAGE_TEXT]
-        pages.append({
-            "url": post.get("link"),
-            "slug": post.get("slug"),
-            "title": title,
-            "excerpt": excerpt,
-            "body": body,
-            "published_at": post.get("date_gmt") or post.get("date"),
-            "source_id": post.get("id"),
-        })
-    return {"source": final_url, "api": response_url, "kind": "wordpress", "pages": pages, "errors": []}
+        body = _plain_text(str((post.get("content") or {}).get("rendered", "")))[
+            :MAX_PAGE_TEXT
+        ]
+        pages.append(
+            {
+                "url": post.get("link"),
+                "slug": post.get("slug"),
+                "title": title,
+                "excerpt": excerpt,
+                "body": body,
+                "published_at": post.get("date_gmt") or post.get("date"),
+                "source_id": post.get("id"),
+            }
+        )
+    return {
+        "source": final_url,
+        "api": response_url,
+        "kind": "wordpress",
+        "pages": pages,
+        "errors": [],
+    }

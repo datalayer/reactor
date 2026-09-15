@@ -55,17 +55,18 @@ viewing.
 The crawl handlers call authenticated FastAPI endpoints instead of fetching
 third-party pages from the browser, where CORS would make general crawling
 unreliable. The server accepts only public HTTP(S) hosts, rejects local and
-reserved address ranges, revalidates redirects, and bounds response sizes.
-WordPress crawling prefers the public REST metadata; generic crawling uses
-same-origin links under the blog path.
+reserved address ranges, pins each connection to its validated DNS address,
+revalidates and re-pins redirects, bounds response sizes, and applies a
+45-second deadline to a generic crawl. WordPress crawling prefers the public
+REST metadata; generic crawling uses same-origin links under the blog path.
 
 ## Private-content boundary
 
 Crawl tools return public web content. Write tools return only the resulting
 entry ID, slug, status, and public path. They do not enumerate or send existing
 private CMS bodies to the anonymous inference service. Updating by slug is
-resolved on the server and requires an exact slug already supplied by the
-author.
+resolved on the server and requires both an exact slug and collection already
+supplied by the author.
 
 Published standalone pages are rendered by Astro at `/pages/{slug}`; posts use
 `/posts/{slug}`. Bulk imports default to drafts unless the author explicitly
