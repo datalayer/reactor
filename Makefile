@@ -151,7 +151,11 @@ cms-pro: ## install the CMS paid tier — do it while `datalayer-cms` is running
 	@echo "A regular install, not editable: a .pth file is only read at startup."
 
 cms-astro-install: build-js ## install the Astro CMS Core package from this monorepo
-	$(NPM) --prefix examples/cms-astro/core/frontend install
+	@if [ -L ../../../node_modules/@datalayer/jupyter-lexical ]; then \
+		echo "Using the monorepo @datalayer/jupyter-lexical workspace link"; \
+	else \
+		$(NPM) --prefix examples/cms-astro/core/frontend install --workspaces=false; \
+	fi
 	$(PIP) install -e examples/cms-astro/core
 
 cms-astro-seed: ## seed the documented accounts and initial website

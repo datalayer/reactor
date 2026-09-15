@@ -24,9 +24,12 @@ The development environment exposes:
 `make cms-astro` starts the API on port `8791`, starts Astro on port `4321`,
 and sets `CMS_API_URL` for the frontend server.
 
-The install target also installs the frontend dependency on
-`@datalayer/jupyter-lexical`, which supplies the rich editor toolbar and plugins
-used by the CMS-owned editor composition.
+The install target supports both repository layouts. In the full Datalayer
+monorepo it reuses the root npm workspace links, so the CMS consumes the local
+`@datalayer/jupyter-lexical` package and its matching Lexical dependencies. In
+a standalone Reactor checkout it installs the published frontend dependencies
+locally. The Astro configuration selects the corresponding dependency graph so
+the editor never mixes incompatible Lexical runtimes.
 
 ## Seeded accounts
 

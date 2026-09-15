@@ -8,25 +8,53 @@ import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore, type C
 import * as PrimerReact from '@primer/react';
 import { Button, Flash, FormControl, Label, SegmentedControl, Select, Spinner, Text, TextInput, Textarea } from '@primer/react';
 import { SignOutIcon } from '@primer/octicons-react';
-import {
-  CodeActionMenuPlugin,
-  CommentPlugin,
-  CommentsProvider,
-  ComponentPickerMenuPlugin,
-  createEditorExtension,
-  DraggableBlockPlugin,
-  FloatingLinkEditorPlugin,
-  FloatingTextFormatToolbarPlugin,
-  TableActionMenuPlugin,
-  TableCellResizerPlugin,
-  TableHoverActionsV2Plugin,
-  TableOfContentsPlugin,
-  ToolbarContext,
-  ToolbarPlugin,
-} from '@datalayer/jupyter-lexical';
-import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
+import { CommentsProvider } from '@datalayer/jupyter-lexical/lib/context/CommentsContext.js';
+import { ToolbarContext } from '@datalayer/jupyter-lexical/lib/context/ToolbarContext.js';
+import { EquationNode } from '@datalayer/jupyter-lexical/lib/nodes/EquationNode.js';
+import { ExcalidrawNode } from '@datalayer/jupyter-lexical/lib/nodes/ExcalidrawNode.js';
+import { ImageNode } from '@datalayer/jupyter-lexical/lib/nodes/ImageNode.js';
+import { YouTubeNode } from '@datalayer/jupyter-lexical/lib/nodes/YouTubeNode.js';
+import { AutoEmbedPlugin } from '@datalayer/jupyter-lexical/lib/plugins/AutoEmbedPlugin.js';
+import { AutoLinkPlugin } from '@datalayer/jupyter-lexical/lib/plugins/AutoLinkPlugin.js';
+import { CodeActionMenuPlugin } from '@datalayer/jupyter-lexical/lib/plugins/CodeActionMenuPlugin.js';
+import { CodeBlockHighlightPlugin } from '@datalayer/jupyter-lexical/lib/plugins/CodeHighlightPlugin.js';
+import { CollapsibleContainerNode, CollapsibleContentNode, CollapsiblePlugin, CollapsibleTitleNode } from '@datalayer/jupyter-lexical/lib/plugins/CollapsiblePlugin/index.js';
+import { DraggableBlockPlugin } from '@datalayer/jupyter-lexical/lib/plugins/DraggableBlockPlugin.js';
+import { EquationsPlugin } from '@datalayer/jupyter-lexical/lib/plugins/EquationsPlugin.js';
+import { ExcalidrawPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ExcalidrawPlugin.js';
+import FloatingLinkEditorPlugin from '@datalayer/jupyter-lexical/lib/plugins/FloatingLinkEditorPlugin/index.js';
+import { FloatingTextFormatToolbarPlugin } from '@datalayer/jupyter-lexical/lib/plugins/FloatingTextFormatToolbarPlugin.js';
+import { ImagesPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ImagesPlugin.js';
+import { ListMaxIndentLevelPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ListMaxIndentLevelPlugin.js';
+import TableActionMenuPlugin from '@datalayer/jupyter-lexical/lib/plugins/TableActionMenuPlugin/index.js';
+import TableCellResizerPlugin from '@datalayer/jupyter-lexical/lib/plugins/TableCellResizer/index.js';
+import TableHoverActionsV2Plugin from '@datalayer/jupyter-lexical/lib/plugins/TableHoverActionsV2Plugin/index.js';
+import { TableOfContentsPlugin } from '@datalayer/jupyter-lexical/lib/plugins/TableOfContentsPlugin.js';
+import { TablePlugin } from '@datalayer/jupyter-lexical/lib/plugins/TablePlugin.js';
+import { ToolbarPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ToolbarPlugin/index.js';
+import { YouTubePlugin } from '@datalayer/jupyter-lexical/lib/plugins/YouTubePlugin.js';
+import { commentTheme } from '@datalayer/jupyter-lexical/lib/themes/CommentEditorTheme.js';
+import { LexicalComposer, type InitialConfigType } from '@lexical/react/LexicalComposer';
+import { AutoLinkNode, LinkNode } from '@lexical/link';
+import { CodeHighlightNode, CodeNode } from '@lexical/code';
+import { HashtagNode } from '@lexical/hashtag';
+import { ListItemNode, ListNode } from '@lexical/list';
+import { MarkNode } from '@lexical/mark';
+import { TRANSFORMERS } from '@lexical/markdown';
+import { HeadingNode, QuoteNode } from '@lexical/rich-text';
+import { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
+import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { HashtagPlugin } from '@lexical/react/LexicalHashtagPlugin';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
+import { HorizontalRulePlugin } from '@lexical/react/LexicalHorizontalRulePlugin';
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $createParagraphNode, $createTextNode, $getRoot, type EditorState, type LexicalEditor } from 'lexical';
 import { AppearanceSettings } from './AppearanceSettings';
@@ -56,18 +84,26 @@ function Heading({as='h2',children}:{as?:'h1'|'h2'|'h3';children:React.ReactNode
 
 function EditablePlugin({editable}:{editable:boolean}){const[editor]=useLexicalComposerContext();useEffect(()=>editor.setEditable(editable),[editable,editor]);return null}
 
+const cmsEditorNodes:InitialConfigType['nodes']=[
+ AutoLinkNode,CodeNode,CodeHighlightNode,CollapsibleContainerNode,CollapsibleContentNode,CollapsibleTitleNode,
+ EquationNode,ExcalidrawNode,HashtagNode,HeadingNode,HorizontalRuleNode,ImageNode,
+ LinkNode,ListItemNode,ListNode,MarkNode,QuoteNode,
+ TableCellNode,TableNode,TableRowNode,YouTubeNode,
+];
+
 function CmsEditorSurface({readOnly,onChange}:{readOnly:boolean;onChange:(plain:string,state:string)=>void}){
  const[editor]=useLexicalComposerContext();
  const[activeEditor,setActiveEditor]=useState<LexicalEditor>(editor),[isLinkEditMode,setIsLinkEditMode]=useState(false),[anchor,setAnchor]=useState<HTMLDivElement|null>(null);
  const anchorRef=useCallback((element:HTMLDivElement|null)=>setAnchor(element),[]);
  const changed=useCallback((state:EditorState)=>state.read(()=>onChange($getRoot().getTextContent(),JSON.stringify(state.toJSON()))),[onChange]);
  return <CommentsProvider><ToolbarContext><div className={`editor-shell cms-rich-editor${readOnly?' read-only':''}`}><div className="editor-container">
-  {!readOnly&&<ToolbarPlugin editor={editor} activeEditor={activeEditor} setActiveEditor={setActiveEditor} setIsLinkEditMode={setIsLinkEditMode}/>}<div className="editor-inner"><div className="editor-scroller"><div className="editor" ref={anchorRef}><ContentEditable className="editor-input" aria-placeholder="Write your story…" placeholder={<div className="editor-placeholder">Write your story…</div>}/></div></div>
-  <EditablePlugin editable={!readOnly}/>{!readOnly&&<><OnChangePlugin onChange={changed}/><ComponentPickerMenuPlugin/><TableCellResizerPlugin/><TableActionMenuPlugin/><TableHoverActionsV2Plugin/><CodeActionMenuPlugin/><TableOfContentsPlugin/><CommentPlugin providerFactory={undefined}/>{anchor&&<><DraggableBlockPlugin anchorElem={anchor}/><FloatingLinkEditorPlugin anchorElem={anchor} isLinkEditMode={isLinkEditMode} setIsLinkEditMode={setIsLinkEditMode}/><FloatingTextFormatToolbarPlugin anchorElem={anchor} setIsLinkEditMode={setIsLinkEditMode}/></>}</>}</div>
+  {!readOnly&&<ToolbarPlugin editor={editor} activeEditor={activeEditor} setActiveEditor={setActiveEditor} setIsLinkEditMode={setIsLinkEditMode}/>}<div className="editor-inner">
+  <RichTextPlugin contentEditable={<div className="editor-scroller"><div className="editor" ref={anchorRef}><ContentEditable className="editor-input" aria-placeholder="Write your story…" placeholder={()=>null}/></div></div>} placeholder={<div className="editor-placeholder">Write your story…</div>} ErrorBoundary={LexicalErrorBoundary}/>
+  <EditablePlugin editable={!readOnly}/><HistoryPlugin/><ListPlugin/><CheckListPlugin/><LinkPlugin/><AutoLinkPlugin/><HashtagPlugin/><CodeBlockHighlightPlugin/><TablePlugin/><ListMaxIndentLevelPlugin maxDepth={7}/><MarkdownShortcutPlugin transformers={TRANSFORMERS}/><EquationsPlugin/><ExcalidrawPlugin/><ImagesPlugin/><HorizontalRulePlugin/><YouTubePlugin/><AutoEmbedPlugin/>{!readOnly&&<><OnChangePlugin onChange={changed}/><TableCellResizerPlugin/><TableActionMenuPlugin/><TableHoverActionsV2Plugin/><CodeActionMenuPlugin/><TableOfContentsPlugin/>{anchor&&<><DraggableBlockPlugin anchorElem={anchor}/><FloatingLinkEditorPlugin anchorElem={anchor} isLinkEditMode={isLinkEditMode} setIsLinkEditMode={setIsLinkEditMode}/><FloatingTextFormatToolbarPlugin anchorElem={anchor} setIsLinkEditMode={setIsLinkEditMode}/></>}</>}</div>
  </div></div></ToolbarContext></CommentsProvider>
 }
 
-function RichEditor({initialState,initialText,readOnly=false,onChange}:{initialState?:string;initialText?:string;readOnly?:boolean;onChange:(plain:string,state:string)=>void}){const editorState=useRef(initialState??(initialText?()=>{$getRoot().append($createParagraphNode().append($createTextNode(initialText)))}:undefined)).current;const extension=useMemo(()=>createEditorExtension(editorState),[editorState]);return <LexicalExtensionComposer extension={extension} contentEditable={null}><CmsEditorSurface readOnly={readOnly} onChange={onChange}/></LexicalExtensionComposer>}
+function RichEditor({initialState,initialText,readOnly=false,onChange}:{initialState?:string;initialText?:string;readOnly?:boolean;onChange:(plain:string,state:string)=>void}){const editorState=useRef(initialState??(initialText?()=>{$getRoot().append($createParagraphNode().append($createTextNode(initialText)))}:undefined)).current;const initialConfig=useMemo<InitialConfigType>(()=>({namespace:'CmsAstroEditor',theme:commentTheme,nodes:cmsEditorNodes,editorState,onError:error=>{throw error}}),[editorState]);return <LexicalComposer initialConfig={initialConfig}><CmsEditorSurface readOnly={readOnly} onChange={onChange}/></LexicalComposer>}
 
 function Login({apiUrl,onLogin}:{apiUrl:string;onLogin:(session:Session)=>void}){const[username,setUsername]=useState('admin'),[password,setPassword]=useState('admin'),[error,setError]=useState<string>();async function submit(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();setError(undefined);try{onLogin(await api<Session>(`${apiUrl}/api/cms/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password})}))}catch(reason){setError(reason instanceof Error?reason.message:String(reason))}}return <Box className="login-page"><Box className="login-card"><Heading as="h1" sx={{fontSize:3}}>Reactor CMS</Heading><Text sx={{color:'fg.muted'}}>Sign in to manage Astro content.</Text>{error&&<Flash variant="danger">{error}</Flash>}<form className="form-grid" onSubmit={submit}><FormControl required><FormControl.Label>Username</FormControl.Label><TextInput block value={username} onChange={e=>setUsername(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Password</FormControl.Label><TextInput block type="password" value={password} onChange={e=>setPassword(e.target.value)}/></FormControl><Button type="submit" variant="primary" block>Sign in</Button></form><Text sx={{fontSize:0,color:'fg.muted'}}>Seeded accounts: admin/admin, user1/user1, user2/user2</Text></Box></Box>}
 

@@ -58,6 +58,13 @@ make cms-astro-x402          # optional paid-content extension
 make cms-astro-package       # local Core, Pro, and x402 wheels
 ```
 
+In the full Datalayer monorepo, `cms-astro-install` reuses the root npm
+workspace links (including the local `@datalayer/jupyter-lexical` checkout) and
+does not create a second dependency tree below the frontend. In a standalone
+Reactor checkout, the same target installs the published dependencies locally
+with npm. The Astro Vite configuration follows the same rule, keeping all
+Lexical packages on one compatible runtime in either layout.
+
 The standalone console command remains available as
 `cms-astro --db ./cms-astro.sqlite3`. A built Core wheel also installs
 `cms-astro-site`; run it in a second terminal with `CMS_API_URL` pointing at
