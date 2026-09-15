@@ -13,6 +13,7 @@ combines four ideas in one installable example:
 - a FastAPI API backed by SQLite;
 - a Primer React administration interface with a rich editor composed from
   `@datalayer/jupyter-lexical`;
+- an authenticated, in-browser AI author on the published website;
 - Reactor extensions discovered from Python packages, including optional Pro
   and x402 packages.
 
@@ -42,6 +43,7 @@ cms-astro/
 | Authoring | CMS-owned Jupyter Lexical composition with a rich toolbar and plugins, structured JSON, and a plain-text projection |
 | Appearance | Portable Datalayer themes, visibly distinct Editorial/Studio layouts, color modes, and a live homepage preview |
 | Authentication | PBKDF2 password hashes and expiring bearer sessions |
+| AI authoring | `ChatFloating`, an anonymous inference key with a visible timer, and CMS-scoped Reactor frontend tools |
 | Discovery | Python entry points under `datalayer.reactor.extensions` |
 | Optional capabilities | Independently installable Pro and x402 wheels |
 
@@ -55,6 +57,7 @@ behind the authenticated CMS API.
 | [Run and seed the example](/examples/cms-astro/getting-started) | Commands, URLs and demo accounts |
 | [Architecture](/examples/cms-astro/architecture) | Astro, SQLite and the Python-packaged frontend |
 | [Users and authoring](/examples/cms-astro/users-and-authoring) | Site roles, API enforcement and Lexical storage |
+| [AI-assisted publishing](/examples/cms-astro/ai-authoring) | Browser agent, anonymous key, crawling and CMS frontend tools |
 | [Pro and x402 extensions](/examples/cms-astro/extensions) | Runtime discovery and paid routes |
 
 The implementation README is also available at

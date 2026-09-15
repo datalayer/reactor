@@ -25,6 +25,10 @@ editorial workflow and administration.
   React, `ThemedProvider`, and the Primer Addons appearance store used by the
   Reactor music example.
 - Lexical rich-text authoring with persisted editor JSON and plain-text search.
+- An authenticated AI author on the published Astro pages. `ChatFloating`
+  runs the `worker-cms-astro` loop in the browser with a short-lived anonymous
+  inference key and CMS-session-scoped frontend tools for public blog crawling,
+  WordPress REST discovery, and draft/publish operations.
 - Core, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
   carries its browser plugin under `share/datalayer/reactor/extensions/`.
 - An optional x402 extension with HTTP `402`, `PAYMENT-REQUIRED`, and
@@ -78,6 +82,10 @@ The client-side administration UI starts at <http://localhost:4321/_cms/login>
 and exposes history-aware React routes under `/_cms/content`, `/_cms/users`,
 `/_cms/sites`, `/_cms/appearance`, and `/_cms/extensions`. Astro provides only
 the thin application mount for these routes; it renders the public content pages.
+After login, return to the published website to see the floating **Astro CMS
+Author**. Anonymous visitors do not load or see the agent. Its header displays
+the anonymous inference-key timer; CMS writes still use the signed-in user's
+bearer session and are checked against the active site's role.
 Its Appearance section uses Primer Addons to select the personal Primer theme
 and light, dark, or system color mode, while site administrators can separately
 choose the active public website theme. The same Appearance experience is
@@ -108,6 +116,9 @@ boundary to a real x402 facilitator.
 | `PATCH /api/cms/sites/{site}/users/{user}` | Edit profile, credentials, or status |
 | `DELETE /api/cms/sites/{site}/users/{user}` | Remove site access and orphaned accounts |
 | `GET/POST /api/cms/sites/{site}/entries` | Editorial content management |
+| `POST /api/cms/sites/{site}/crawl/blog` | Extract pages linked by a public blog index |
+| `POST /api/cms/sites/{site}/crawl/wordpress` | Discover and read a public WordPress REST feed |
+| `PATCH /api/cms/sites/{site}/entries/by-slug/{slug}` | Update an exact entry without listing private content |
 | `POST /api/cms/sites/{site}/entries/{id}/publish` | Publish with a revision |
 | `GET /api/cms/sites/{site}/search?q=...` | FTS5 search |
 | `GET /api/content/{site}/entries` | Published content for Astro |

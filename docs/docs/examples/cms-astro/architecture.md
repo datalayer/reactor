@@ -9,7 +9,7 @@ The browser, Astro server and Python server have distinct responsibilities:
 
 ```text
 Browser
-  └── Primer + Jupyter Lexical React application under /_cms/*
+  ├── Primer + Jupyter Lexical React application under /_cms/*
           │ bearer token and CMS requests
           ▼
 FastAPI + Reactor host ───────► SQLite
@@ -17,7 +17,16 @@ FastAPI + Reactor host ───────► SQLite
           │ published JSON      themes, media, menus and search
 Astro SSR server
   └── live content loader ─────► public website response
+  └── authenticated ChatFloating island
+          │ anonymous inference key + public crawl results
+          ▼
+      browser agent loop
 ```
+
+The two credentials have deliberately separate authority. The anonymous key
+can call only the inference service and expires visibly in the chat header. The
+CMS bearer token authorizes site-scoped crawl and content requests; it is never
+used as the model credential.
 
 ## Core is the application package
 

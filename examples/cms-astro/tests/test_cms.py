@@ -14,6 +14,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "core"))
 
 from cms_astro_core.host import create_app
+from cms_astro_core.crawler import parse_page
 from cms_astro_core.seed import seed_database
 from cms_astro_core.store import Store
 
@@ -73,6 +74,50 @@ def test_authenticated_browser_request_allows_cors_preflight(tmp_path: Path) -> 
     assert "authorization" in response.headers["access-control-allow-headers"].lower()
 
 
+def test_blog_crawl_is_authenticated_and_returns_public_pages(tmp_path: Path, monkeypatch) -> None:
+    from cms_astro_core import api as cms_api
+
+    result = {
+        "source": "https://example.test/blog",
+        "kind": "blog",
+        "pages": [{"title": "A public story", "slug": "story", "body": "Public body"}],
+        "errors": [],
+    }
+    monkeypatch.setattr(cms_api, "crawl_blog", lambda url, limit: result | {"limit": limit})
+    api = TestClient(create_app(database=tmp_path / "crawl.sqlite3", discover=False))
+    assert api.post(
+        "/api/cms/sites/site-main/crawl/blog",
+        json={"url": "https://example.test/blog"},
+    ).status_code == 401
+    login = api.post("/api/cms/auth/login", json={"username": "user1", "password": "user1"}).json()
+    response = api.post(
+        "/api/cms/sites/site-main/crawl/blog",
+        headers={"Authorization": f"Bearer {login['token']}"},
+        json={"url": "https://example.test/blog", "limit": 3},
+    )
+    assert response.status_code == 200
+    assert response.json()["pages"][0]["slug"] == "story"
+    assert response.json()["limit"] == 3
+
+
+def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
+    page, links, wordpress = parse_page(
+        """
+        <html><head><title>Example Blog</title>
+        <meta name="description" content="Useful stories">
+        <link rel="https://api.w.org/" href="/wp-json/"></head>
+        <body><nav>Navigation noise</nav><main><h1>Story</h1><p>Readable body.</p></main>
+        <a href="/blog/story">Read</a><script>ignored()</script></body></html>
+        """,
+        "https://example.test/blog",
+    )
+    assert page["title"] == "Example Blog"
+    assert "Readable body" in page["body"]
+    assert "Navigation noise" not in page["body"]
+    assert links == ["/blog/story"]
+    assert wordpress == "https://example.test/wp-json/"
+
+
 def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     api = client(tmp_path)
     headers = {"X-CMS-User": "u-user1"}
@@ -111,6 +156,18 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     }
     response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
+    by_slug = api.patch(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel",
+        headers={"X-CMS-User": "u-user1"},
+        json={"excerpt": "Updated safely by an exact slug."},
+    )
+    assert by_slug.status_code == 200
+    assert by_slug.json() == {
+        "id": "entry-design-systems",
+        "slug": "design-systems-that-travel",
+        "status": "published",
+        "collection": "posts",
+    }
 
 
 def test_reseed_requires_confirmation_and_removes_existing_data(tmp_path: Path) -> None:

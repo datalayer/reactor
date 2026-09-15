@@ -6,6 +6,7 @@
 
 ---
 import type { Bootstrap } from '../lib/cms';
+import CmsSiteAgent from '../components/CmsSiteAgent';
 
 interface Props { bootstrap: Bootstrap; title?: string; description?: string }
 const { bootstrap, title = bootstrap.site.name, description = bootstrap.site.tagline } = Astro.props;
@@ -37,6 +38,7 @@ const darkVariables = {...fallbackDark, ...parseVariables(bootstrap.settings['ap
 const declarations = (variables: CssVariables) => Object.entries(variables).map(([name,value]) => `${name}:${value}`).join(';');
 const appearanceTheme = bootstrap.settings['appearance.theme'] ?? 'datalayer';
 const colorMode = bootstrap.settings['appearance.colorMode'] ?? 'auto';
+const apiUrl = import.meta.env.CMS_API_URL ?? 'http://localhost:8791';
 const appearanceCss = `:root[data-color-mode='light']{color-scheme:light;${declarations(lightVariables)}}:root[data-color-mode='dark']{color-scheme:dark;${declarations(darkVariables)}}@media(prefers-color-scheme:light){:root[data-color-mode='auto']{color-scheme:light;${declarations(lightVariables)}}}@media(prefers-color-scheme:dark){:root[data-color-mode='auto']{color-scheme:dark;${declarations(darkVariables)}}}`;
 ---
 <!doctype html>
@@ -66,6 +68,12 @@ const appearanceCss = `:root[data-color-mode='light']{color-scheme:light;${decla
         <a href="/_cms/content">Manage content</a>
       </div>
     </footer>
+    <CmsSiteAgent
+      apiUrl={apiUrl}
+      siteId={bootstrap.site.id}
+      siteName={bootstrap.site.name}
+      client:only="react"
+    />
   </body>
 </html>
 <style is:global>
