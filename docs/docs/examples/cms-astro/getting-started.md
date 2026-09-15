@@ -24,13 +24,17 @@ The development environment exposes:
 `make cms-astro` starts the API on port `8791`, starts Astro on port `4321`,
 and sets `CMS_API_URL` for the frontend server.
 
+The install target also installs the frontend dependency on
+`@datalayer/jupyter-lexical`, which supplies the rich editor toolbar and plugins
+used by the CMS-owned editor composition.
+
 ## Seeded accounts
 
 `make cms-astro-seed` creates or refreshes one website and three accounts:
 
 | Username | Password | Seeded site role | Access |
 | --- | --- | --- | --- |
-| `admin` | `admin` | `admin` | Content plus users, sites, themes and extensions |
+| `admin` | `admin` | `admin` | Content plus users, sites, site appearance and extensions |
 | `user1` | `user1` | `author` | Create, edit and publish their own content |
 | `user2` | `user2` | `author` | Create, edit and publish their own content |
 
@@ -41,6 +45,23 @@ rejects their attempts to change users, site membership or themes.
 The seed is repeatable. It restores the documented passwords and roles,
 invalidates sessions for the three seeded users, and leaves unrelated content
 in the database intact.
+
+## Explore the example
+
+After signing in as `admin`:
+
+1. Open **Content**. The seeded welcome entry is selected automatically. The
+   editor stores both rich Lexical JSON and a plain-text projection.
+2. Open **Sites**, edit **Acme Journal**, and select **Appearance**. Choose a
+   Datalayer theme card, an Astro layout, and a color mode. The homepage preview
+   updates before you save.
+3. Save the appearance and open the visitor website. The colors, font stacks,
+   color mode, and Astro layout apply to `/`, `/blog`, and post pages.
+
+Sign in as `user1` or `user2` to verify the author experience. Authors can see
+all Acme Journal entries but can edit and publish only content they own; other
+entries open read-only. They do not receive the administrator navigation or CRUD
+screens.
 
 To use another database:
 

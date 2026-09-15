@@ -9,7 +9,7 @@ The browser, Astro server and Python server have distinct responsibilities:
 
 ```text
 Browser
-  └── Primer + Lexical React application under /_cms/*
+  └── Primer + Jupyter Lexical React application under /_cms/*
           │ bearer token and CMS requests
           ▼
 FastAPI + Reactor host ───────► SQLite
@@ -55,29 +55,59 @@ tags for the site, collection and entry, and the public API filters to
 `status='published'` before Astro sees the records.
 
 The Astro site owns routes and layouts. The CMS does not generate a theme
-project; it stores the selected theme and its design tokens so the Astro layout
-can decide how to render them.
+project; it stores the selected appearance and its design tokens so the Astro
+layout can decide how to render them.
 
 ### Portable appearance tokens
 
-Primer Addons already exposes each palette's `themeStyles` as CSS custom
-properties. The CMS converts that object into a JSON-safe contract containing
-light and dark maps without adding an Astro or serialization dependency to
-Primer Addons. Keys retain Primer's functional and component token names, such
-as `--bgColor-default`, `--fgColor-muted`, `--borderColor-default`, and
-`--button-primary-bgColor-rest`.
+Primer Addons exposes `exportPortableTheme`, which turns a Datalayer theme into
+a JSON-safe contract containing light and dark maps of CSS custom properties.
+Keys retain Primer's functional and component token names, such as
+`--bgColor-default`, `--fgColor-muted`, `--borderColor-default`, and
+`--button-primary-bgColor-rest`. The contract also carries typography through
+`--fontStack-sansSerif`, `--fontStack-sansSerifDisplay`, and
+`--fontStack-system`, so custom themes such as Spatial do not inherit an
+unrelated Astro font.
 
-The selected theme, color mode, and both maps are persisted in SQLite. Astro
-places `data-color-mode`, `data-light-theme`, and `data-dark-theme` on the root
-element and emits the variables for light, dark, or operating-system mode. The
-public layout consumes the functional variables directly. The same serialized
-contract can therefore be consumed by another renderer without React, Primer,
-or Astro being present at runtime.
+The selected Datalayer theme, color mode, and both maps are persisted in SQLite.
+Astro places `data-color-mode`, `data-light-theme`, and `data-dark-theme` on the
+root element and emits the variables for light, dark, or operating-system mode.
+`Base.astro` consumes the functional color and font-stack variables directly.
+The same serialized contract can therefore be consumed by another renderer
+without React, Primer, or Astro being present at runtime. It is also the shared
+boundary for the project's migration toward Primer CSS variables rather than an
+Astro-specific theme format.
 
 Astro's theme gallery contains complete starter templates rather than a
 runtime palette API. Those templates can still supply alternative layouts, but
 the portable Primer variables are the stable appearance boundary shared across
 layouts and frameworks.
+
+The site editor therefore exposes one website appearance assembled from
+separate, clearly labelled concerns:
+
+- **Datalayer theme** selects the portable colors and typeface;
+- **Astro layout** selects page composition without resetting the theme; and
+- **Color mode** selects light, dark, or the visitor's operating-system
+  preference.
+
+An iframe previews the selected site's homepage before saving. The appearance
+endpoint persists the theme, color mode, light/dark token maps, and layout in one
+operation, so the visitor site changes atomically. Reactor extensions may add
+Astro layouts without changing Core.
+
+## Rich editor composition
+
+The CMS depends directly on `@datalayer/jupyter-lexical` but owns its editor
+composition. It imports the shared toolbar and plugins for component insertion,
+tables and cell resizing, table actions, code actions, comments, draggable
+blocks, links, floating formatting, and a table of contents. Runtime/kernel and
+collaborative editing plugins are deliberately omitted because this example
+does not provision their backing services.
+
+Lexical JSON is stored as the canonical rich representation and a plain-text
+projection is stored alongside it for search, simple Astro rendering, and
+extension interoperability.
 
 ## SQLite model
 

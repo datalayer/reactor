@@ -11,7 +11,8 @@ combines four ideas in one installable example:
 
 - an Astro SSR website using live content collections;
 - a FastAPI API backed by SQLite;
-- a Primer React administration interface with Lexical rich-text authoring;
+- a Primer React administration interface with a rich editor composed from
+  `@datalayer/jupyter-lexical`;
 - Reactor extensions discovered from Python packages, including optional Pro
   and x402 packages.
 
@@ -38,7 +39,8 @@ cms-astro/
 | Tenancy | Multiple sites with a role per user and site |
 | Rendering | Astro 6 live collections loaded at request time |
 | Administration | A client-side React application under `/_cms/*`, drawn with Primer |
-| Authoring | Lexical state for formatting and plain text for search |
+| Authoring | CMS-owned Jupyter Lexical composition with a rich toolbar and plugins, structured JSON, and a plain-text projection |
+| Appearance | Portable Datalayer themes, Astro layouts, color modes, and a live homepage preview |
 | Authentication | PBKDF2 password hashes and expiring bearer sessions |
 | Discovery | Python entry points under `datalayer.reactor.extensions` |
 | Optional capabilities | Independently installable Pro and x402 wheels |

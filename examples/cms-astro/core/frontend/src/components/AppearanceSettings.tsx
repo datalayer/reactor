@@ -18,8 +18,13 @@ type AppearanceSettingsProps={
   onSiteAppearanceChange?:(theme:ThemeVariant,colorMode:ColorMode,portable:PortableTheme)=>void;
 };
 
-const websitePalettes:Record<string,ThemeVariant>={editorial:'earth',studio:'datalayer',midnight:'matrix'};
-const paletteFor=(theme:WebsiteTheme):ThemeVariant=>websitePalettes[theme.slug]??'datalayer';
+function ThemeCards({selected,colorMode,onSelect}:{selected:ThemeVariant;colorMode:'light'|'dark';onSelect:(theme:ThemeVariant)=>void}):ReactElement{
+ return <Box className="theme-grid">{themeVariants.map((variant:ThemeVariant)=>{const config=themeConfigs[variant],active=variant===selected;return <Box key={variant} as="button" className={`theme-card${active?' selected':''}`} onClick={()=>onSelect(variant)}>
+  {active&&<Box className="theme-check"><CheckCircleFillIcon size={20}/></Box>}
+  <DatalayerThemeProvider colorMode={colorMode} theme={config.primerTheme} themeStyles={config.themeStyles}><Box className="theme-preview"><Box className="preview-bar"><i/><i/><i/></Box><Box sx={{p:3,bg:'canvas.default'}}><Text sx={{display:'block',fontWeight:'semibold',color:'fg.default',mb:1}}>The quick brown fox</Text><Text sx={{display:'block',fontSize:0,color:'fg.muted',mb:2}}>jumps over the lazy dog.</Text><Box sx={{display:'flex',gap:1}}><span className="preview-pill accent">accent</span><span className="preview-pill success">success</span></Box></Box></Box></DatalayerThemeProvider>
+  <Text sx={{display:'block',fontWeight:'semibold',fontSize:2,mb:1}}>{config.label}</Text><Text sx={{color:'fg.muted',fontSize:1}}>{config.description}</Text>
+ </Box>})}</Box>
+}
 
 export function AppearanceSettings({websiteThemes=[],activeWebsiteTheme,previewUrl,siteAppearance,onWebsiteThemeChange,onSiteAppearanceChange}:AppearanceSettingsProps):ReactElement{
  const{colorMode,theme,setColorMode,setTheme}=useThemeStore();
@@ -29,7 +34,8 @@ export function AppearanceSettings({websiteThemes=[],activeWebsiteTheme,previewU
  const resolvedMode=selectedColorMode==='auto'?systemMode:selectedColorMode;
  const modes:ColorMode[]=['light','dark','auto'];
  const updateMode=(next:ColorMode)=>siteAppearance&&onSiteAppearanceChange?onSiteAppearanceChange(selectedTheme,next,exportPortableTheme(selectedTheme)):setColorMode(next);
- const selectWebsiteTheme=(next:WebsiteTheme)=>{const palette=paletteFor(next);onWebsiteThemeChange?.(next,palette,exportPortableTheme(palette))};
+ const selectWebsiteTheme=(next:WebsiteTheme)=>onWebsiteThemeChange?.(next,selectedTheme,exportPortableTheme(selectedTheme));
+ const selectDatalayerTheme=(next:ThemeVariant)=>onSiteAppearanceChange?.(next,selectedColorMode,exportPortableTheme(next));
 
  return <Box sx={{maxWidth:1100,width:'100%',mx:'auto'}}>
   <h2 className="appearance-title">Appearance</h2>
@@ -40,8 +46,11 @@ export function AppearanceSettings({websiteThemes=[],activeWebsiteTheme,previewU
   </Box>
 
   {siteAppearance?<>
-   <h3 className="appearance-heading">Website theme</h3>
-   <Text as="p" sx={{color:'fg.muted',mb:3,fontSize:1}}>Select one complete theme for the public Astro website. Its layout, typography, and color palette are applied together.</Text>
+   <h3 className="appearance-heading">Datalayer theme</h3>
+   <Text as="p" sx={{color:'fg.muted',mb:3,fontSize:1}}>Choose the exported Datalayer theme applied to the public website. Its portable functional tokens provide the colors for both light and dark mode.</Text>
+   <ThemeCards selected={selectedTheme} colorMode={resolvedMode} onSelect={selectDatalayerTheme}/>
+   <h3 className="appearance-heading website-heading">Astro layout</h3>
+   <Text as="p" sx={{color:'fg.muted',mb:3,fontSize:1}}>Choose the page structure. The Datalayer theme selected above supplies its color palette and typeface.</Text>
    <Box className="website-theme-grid">{websiteThemes.map(item=><button type="button" key={item.id} className={`website-theme-card${activeWebsiteTheme===item.slug?' selected':''}`} onClick={()=>selectWebsiteTheme(item)}><span className={`website-swatch ${item.slug}`}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{activeWebsiteTheme===item.slug&&<CheckCircleFillIcon size={20}/>}</button>)}</Box>
    {previewUrl&&<Box className="website-preview-section">
     <Box className="website-preview-heading"><Box><h3 className="appearance-heading">Homepage preview</h3><Text as="p" sx={{color:'fg.muted',m:0,fontSize:1}}>This is the current public homepage with the selected theme applied.</Text></Box><a className="site-link" href={previewUrl} target="_blank" rel="noreferrer">Open website <LinkExternalIcon/></a></Box>
@@ -50,11 +59,7 @@ export function AppearanceSettings({websiteThemes=[],activeWebsiteTheme,previewU
   </>:<>
    <h3 className="appearance-heading">Application theme</h3>
    <Text as="p" sx={{color:'fg.muted',mb:3,fontSize:1}}>Choose the theme used by your CMS management interface.</Text>
-   <Box className="theme-grid">{themeVariants.map((variant:ThemeVariant)=>{const config=themeConfigs[variant],active=variant===selectedTheme;return <Box key={variant} as="button" className={`theme-card${active?' selected':''}`} onClick={()=>setTheme(variant,false)}>
-    {active&&<Box className="theme-check"><CheckCircleFillIcon size={20}/></Box>}
-    <DatalayerThemeProvider colorMode={resolvedMode} theme={config.primerTheme} themeStyles={config.themeStyles}><Box className="theme-preview"><Box className="preview-bar"><i/><i/><i/></Box><Box sx={{p:3,bg:'canvas.default'}}><Text sx={{display:'block',fontWeight:'semibold',color:'fg.default',mb:1}}>The quick brown fox</Text><Text sx={{display:'block',fontSize:0,color:'fg.muted',mb:2}}>jumps over the lazy dog.</Text><Box sx={{display:'flex',gap:1}}><span className="preview-pill accent">accent</span><span className="preview-pill success">success</span></Box></Box></Box></DatalayerThemeProvider>
-    <Text sx={{display:'block',fontWeight:'semibold',fontSize:2,mb:1}}>{config.label}</Text><Text sx={{color:'fg.muted',fontSize:1}}>{config.description}</Text>
-   </Box>})}</Box>
+   <ThemeCards selected={selectedTheme} colorMode={resolvedMode} onSelect={variant=>setTheme(variant,false)}/>
   </>}
  </Box>
 }

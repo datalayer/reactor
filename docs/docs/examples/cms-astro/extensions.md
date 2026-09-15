@@ -5,9 +5,11 @@ title: Pro and x402 Extensions
 
 # Pro and x402 extensions
 
-Core declares contribution points for CMS content types, themes, editor actions
-and dashboard widgets. Optional Python distributions contribute to those same
-points without changing Core.
+Core declares contribution points for CMS content types, Astro layout themes,
+editor actions and dashboard widgets. Optional Python distributions contribute
+to those same points without changing Core. Portable Datalayer themes remain a
+framework-neutral export from Primer Addons rather than an extension-specific
+Astro layout.
 
 ## Install optional extensions
 
@@ -30,7 +32,7 @@ The Pro example contributes:
 
 - an SEO analysis editor action;
 - scheduled-publication metadata;
-- the Midnight theme;
+- the Midnight Pro Astro layout theme;
 - an editorial audit dashboard widget.
 
 Its backend `analyze` action checks title length, word count and headings and
