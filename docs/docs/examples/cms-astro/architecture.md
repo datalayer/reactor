@@ -58,6 +58,27 @@ The Astro site owns routes and layouts. The CMS does not generate a theme
 project; it stores the selected theme and its design tokens so the Astro layout
 can decide how to render them.
 
+### Portable appearance tokens
+
+Primer Addons already exposes each palette's `themeStyles` as CSS custom
+properties. The CMS converts that object into a JSON-safe contract containing
+light and dark maps without adding an Astro or serialization dependency to
+Primer Addons. Keys retain Primer's functional and component token names, such
+as `--bgColor-default`, `--fgColor-muted`, `--borderColor-default`, and
+`--button-primary-bgColor-rest`.
+
+The selected theme, color mode, and both maps are persisted in SQLite. Astro
+places `data-color-mode`, `data-light-theme`, and `data-dark-theme` on the root
+element and emits the variables for light, dark, or operating-system mode. The
+public layout consumes the functional variables directly. The same serialized
+contract can therefore be consumed by another renderer without React, Primer,
+or Astro being present at runtime.
+
+Astro's theme gallery contains complete starter templates rather than a
+runtime palette API. Those templates can still supply alternative layouts, but
+the portable Primer variables are the stable appearance boundary shared across
+layouts and frameworks.
+
 ## SQLite model
 
 One database stores multiple sites. A membership joins one user to one site

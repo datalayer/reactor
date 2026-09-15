@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -44,6 +45,10 @@ def test_password_login_and_admin_boundaries(tmp_path: Path) -> None:
     assert api.get("/api/cms/sites", headers=user2_headers).json()[0]["id"] == "site-main"
     assert api.post("/api/cms/sites", headers=user_headers, json={"slug":"forbidden","name":"Forbidden"}).status_code == 403
     assert api.patch("/api/cms/sites/site-main/theme", headers=user_headers, json={"theme":"studio"}).status_code == 403
+    portable = {"theme":"datalayer", "color_mode":"light", "light":{"--bgColor-default":"#fff"}, "dark":{"--bgColor-default":"#000"}}
+    assert api.patch("/api/cms/sites/site-main/appearance", headers=user_headers, json=portable).status_code == 403
+    unsafe = portable | {"light":{"--bgColor-default":"red;display:none"}}
+    assert api.patch("/api/cms/sites/site-main/appearance", headers=admin_headers, json=unsafe).status_code == 422
     assert api.post("/api/cms/auth/login", json={"username": "user2", "password": "wrong"}).status_code == 401
 
 
@@ -93,6 +98,16 @@ def test_admin_can_model_content_and_switch_theme(tmp_path: Path) -> None:
     theme = api.patch("/api/cms/sites/site-main/theme", headers=headers, json={"theme":"studio"})
     assert theme.status_code == 200
     assert api.get("/api/content/acme/bootstrap").json()["site"]["theme_slug"] == "studio"
+    appearance = api.patch("/api/cms/sites/site-main/appearance", headers=headers, json={
+        "theme": "spatial", "color_mode": "auto",
+        "light": {"--bgColor-default": "#ffffff", "--fgColor-default": "#111827", "--fgColor-accent": "#3730a3"},
+        "dark": {"--bgColor-default": "#111827", "--fgColor-default": "#e0e7ff", "--fgColor-accent": "#6366f1"},
+    })
+    assert appearance.status_code == 200
+    settings = api.get("/api/content/acme/bootstrap").json()["settings"]
+    assert settings["appearance.theme"] == "spatial"
+    assert settings["appearance.colorMode"] == "auto"
+    assert json.loads(settings["appearance.tokens.dark"])["--fgColor-accent"] == "#6366f1"
 
 
 def test_admin_can_create_a_second_site_and_add_a_user(tmp_path: Path) -> None:

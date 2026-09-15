@@ -77,6 +77,13 @@ class ThemeUpdate(BaseModel):
     theme: str
 
 
+class AppearanceUpdate(BaseModel):
+    theme: str = Field(pattern="^(datalayer|spatial|lovely|matrix|earth|sand|ivory|sun)$")
+    color_mode: str = Field(pattern="^(light|dark|auto)$")
+    light: dict[str, str]
+    dark: dict[str, str]
+
+
 class SiteCreate(BaseModel):
     slug: str
     name: str
@@ -170,7 +177,9 @@ async def sites(request: Request, user_id: str = Header(alias="X-CMS-User")) -> 
     with store(request).connect() as db:
         rows = db.execute("""SELECT s.*,m.role,t.slug theme_slug,t.name theme_name,t.tokens,
           (SELECT COUNT(*) FROM memberships sm WHERE sm.site_id=s.id) member_count,
-          (SELECT COUNT(*) FROM entries se WHERE se.site_id=s.id) entry_count
+          (SELECT COUNT(*) FROM entries se WHERE se.site_id=s.id) entry_count,
+          COALESCE((SELECT value FROM settings WHERE site_id=s.id AND key='appearance.theme'),'datalayer') appearance_theme,
+          COALESCE((SELECT value FROM settings WHERE site_id=s.id AND key='appearance.colorMode'),'auto') appearance_color_mode
           FROM sites s JOIN memberships m ON m.site_id=s.id JOIN themes t ON t.id=s.theme_id
           WHERE m.user_id=? ORDER BY s.name""", (user_id,)).fetchall()
         return [store(request).row(row) for row in rows]
@@ -469,6 +478,35 @@ async def set_theme(site_id: str, payload: ThemeUpdate, request: Request, user_i
         if not theme: raise HTTPException(404, "theme not found")
         db.execute("UPDATE sites SET theme_id=?,updated_at=? WHERE id=?", (theme["id"], now(), site_id))
         return store(request).row(db.execute("SELECT * FROM sites WHERE id=?", (site_id,)).fetchone()) or {}
+
+
+@router.patch("/api/cms/sites/{site_id}/appearance")
+async def set_appearance(site_id: str, payload: AppearanceUpdate, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    """Persist framework-neutral Primer functional CSS variables for a site."""
+    from .store import now
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "admin")
+        except Exception as error: fail(error)
+        for mode, tokens in (("light", payload.light), ("dark", payload.dark)):
+            if not tokens or len(tokens) > 256 or any(
+                not key.startswith("--")
+                or len(value) > 200
+                or any(character in value for character in ";{}<>")
+                for key, value in tokens.items()
+            ):
+                raise HTTPException(422, f"invalid {mode} CSS variable map")
+        values = {
+            "appearance.theme": payload.theme,
+            "appearance.colorMode": payload.color_mode,
+            "appearance.tokens.light": json.dumps(payload.light, separators=(",", ":"), sort_keys=True),
+            "appearance.tokens.dark": json.dumps(payload.dark, separators=(",", ":"), sort_keys=True),
+        }
+        db.executemany(
+            "INSERT INTO settings(site_id,key,value) VALUES(?,?,?) ON CONFLICT(site_id,key) DO UPDATE SET value=excluded.value",
+            ((site_id, key, value) for key, value in values.items()),
+        )
+        db.execute("UPDATE sites SET updated_at=? WHERE id=?", (now(), site_id))
+        return {"site_id": site_id, "theme": payload.theme, "color_mode": payload.color_mode}
 
 
 @router.get("/api/cms/sites/{site_id}/search")

@@ -45,7 +45,8 @@ boundary.
 The Sites view includes a General editor for the website identity and an
 Appearance editor using Primer Addons. Application color mode and Primer theme
 preferences remain personal, while the selected public website theme is stored
-on the site and used by Astro for every visitor.
+on the site and used by Astro for every visitor. Public pages consume Primer's
+functional CSS variables directly, including automatic light and dark modes.
 
 ## Lexical authoring
 
@@ -80,3 +81,4 @@ available through the revisions endpoint.
 | `DELETE /api/cms/sites/{site}/users/{user}` | `admin` |
 | `PUT /api/cms/sites/{site}/memberships` | `admin` |
 | `PATCH /api/cms/sites/{site}/theme` | `admin` |
+| `PATCH /api/cms/sites/{site}/appearance` | `admin` |

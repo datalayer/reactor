@@ -17,7 +17,8 @@ editorial workflow and administration.
 - Media metadata, taxonomies, nested terms, menus, menu items, widget areas and
   site settings.
 - Multiple installable themes per site. Themes remain Astro projects; the CMS
-  stores the active theme and its design tokens.
+  stores the active layout plus a portable Primer CSS-variable palette for
+  light, dark, and operating-system color modes.
 - Astro 6 live content collections backed by the published-content API, with
   request-time loading and cache tags.
 - A responsive, client-side React administration application with Primer
