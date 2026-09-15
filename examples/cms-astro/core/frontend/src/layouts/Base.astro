@@ -1,0 +1,20 @@
+---
+import type { Bootstrap } from '../lib/cms';
+
+interface Props { bootstrap: Bootstrap; title?: string }
+const { bootstrap, title = bootstrap.site.name } = Astro.props;
+const primary = bootstrap.menus.find((menu) => menu.slug === 'primary');
+const tokens = bootstrap.site.tokens;
+---
+<!doctype html>
+<html lang={bootstrap.settings.locale ?? 'en'} style={`--accent:${tokens.accent ?? '#4f46e5'};--font:${tokens.font ?? 'system-ui'}`}>
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{title}</title></head>
+  <body>
+    <header><a class="brand" href="/">{bootstrap.site.name}</a><nav>{primary?.items.map((item) => <a href={item.url}>{item.label}</a>)}</nav></header>
+    <main><slot /></main>
+    <footer>{bootstrap.widgets.filter((widget) => widget.area === 'footer').map((widget) => <span>{String(widget.data.text ?? '')}</span>)}</footer>
+  </body>
+</html>
+<style is:global>
+  *{box-sizing:border-box} body{margin:0;font-family:var(--font);color:#172033;background:#fbfaf8} header,main,footer{max-width:960px;margin:auto;padding:1.4rem} header{display:flex;justify-content:space-between;border-bottom:1px solid #ddd} nav{display:flex;gap:1rem}.brand{font-weight:800;color:var(--accent)}a{color:var(--accent)}article{padding:1rem 0}pre,textarea,input,select{font:inherit}footer{border-top:1px solid #ddd;color:#667085}
+</style>

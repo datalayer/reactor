@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datalayer-cms-astro-pro"
+version = "0.1.0"
+description = "Pro workflow and SEO Reactor extension for the Astro CMS"
+requires-python = ">=3.10"
+dependencies = ["datalayer-reactor"]
+
+[project.entry-points."datalayer.reactor.extensions"]
+cms-astro-pro = "cms_astro_pro:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cms_astro_pro"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-astro-pro" = "share/datalayer/reactor/extensions/cms-astro-pro"
+

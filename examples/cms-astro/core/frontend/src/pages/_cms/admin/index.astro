@@ -1,0 +1,11 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { cms } from '../../../lib/cms';
+import AdminApp from '../../../components/AdminApp';
+const bootstrap = await cms.bootstrap();
+const apiUrl = import.meta.env.CMS_API_URL ?? 'http://localhost:8791';
+---
+<Base {bootstrap} title={`Admin — ${bootstrap.site.name}`}>
+  <AdminApp {apiUrl} client:only="react" />
+</Base>
+<style>main{max-width:none;padding:0}</style>

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datalayer-cms-astro-x402"
+version = "0.1.0"
+description = "x402 paid-content Reactor extension for the Astro CMS example"
+requires-python = ">=3.10"
+dependencies = ["datalayer-reactor"]
+
+[project.entry-points."datalayer.reactor.extensions"]
+cms-astro-x402 = "cms_astro_x402:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cms_astro_x402"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-astro-x402" = "share/datalayer/reactor/extensions/cms-astro-x402"

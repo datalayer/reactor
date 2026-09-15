@@ -1,0 +1,10 @@
+**/__pycache__/
+**/*.pyc
+core/frontend/.astro/
+core/frontend/dist/
+core/frontend/node_modules/
+core/share/datalayer/reactor/apps/cms-astro/
+cms-astro.sqlite3
+core/dist/
+pro/dist/
+x402/dist/

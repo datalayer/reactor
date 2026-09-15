@@ -1,0 +1,13 @@
+---
+import Base from '../layouts/Base.astro';
+import { cms } from '../lib/cms';
+import { getLiveCollection } from 'astro:content';
+const bootstrap = await cms.bootstrap();
+const { entries: livePosts, error } = await getLiveCollection('posts', { limit: 20 });
+if (error) throw error;
+const posts = livePosts ?? [];
+---
+<Base {bootstrap}>
+  <h1>{bootstrap.site.tagline}</h1>
+  {posts.map(({ data: post }) => <article><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></article>)}
+</Base>
