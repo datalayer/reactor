@@ -3,13 +3,13 @@ import { FormControl, SegmentedControl, Text } from '@primer/react';
 import { CheckCircleFillIcon, DeviceDesktopIcon, MoonIcon, SunIcon } from '@primer/octicons-react';
 import {
   Box, DatalayerThemeProvider, themeConfigs, themeVariants,
-  useSystemColorMode, useThemeStore, type ColorMode, type ThemeVariant,
+  exportPortableTheme, useSystemColorMode, useThemeStore,
+  type ColorMode, type PortableTheme, type ThemeVariant,
 } from '@datalayer/primer-addons';
-import { exportPortablePrimerTheme, type PortablePrimerTheme } from '../lib/portablePrimerTheme';
 
 type WebsiteTheme={id:string;name:string;slug:string;description:string};
 type SiteAppearance={theme:ThemeVariant;colorMode:ColorMode};
-type AppearanceSettingsProps={websiteThemes:WebsiteTheme[];activeWebsiteTheme?:string;onActivateWebsiteTheme:(theme:WebsiteTheme)=>void;siteAppearance?:SiteAppearance;onSiteAppearanceChange?:(theme:ThemeVariant,colorMode:ColorMode,portable:PortablePrimerTheme)=>void};
+type AppearanceSettingsProps={websiteThemes:WebsiteTheme[];activeWebsiteTheme?:string;onActivateWebsiteTheme:(theme:WebsiteTheme)=>void;siteAppearance?:SiteAppearance;onSiteAppearanceChange?:(theme:ThemeVariant,colorMode:ColorMode,portable:PortableTheme)=>void};
 
 export function AppearanceSettings({websiteThemes,activeWebsiteTheme,onActivateWebsiteTheme,siteAppearance,onSiteAppearanceChange}:AppearanceSettingsProps):ReactElement{
  const{colorMode,theme,setColorMode,setTheme}=useThemeStore();
@@ -18,8 +18,8 @@ export function AppearanceSettings({websiteThemes,activeWebsiteTheme,onActivateW
  const selectedColorMode=siteAppearance?.colorMode??colorMode;
  const resolvedMode=selectedColorMode==='auto'?systemMode:selectedColorMode;
  const modes:ColorMode[]=['light','dark','auto'];
- const updateMode=(next:ColorMode)=>siteAppearance&&onSiteAppearanceChange?onSiteAppearanceChange(selectedTheme,next,exportPortablePrimerTheme(selectedTheme)):setColorMode(next);
- const updateTheme=(next:ThemeVariant)=>siteAppearance&&onSiteAppearanceChange?onSiteAppearanceChange(next,selectedColorMode,exportPortablePrimerTheme(next)):setTheme(next,false);
+ const updateMode=(next:ColorMode)=>siteAppearance&&onSiteAppearanceChange?onSiteAppearanceChange(selectedTheme,next,exportPortableTheme(selectedTheme)):setColorMode(next);
+ const updateTheme=(next:ThemeVariant)=>siteAppearance&&onSiteAppearanceChange?onSiteAppearanceChange(next,selectedColorMode,exportPortableTheme(next)):setTheme(next,false);
  return <Box sx={{maxWidth:960,width:'100%',mx:'auto'}}>
   <h2 className="appearance-title">Appearance</h2>
   <Text as="p" sx={{color:'fg.muted',mb:4,fontSize:1}}>{siteAppearance?'Manage how this public Astro website looks to visitors. The selected Primer functional tokens are exported as reusable CSS variables.':'Manage how Reactor CMS looks to you. Select a theme and choose between light mode, dark mode, or follow your operating system preference.'}</Text>

@@ -4,7 +4,7 @@ import { bootstrapExtensions, buildReactorFromPlugins, defineContributionPoint, 
 import * as ReactorReact from '@datalayer/reactor/react';
 import { useBackendPluginStream, useContributions, usePluginManifests, useReactor } from '@datalayer/reactor/react';
 import * as PrimerAddons from '@datalayer/primer-addons';
-import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore, type ColorMode, type ThemeVariant } from '@datalayer/primer-addons';
+import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore, type ColorMode, type PortableTheme, type ThemeVariant } from '@datalayer/primer-addons';
 import * as PrimerReact from '@primer/react';
 import { Button, Flash, FormControl, Label, SegmentedControl, Select, Spinner, Text, TextInput, Textarea } from '@primer/react';
 import { BoldIcon, ItalicIcon, SignOutIcon, TypographyIcon } from '@primer/octicons-react';
@@ -17,7 +17,6 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $createParagraphNode, $createTextNode, $getRoot, FORMAT_TEXT_COMMAND, type EditorState, type TextFormatType } from 'lexical';
 import { AppearanceSettings } from './AppearanceSettings';
-import type { PortablePrimerTheme } from '../lib/portablePrimerTheme';
 import '../styles.css';
 
 type Membership={site_id:string;role:'admin'|'editor'|'author'|'viewer'};
@@ -68,7 +67,7 @@ function Shell({apiUrl,remotes,session,onLogout}:{apiUrl:string;remotes:(LazyPlu
  async function removeUser(user:Member){if(!window.confirm(`Remove ${user.name} from this website?`))return;try{await api(`${apiUrl}/api/cms/sites/${siteId}/users/${user.id}`,{method:'DELETE',headers});if(selectedMember?.id===user.id)editMember();setNotice(`Removed ${user.name}.`);await load()}catch(reason){setError(String(reason))}}
  async function createSite(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();try{await api(`${apiUrl}/api/cms/sites`,{method:'POST',headers,body:JSON.stringify({name:siteName,slug:siteSlug,theme:'editorial'})});setSiteName('');setSiteSlug('');await load()}catch(reason){setError(String(reason))}}
  async function saveSite(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();try{await api(`${apiUrl}/api/cms/sites/${siteId}`,{method:'PATCH',headers,body:JSON.stringify({name:editSiteName,slug:editSiteSlug,tagline:editSiteTagline})});setNotice(`Updated ${editSiteName}.`);await load()}catch(reason){setError(String(reason))}}
- async function saveSiteAppearance(theme:ThemeVariant,colorMode:ColorMode,portable:PortablePrimerTheme){try{await api(`${apiUrl}/api/cms/sites/${siteId}/appearance`,{method:'PATCH',headers,body:JSON.stringify({theme,color_mode:colorMode,light:portable.modes.light,dark:portable.modes.dark})});setNotice(`Applied ${portable.label} to ${activeSite?.name}.`);await load()}catch(reason){setError(String(reason))}}
+ async function saveSiteAppearance(theme:ThemeVariant,colorMode:ColorMode,portable:PortableTheme){try{await api(`${apiUrl}/api/cms/sites/${siteId}/appearance`,{method:'PATCH',headers,body:JSON.stringify({theme,color_mode:colorMode,light:portable.modes.light,dark:portable.modes.dark})});setNotice(`Applied ${portable.label} to ${activeSite?.name}.`);await load()}catch(reason){setError(String(reason))}}
  async function activateTheme(theme:Theme){try{await api(`${apiUrl}/api/cms/sites/${siteId}/theme`,{method:'PATCH',headers,body:JSON.stringify({theme:theme.slug})});await load()}catch(reason){setError(String(reason))}}
  const plugins=usePluginManifests(),contentTypes=useContributions(ContentTypes),extensionThemes=useContributions(ExtensionThemes),actions=useContributions(EditorActions),widgets=useContributions(DashboardWidgets),nav:Tab[]=isAdmin?['Content','Users','Sites','Appearance','Extensions']:['Content'];
  return <Box className="cms-shell"><Box as="header" className="cms-header"><Box><Heading as="h1" sx={{fontSize:2}}>Reactor CMS</Heading><Text sx={{fontSize:0,color:'fg.muted'}}>{activeSite?.name??'Astro content'}</Text></Box><Box sx={{display:'flex',alignItems:'center',gap:2}}><Label variant={isAdmin?'accent':'secondary'}>{activeSite?.role??'member'}</Label><AppearanceControlsWithStore useStore={useThemeStore}/><Button variant="invisible" onClick={onLogout}><SignOutIcon/> Sign out</Button></Box></Box><Box className="cms-layout"><Box as="nav" className="cms-nav">{nav.map(item=><Button key={item} variant={tab===item?'primary':'invisible'} onClick={()=>navigate(item)}>{item}</Button>)}</Box><Box as="main" className="cms-main"><Box sx={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:3}}><Heading as="h2" sx={{fontSize:3}}>{tab}</Heading><Select value={siteId} onChange={e=>setSiteId(e.target.value)}>{sites.map(site=><Select.Option key={site.id} value={site.id}>{site.name}</Select.Option>)}</Select></Box>{error&&<Flash variant="danger">{error}</Flash>}{notice&&<Flash variant="success">{notice}</Flash>}{busy&&<Spinner/>}
