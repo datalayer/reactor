@@ -38,6 +38,7 @@ def make_extension(tmp_path: Path, name: str = "hello") -> ReactorExtension:
     frontend = tmp_path / "share" / name
     frontend.mkdir(parents=True, exist_ok=True)
     (frontend / "index.js").write_text("export default { name: '@%s/panel' };" % name)
+    (frontend / "public.js").write_text("export function mountPublicSiteExtension() {}")
     (frontend / "secret.txt").write_text("not servable")
 
     return ReactorExtension(
@@ -46,6 +47,7 @@ def make_extension(tmp_path: Path, name: str = "hello") -> ReactorExtension:
         frontend=FrontendExtension(
             directory=frontend,
             entry="index.js",
+            public_entry="public.js",
             plugins=[
                 FrontendPlugin(
                     name=f"@{name}/panel",
@@ -66,6 +68,7 @@ def test_frontend_manifest_is_readable_without_the_module(tmp_path: Path) -> Non
     [record] = platform.frontend_extensions()
     assert record["name"] == "hello"
     assert record["entry"] == "/reactor-extensions/hello/index.js"
+    assert record["publicEntry"] == "/reactor-extensions/hello/public.js"
     assert record["apiVersion"] == "v1"
     # The Python half it arrived with, so a host can draw them together.
     assert record["backendPlugins"] == ["hello"]

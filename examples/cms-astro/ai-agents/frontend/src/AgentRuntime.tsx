@@ -18,19 +18,22 @@ type Props = {
   apiUrl: string;
   siteId: string;
   siteName: string;
-  session: CmsSiteSession;
+  session?: CmsSiteSession;
 };
 
 const spec = (() => {
   const value = getAgentspecs('worker-cms-astro');
-  if (!value) throw new Error('worker-cms-astro is missing; run `make specs` in agent-runtimes and rebuild it.');
+  if (!value)
+    throw new Error(
+      'worker-cms-astro is missing; run `make specs` in agent-runtimes and rebuild it.',
+    );
   return value;
 })();
 
 function Runtime({ apiUrl, siteId, siteName, session }: Props) {
   const { inference, anonymous, needsSignIn } = useBrowserInference(true);
   const tools = useMemo(
-    () => createCmsAgentTools({ apiUrl, siteId, session }),
+    () => (session ? createCmsAgentTools({ apiUrl, siteId, session }) : []),
     [apiUrl, session, siteId],
   );
   const protocol = useMemo(
@@ -46,21 +49,19 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
   );
   const suggestions = useMemo(
     () =>
-      (spec.suggestions ?? []).map(item => ({
+      (spec.suggestions ?? []).map((item) => ({
         title: item.summary || item.text,
         message: item.text,
       })),
     [],
   );
 
-  if (anonymous.status === 'failed') {
-    return (
-      <Flash variant="danger" sx={{ position: 'fixed', right: 3, bottom: 3, zIndex: 1001 }}>
-        The CMS agent could not obtain an anonymous inference key.
-      </Flash>
-    );
-  }
-  if (needsSignIn || !anonymous.token) return null;
+  // `useBrowserInference` may be backed either by the visitor's anonymous
+  // token or by an IAM member token. `needsSignIn` already describes both
+  // cases, while checking `anonymous.token` would leave signed-in IAM members
+  // stuck in the launching state.
+  const inferenceReady = !needsSignIn;
+  const inferenceFailed = anonymous.status === 'failed';
 
   const timer = anonymous.expiresAt ? (
     <AnonymousKeyTimer
@@ -71,23 +72,40 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
   ) : null;
 
   return (
-    <ChatFloating
-      protocol={protocol}
-      useStore={false}
-      title={spec.name}
-      description={`${spec.welcomeMessage ?? spec.description} Current site: ${siteName}.`}
-      suggestions={suggestions}
-      defaultViewMode="floating-small"
-      width={440}
-      height={620}
-      showModelSelector={false}
-      showToolsMenu
-      showSkillsMenu={false}
-      showTokenUsage
-      enableEphemeralNotebook={false}
-      panelProps={{ headerContent: timer }}
-      buttonTooltip={`Author ${siteName} with AI`}
-    />
+    <>
+      {inferenceFailed && (
+        <Flash
+          variant="danger"
+          sx={{ position: 'fixed', right: '20px', bottom: '88px', zIndex: 1001, maxWidth: 460 }}
+        >
+          The CMS agent could not obtain an anonymous inference key.
+        </Flash>
+      )}
+      <ChatFloating
+        protocol={protocol}
+        useStore={false}
+        title={spec.name}
+        description={`${spec.welcomeMessage ?? spec.description} Current site: ${siteName}.${
+          session ? '' : ' Sign in to the CMS to enable content tools.'
+        }`}
+        suggestions={suggestions}
+        position="bottom-right"
+        defaultViewMode="floating-small"
+        width={440}
+        height={620}
+        showModelSelector={false}
+        showToolsMenu={Boolean(session)}
+        showSkillsMenu={false}
+        showTokenUsage
+        enableEphemeralNotebook={false}
+        launching={!inferenceReady}
+        launchingMessage={
+          inferenceFailed ? 'Anonymous AI access is unavailable.' : 'Preparing secure AI access…'
+        }
+        panelProps={{ headerContent: timer }}
+        buttonTooltip={session ? `Author ${siteName} with AI` : `Explore ${siteName} with AI`}
+      />
+    </>
   );
 }
 

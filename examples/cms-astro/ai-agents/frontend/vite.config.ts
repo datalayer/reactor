@@ -43,6 +43,21 @@ export default defineConfig({
         return resolved?.id ?? fixed;
       },
     },
+    // Some Jupyter widget packages leave Node-only references in otherwise
+    // browser-compatible ESM. This mirrors the compatibility pass used by
+    // agent-runtimes' own Vite build.
+    {
+      name: 'patch-node-references-in-bundle',
+      generateBundle(_options, bundle) {
+        for (const chunk of Object.values(bundle)) {
+          if (chunk.type !== 'chunk') continue;
+          chunk.code = chunk.code
+            .replace(/require\(["']\.\.\/package\.json["']\)\.version/g, '"0.0.0"')
+            .replace(/(?<!\.)\b__dirname\b/g, '"/"')
+            .replace(/(?<!\.)\b__filename\b/g, '"/index.js"');
+        }
+      },
+    },
   ],
   resolve: {
     alias: [
@@ -63,6 +78,8 @@ export default defineConfig({
     global: 'globalThis',
     __webpack_public_path__: '""',
     'process.env': {},
+    __dirname: '"/"',
+    __filename: '"/index.js"',
   },
   build: {
     target: 'esnext',

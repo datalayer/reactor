@@ -133,6 +133,7 @@ def extension() -> ReactorExtension:
         frontend=FrontendExtension(
             directory=find_extension_frontend(__file__, "cms-astro-ai-agents"),
             entry="index.js",
+            public_entry="index.js",
             api_version="v1",
             plugins=[
                 FrontendPlugin(

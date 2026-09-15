@@ -22,7 +22,7 @@ const { apiUrl, siteId, siteName } = Astro.props;
 ></div>
 
 <script>
-  type PublicExtensionRecord = { name: string; entry: string };
+  type PublicExtensionRecord = { name: string; publicEntry?: string };
   type PublicExtensionModule = {
     mountPublicSiteExtension?: (options: {
       apiUrl: string;
@@ -44,14 +44,18 @@ const { apiUrl, siteId, siteName } = Astro.props;
       })
       .then(records =>
         Promise.allSettled(
-          records.map(async record => {
-            const entry = new URL(record.entry, `${apiUrl}/`).href;
-            const extension = (await import(/* @vite-ignore */ entry)) as PublicExtensionModule;
-            if (!extension.mountPublicSiteExtension) return;
-            const mount = document.createElement('div');
-            mount.dataset.extension = record.name;
-            element.append(mount);
-            extension.mountPublicSiteExtension({ apiUrl, siteId, siteName, element: mount });
+          records.filter(record => record.publicEntry).map(async record => {
+            try {
+              const entry = new URL(record.publicEntry!, `${apiUrl}/`).href;
+              const extension = (await import(/* @vite-ignore */ entry)) as PublicExtensionModule;
+              if (!extension.mountPublicSiteExtension) return;
+              const mount = document.createElement('div');
+              mount.dataset.extension = record.name;
+              element.append(mount);
+              extension.mountPublicSiteExtension({ apiUrl, siteId, siteName, element: mount });
+            } catch (error) {
+              console.error(`[cms-astro] could not mount public extension ${record.name}:`, error);
+            }
           }),
         ),
       )

@@ -909,6 +909,11 @@ class PluginPlatform:
                 )
                 if value
             }
+            public = (
+                {"publicEntry": f"{base_url}/{name}/{frontend.public_entry}"}
+                if frontend.public_entry
+                else {}
+            )
             answer.append(
                 {
                     "name": name,
@@ -921,6 +926,7 @@ class PluginPlatform:
                     "kind": frontend.kind,
                     **container,
                     "entry": f"{base_url}/{name}/{frontend.entry}",
+                    **public,
                     "plugins": [plugin.to_dict() for plugin in frontend.plugins],
                     # What this extension's Python half brought, so a host can
                     # draw the two together rather than as unrelated lists.

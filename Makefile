@@ -175,7 +175,7 @@ cms-astro: cms-astro-install cms-astro-launch ## install Core, then run the CMS 
 cms-astro-launch: ## launch the already-installed CMS without building or installing
 	@set -e; \
 	trap 'kill $$CMS_ASTRO_PID 2>/dev/null || true' EXIT INT TERM; \
-	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH="$(CMS_ASTRO_EXTENSION_PATHS)$${PYTHONPATH:+:$$PYTHONPATH}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
 	CMS_ASTRO_PID=$$!; \
 	echo "CMS API: http://localhost:8791/docs"; \
 	echo "Astro site: http://localhost:4321 (admin at /_cms/admin)"; \
@@ -195,14 +195,14 @@ cms-astro-ai-build: ## build the AI agent frontend embedded in its Python packag
 
 cms-astro-ai: ## launch the already-installed CMS with the AI Agents extension enabled
 	@echo "Starting the CMS with the separately discovered AI Agents extension."
-	$(MAKE) cms-astro-launch
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/ai-agents
 
 cms-astro-x402-build: ## build the separately discoverable x402 wheel
 	$(PYTHON) -m build --wheel examples/cms-astro/x402
 
 cms-astro-x402: ## launch the already-installed CMS with the x402 extension enabled
 	@echo "Starting the CMS with the separately discovered x402 extension."
-	$(MAKE) cms-astro-launch
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/x402
 
 cms-astro-package: cms-astro-build cms-astro-ai-build cms-astro-x402-build ## build locally installable Core, AI Agents, Pro and x402 wheels
 	$(PYTHON) -m build --wheel examples/cms-astro/core

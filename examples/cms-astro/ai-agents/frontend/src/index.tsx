@@ -10,6 +10,8 @@ import { AgentTools, contribution, defineAgentTools, definePlugin } from '@datal
 import type { CmsSiteSession } from './tools';
 
 const AgentRuntime = lazy(() => import('./AgentRuntime'));
+const cmsAuthChannel = 'cms-astro-auth';
+const stylesheetMarker = 'data-cms-astro-ai-agents-styles';
 const crawlParameters = {
   type: 'object',
   properties: {
@@ -104,37 +106,119 @@ function storedSession(): CmsSiteSession | undefined {
   }
 }
 
+function ensureStylesheet() {
+  if (document.querySelector(`link[${stylesheetMarker}]`)) return;
+  const stylesheet = document.createElement('link');
+  stylesheet.rel = 'stylesheet';
+  stylesheet.href = new URL('./cms-astro-ai-agents.css', import.meta.url).href;
+  stylesheet.setAttribute(stylesheetMarker, '');
+  document.head.append(stylesheet);
+}
+
+function AgentLauncherButton({
+  label,
+  disabled = false,
+  onClick,
+  children = '✦',
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  children?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        position: 'fixed',
+        right: 20,
+        bottom: 20,
+        zIndex: 1001,
+        width: 56,
+        height: 56,
+        border: 0,
+        borderRadius: '50%',
+        color: 'var(--fgColor-onEmphasis, #fff)',
+        background: 'var(--bgColor-accent-emphasis, #0969da)',
+        boxShadow: '0 8px 24px rgb(0 0 0 / 20%)',
+        fontSize: 22,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AgentLauncherFallback() {
+  return <AgentLauncherButton label="Loading the AI authoring assistant" disabled />;
+}
+
 function PublicSiteAgent({ apiUrl, siteId, siteName }: Omit<MountOptions, 'element'>) {
   const [session, setSession] = useState<CmsSiteSession>();
+  const [sessionChecked, setSessionChecked] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    const validate = async () => {
-      const candidate = storedSession();
-      if (!candidate?.token) return setSession(undefined);
+    const validate = async (provided?: CmsSiteSession) => {
+      const candidate = provided ?? storedSession();
+      if (!candidate?.token) {
+        setSession(undefined);
+        setSessionChecked(true);
+        return;
+      }
       try {
         const response = await fetch(`${apiUrl}/api/cms/session`, {
           headers: { Authorization: `Bearer ${candidate.token}` },
         });
         if (!response.ok) throw new Error('invalid CMS session');
         const identity = (await response.json()) as Omit<CmsSiteSession, 'token'>;
-        if (!identity.memberships.some(item => item.site_id === siteId)) {
+        if (!identity.memberships.some((item) => item.site_id === siteId)) {
           throw new Error('no access to this site');
         }
-        if (!cancelled) setSession({ token: candidate.token, ...identity });
+        if (!cancelled) {
+          const validated = { token: candidate.token, ...identity };
+          sessionStorage.setItem('cms-session', JSON.stringify(validated));
+          setSession(validated);
+          setSessionChecked(true);
+        }
       } catch {
-        if (!cancelled) setSession(undefined);
+        if (!cancelled) {
+          setSession(undefined);
+          setSessionChecked(true);
+        }
       }
     };
     void validate();
-    window.addEventListener('storage', validate);
+    const handleStorage = () => void validate();
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'session') return;
+      void validate(event.data.session as CmsSiteSession);
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('message', handleMessage);
+    const channel =
+      typeof BroadcastChannel === 'undefined' ? undefined : new BroadcastChannel(cmsAuthChannel);
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'session') void validate(event.data.session as CmsSiteSession);
+        if (event.data?.type === 'session-cleared' && !cancelled) setSession(undefined);
+      };
+      channel.postMessage({ type: 'request-session' });
+    }
+    window.opener?.postMessage({ type: 'request-session' }, window.location.origin);
     return () => {
       cancelled = true;
-      window.removeEventListener('storage', validate);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('message', handleMessage);
+      channel?.close();
     };
   }, [apiUrl, siteId]);
-  if (!session) return null;
+  if (!sessionChecked) return <AgentLauncherFallback />;
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AgentLauncherFallback />}>
       <AgentRuntime apiUrl={apiUrl} siteId={siteId} siteName={siteName} session={session} />
     </Suspense>
   );
@@ -144,6 +228,7 @@ const mounted = new WeakMap<HTMLElement, Root>();
 
 /** Public-site hook consumed by CMS Core's generic extension host. */
 export function mountPublicSiteExtension({ apiUrl, siteId, siteName, element }: MountOptions) {
+  ensureStylesheet();
   mounted.get(element)?.unmount();
   const root = createRoot(element);
   mounted.set(element, root);
