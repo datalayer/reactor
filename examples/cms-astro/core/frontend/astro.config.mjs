@@ -65,6 +65,36 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
   vite: {
+    plugins: [
+      {
+        name: 'raw-css-as-string',
+        enforce: 'pre',
+        async resolveId(source, importer) {
+          if (!source.endsWith('.raw.css') || source.includes('?raw')) {
+            return null;
+          }
+          const resolved = await this.resolve(`${source}?raw`, importer, {
+            skipSelf: true,
+          });
+          return resolved?.id ?? null;
+        },
+      },
+      // Jupyter's service-worker token uses its historical `?text` loader.
+      // Vite's portable equivalent is `?raw`; keep workspace and published
+      // agent-runtimes packages on the same import contract.
+      {
+        name: 'fix-text-query',
+        enforce: 'pre',
+        async resolveId(source, importer) {
+          if (!source.includes('?text')) return null;
+          const fixed = source.replace('?text', '?raw');
+          const resolved = await this.resolve(fixed, importer, {
+            skipSelf: true,
+          });
+          return resolved?.id ?? fixed;
+        },
+      },
+    ],
     // JupyterLab styles still use webpack's `~package/path` import convention.
     // Match the compatibility alias used by the Jupyter Vite examples.
     resolve: {

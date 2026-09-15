@@ -400,17 +400,23 @@ async def create_entry(site_id: str, payload: EntryCreate, request: Request, use
 @router.patch("/api/cms/sites/{site_id}/entries/by-slug/{slug}")
 async def update_entry_by_slug(site_id: str, slug: str, payload: EntryUpdate, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
     """Update an exact slug without exposing the site's private entry listing."""
-    with store(request).connect() as db:
-        row = db.execute(
-            """SELECT e.id,c.slug collection FROM entries e
-            JOIN collections c ON c.id=e.collection_id
-            WHERE e.site_id=? AND e.slug=?""",
-            (site_id, slug),
-        ).fetchone()
+    cms_store = store(request)
+    try:
+        with cms_store.connect() as db:
+            cms_store.require(db, site_id, user_id, "author")
+            row = db.execute(
+                """SELECT e.id,c.slug collection FROM entries e
+                JOIN collections c ON c.id=e.collection_id
+                WHERE e.site_id=? AND e.slug=?""",
+                (site_id, slug),
+            ).fetchone()
+    except Exception as error:
+        fail(error)
+        return {}
     if not row:
         raise HTTPException(404, "entry not found")
     try:
-        entry = store(request).update_entry(
+        entry = cms_store.update_entry(
             site_id, row["id"], user_id, payload.model_dump(exclude_none=True)
         )
         return {

@@ -18,6 +18,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_RESPONSE_BYTES = 2_000_000
+MAX_PAGE_TEXT = 50_000
 MAX_REDIRECTS = 5
 USER_AGENT = "Datalayer-Reactor-CMS/0.1 (+https://datalayer.ai)"
 
@@ -148,7 +149,7 @@ def parse_page(markup: str, url: str) -> tuple[dict[str, Any], list[str], str]:
         "slug": slug,
         "title": parser.title or slug.replace("-", " ").title(),
         "excerpt": parser.description,
-        "body": parser.text,
+        "body": parser.text[:MAX_PAGE_TEXT],
     }
     return page, parser.links, urljoin(url, parser.wordpress_api) if parser.wordpress_api else ""
 
@@ -237,7 +238,7 @@ def crawl_wordpress(url: str, limit: int = 12) -> dict[str, Any]:
             continue
         title = _plain_text(str((post.get("title") or {}).get("rendered", "")))
         excerpt = _plain_text(str((post.get("excerpt") or {}).get("rendered", "")))
-        body = _plain_text(str((post.get("content") or {}).get("rendered", "")))
+        body = _plain_text(str((post.get("content") or {}).get("rendered", "")))[:MAX_PAGE_TEXT]
         pages.append({
             "url": post.get("link"),
             "slug": post.get("slug"),
