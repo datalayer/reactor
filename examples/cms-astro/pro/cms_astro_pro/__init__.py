@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Optional Pro extension; discovered without changing Core."""
 
 from reactor import ExtensionManifest, FrontendExtension, FrontendPlugin, PluginCompatibility, PluginManifest, ReactorExtension, define_contribution_point, find_extension_frontend

@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """SQLite persistence for the CMS. Only the standard library is required."""
 
 from __future__ import annotations

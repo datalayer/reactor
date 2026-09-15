@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """FastAPI routes for editors and Astro server-rendered pages."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Reactor from '@datalayer/reactor';
 import { bootstrapExtensions, buildReactorFromPlugins, defineContributionPoint, setReactorSharedModules, type LazyPluginRef, type ReactorExtension } from '@datalayer/reactor';

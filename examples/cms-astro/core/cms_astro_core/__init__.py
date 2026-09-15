@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Core CMS host and Reactor extension."""
 
 from reactor import ExtensionManifest, FrontendExtension, FrontendPlugin, ReactorExtension, find_extension_frontend

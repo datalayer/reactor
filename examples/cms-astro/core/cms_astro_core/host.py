@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Installable CMS host."""
 
 from __future__ import annotations

@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Create the documented cms-astro development accounts and initial site."""
 
 from __future__ import annotations

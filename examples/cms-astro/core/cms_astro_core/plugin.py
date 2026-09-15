@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Backend half of the Core extension."""
 
 from reactor import PluginCompatibility, PluginManifest, define_contribution_point

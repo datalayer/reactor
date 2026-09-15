@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import node from '@astrojs/node';
 import react from '@astrojs/react';
 import { defineConfig } from 'astro/config';

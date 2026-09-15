@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Optional x402 paid-content extension discovered by Reactor."""
 
 from __future__ import annotations

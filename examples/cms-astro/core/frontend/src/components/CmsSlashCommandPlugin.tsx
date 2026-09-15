@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import { $createCodeNode } from '@lexical/code';
 import {
   INSERT_CHECK_LIST_COMMAND,

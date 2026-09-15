@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import type { ReactElement } from 'react';
 import { FormControl, SegmentedControl, Text } from '@primer/react';
 import { CheckCircleFillIcon, DeviceDesktopIcon, LinkExternalIcon, MoonIcon, SunIcon } from '@primer/octicons-react';

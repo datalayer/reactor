@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 const reactor = globalThis.__DATALAYER_REACTOR__?.shared?.['@datalayer/reactor'];
 if (!reactor) throw new Error('@cms-astro/x402: Reactor is not shared by the host');
 

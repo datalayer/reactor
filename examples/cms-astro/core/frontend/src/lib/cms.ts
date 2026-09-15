@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 /** Typed, request-time CMS client for Astro SSR pages. */
 
 const baseUrl = import.meta.env.CMS_API_URL ?? 'http://localhost:8791';

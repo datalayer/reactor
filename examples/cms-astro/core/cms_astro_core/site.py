@@ -1,3 +1,7 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
 """Launch the Astro standalone server embedded in the Core wheel."""
 
 from __future__ import annotations

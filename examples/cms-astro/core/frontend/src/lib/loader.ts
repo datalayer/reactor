@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import type { LiveLoader } from 'astro/loaders';
 
 import type { Entry } from './cms';

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026-Present Datalayer, Inc.
+ *
+ * Datalayer License
+ */
+
 import { defineMiddleware } from 'astro:middleware';
 
 import { enforceX402 } from './lib/x402';
