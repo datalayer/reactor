@@ -22,13 +22,16 @@ The development environment exposes:
 | `http://localhost:8791/docs` | FastAPI/OpenAPI documentation |
 
 Choose one run target: `make cms-astro` starts Core alone, while
-`make cms-astro-ai` starts Core with the optional AI Agents extension. Both
-start the API on port `8791`, start Astro on port `4321`, and set `CMS_API_URL`
-for the frontend server.
+`make cms-astro-ai` starts Core with the optional AI Agents extension and
+`make cms-astro-x402` starts Core with paid-content support. All three start
+the API on port `8791`, start Astro on port `4321`, and set `CMS_API_URL` for
+the frontend server.
 
 Before launching, `make cms-astro-ai` builds and installs the independently
 discoverable AI Agents extension so the API discovers it at startup. Use
 `make cms-astro-ai-build` when you only want to build its embedded frontend.
+Likewise, `make cms-astro-x402-build` creates the x402 wheel without launching
+the CMS, while `make cms-astro-x402` builds, installs, and runs it.
 
 The install target supports both repository layouts. In the full Datalayer
 monorepo it reuses the root npm workspace links, so the CMS consumes the local

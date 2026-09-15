@@ -61,7 +61,8 @@ make cms-astro               # backend + Astro development server
 make cms-astro-ai            # backend + Astro with authenticated AI authoring
 make cms-astro-ai-build      # build only the optional AI extension frontend
 make cms-astro-pro           # optional, in another terminal
-make cms-astro-x402          # optional paid-content extension
+make cms-astro-x402          # backend + Astro with paid-content support
+make cms-astro-x402-build    # build only the optional x402 extension wheel
 make cms-astro-package       # local Core, AI Agents, Pro, and x402 wheels
 ```
 
@@ -110,6 +111,11 @@ Build the AI frontend without launching either server with
 `make cms-astro-ai-build`. The combined `make cms-astro-ai` target builds and
 installs the extension, then starts the same API and Astro development servers
 as `make cms-astro` with AI Agents enabled.
+
+The x402 targets follow the same split. `make cms-astro-x402-build` creates its
+Python wheel without launching services. `make cms-astro-x402` builds and
+installs the extension, then starts the API and Astro servers with paid-content
+support enabled.
 
 `make cms-astro` sets `CMS_API_URL` for the Astro server automatically.
 

@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -32,7 +32,8 @@ help:
 	@echo "  make cms-astro-ai      Run the CMS with the AI authoring extension enabled"
 	@echo "  make cms-astro-ai-build Build the separately packaged AI extension frontend"
 	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
-	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
+	@echo "  make cms-astro-x402    Run the CMS with the paid-content x402 extension"
+	@echo "  make cms-astro-x402-build Build the separately packaged x402 extension"
 	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
 	@echo "  make music             Run the music example with a frontend dev server"
@@ -195,15 +196,18 @@ cms-astro-ai: cms-astro-ai-build ## run the CMS with the AI Agents extension ena
 	@echo "Starting the CMS with the separately discovered AI Agents extension."
 	$(MAKE) cms-astro
 
-cms-astro-x402: ## install x402 as a separately discoverable wheel
-	$(PIP) install examples/cms-astro/x402
-	@echo "Installed CMS x402. Refresh the Astro admin page."
+cms-astro-x402-build: ## build the separately discoverable x402 wheel
+	$(PYTHON) -m build --wheel examples/cms-astro/x402
 
-cms-astro-package: cms-astro-build cms-astro-ai-build ## build locally installable Core, AI Agents, Pro and x402 wheels
+cms-astro-x402: cms-astro-x402-build ## run the CMS with the x402 extension enabled
+	$(PIP) install examples/cms-astro/x402
+	@echo "Starting the CMS with the separately discovered x402 extension."
+	$(MAKE) cms-astro
+
+cms-astro-package: cms-astro-build cms-astro-ai-build cms-astro-x402-build ## build locally installable Core, AI Agents, Pro and x402 wheels
 	$(PYTHON) -m build --wheel examples/cms-astro/core
 	$(PYTHON) -m build --wheel examples/cms-astro/ai-agents
 	$(PYTHON) -m build --wheel examples/cms-astro/pro
-	$(PYTHON) -m build --wheel examples/cms-astro/x402
 
 music-app: build-js ## build the music store as one installable application
 	@set -e; \

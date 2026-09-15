@@ -18,15 +18,20 @@ From the Reactor repository root:
 ```bash
 make cms-astro-ai-build
 make cms-astro-pro
-make cms-astro-x402
+make cms-astro-x402-build
 ```
 
 `make cms-astro-ai-build` builds only the AI Agents frontend. To build,
 install, and launch the CMS with that extension enabled, use
 `make cms-astro-ai` instead of `make cms-astro`.
 
-The Pro and x402 commands are ordinary Python installations. The AI build
-populates the JavaScript that its run target installs. Each extension package
+The same distinction applies to paid content: `make cms-astro-x402-build`
+builds its wheel only, while `make cms-astro-x402` builds, installs, and starts
+the CMS with x402 enabled.
+
+The Pro command is an ordinary Python installation. The AI build populates the
+JavaScript that its run target installs, and the x402 build creates its wheel.
+Each extension package
 contains a backend plugin manifest and an embedded JavaScript module under
 `share/datalayer/reactor/extensions/`. Refresh the admin page after installing
 one so the frontend asks the running Reactor host for the current extension
