@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-launch cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -170,7 +170,9 @@ cms-astro-build: cms-astro-install ## typecheck and build the Astro SSR site
 	rm -rf examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/*
 	cp -r examples/cms-astro/core/frontend/dist/. examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/
 
-cms-astro: cms-astro-install ## run the CMS API and Astro SSR site in development
+cms-astro: cms-astro-install cms-astro-launch ## install Core, then run the CMS API and Astro SSR site
+
+cms-astro-launch: ## launch the already-installed CMS without building or installing
 	@set -e; \
 	trap 'kill $$CMS_ASTRO_PID 2>/dev/null || true' EXIT INT TERM; \
 	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
@@ -191,18 +193,16 @@ cms-astro-ai-build: ## build the AI agent frontend embedded in its Python packag
 	fi
 	$(NPM) --prefix examples/cms-astro/ai-agents/frontend run build
 
-cms-astro-ai: cms-astro-ai-build ## run the CMS with the AI Agents extension enabled
-	$(PIP) install examples/cms-astro/ai-agents
+cms-astro-ai: ## launch the already-installed CMS with the AI Agents extension enabled
 	@echo "Starting the CMS with the separately discovered AI Agents extension."
-	$(MAKE) cms-astro
+	$(MAKE) cms-astro-launch
 
 cms-astro-x402-build: ## build the separately discoverable x402 wheel
 	$(PYTHON) -m build --wheel examples/cms-astro/x402
 
-cms-astro-x402: cms-astro-x402-build ## run the CMS with the x402 extension enabled
-	$(PIP) install examples/cms-astro/x402
+cms-astro-x402: ## launch the already-installed CMS with the x402 extension enabled
 	@echo "Starting the CMS with the separately discovered x402 extension."
-	$(MAKE) cms-astro
+	$(MAKE) cms-astro-launch
 
 cms-astro-package: cms-astro-build cms-astro-ai-build cms-astro-x402-build ## build locally installable Core, AI Agents, Pro and x402 wheels
 	$(PYTHON) -m build --wheel examples/cms-astro/core

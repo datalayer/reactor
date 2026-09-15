@@ -8,18 +8,20 @@
 import Base from '../../layouts/Base.astro';
 import { PublishedContent } from '../../components/PublishedContent';
 import { cms } from '../../lib/cms';
+import { renderLexicalHtml } from '../../lib/renderLexical';
 import { getLiveEntry } from 'astro:content';
 const bootstrap = await cms.bootstrap();
 const { entry, error } = await getLiveEntry('posts', { slug: Astro.params.slug! });
 if (error || !entry) return Astro.rewrite('/404');
 const post = entry.data;
 const lexical = typeof post.data.lexical === 'string' ? post.data.lexical : undefined;
+const serverHtml = renderLexicalHtml(lexical, post.body);
 ---
 <Base {bootstrap} title={`${post.title} — ${bootstrap.site.name}`}>
   <article>
     <header class="article-header"><p class="eyebrow">Journal</p><h1>{post.title}</h1><p>{post.excerpt}</p></header>
     <div class="article-body">
-      <PublishedContent body={post.body} {lexical} client:only="react" />
+      <PublishedContent body={post.body} {lexical} {serverHtml} client:load />
     </div>
   </article>
 </Base>

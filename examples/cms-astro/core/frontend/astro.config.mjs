@@ -41,6 +41,8 @@ const dependencyDirectory = (
 const lexicalPackages = [
   'code',
   'hashtag',
+  'headless',
+  'html',
   'link',
   'list',
   'markdown',
@@ -51,9 +53,17 @@ const lexicalPackages = [
   'utils',
 ];
 const lexicalAliases = lexicalPackages.map(packageName => ({
-  find: `@lexical/${packageName}`,
+  find: new RegExp(`^@lexical/${packageName}$`),
   replacement: dependencyDirectory(`@lexical/${packageName}`),
 }));
+// `require.resolve('lexical')` selects dist/Lexical.js, the CommonJS entry.
+// Astro evaluates SSR modules as native ESM in development, where that entry
+// fails because `require` is unavailable. The neutral ESM build works in both
+// browser islands and server rendering while retaining one Lexical singleton.
+const lexicalEsmEntry = join(
+  dependencyDirectory('lexical', 'lexical', jupyterLexicalRequire),
+  'dist/Lexical.mjs',
+);
 const toastifyStyles = join(
   dependencyDirectory('react-toastify'),
   'dist/ReactToastify.css',
@@ -108,7 +118,7 @@ export default defineConfig({
         // Resolve every Lexical import from the selected Jupyter Lexical
         // package so a workspace build and a published package cannot mix
         // incompatible Lexical runtimes.
-        { find: /^lexical$/, replacement: jupyterLexicalRequire.resolve('lexical') },
+        { find: /^lexical$/, replacement: lexicalEsmEntry },
         ...lexicalAliases,
         // JupyterLab 4 still names Toastify's pre-v11 minified stylesheet.
         // Toastify v11 ships the same CSS only as ReactToastify.css.
@@ -148,6 +158,12 @@ export default defineConfig({
         target: 'esnext',
       },
       include: ['react', 'react-dom'],
+    },
+    ssr: {
+      // Lexical nodes use instanceof checks against their owning runtime.
+      // Bundle every split 0.49 package through the same `lexical` alias so
+      // server-side nodes cannot inherit from a second external singleton.
+      noExternal: ['lexical', /^@lexical\//],
     },
   },
 });

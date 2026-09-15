@@ -9,6 +9,7 @@ import { getLiveEntry } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { PublishedContent } from '../../components/PublishedContent';
 import { cms } from '../../lib/cms';
+import { renderLexicalHtml } from '../../lib/renderLexical';
 
 const bootstrap = await cms.bootstrap();
 const { entry, error } = await getLiveEntry('pages', {
@@ -17,6 +18,7 @@ const { entry, error } = await getLiveEntry('pages', {
 if (error || !entry) return Astro.rewrite('/404');
 const page = entry.data;
 const lexical = typeof page.data.lexical === 'string' ? page.data.lexical : undefined;
+const serverHtml = renderLexicalHtml(lexical, page.body);
 ---
 <Base
   {bootstrap}
@@ -30,7 +32,7 @@ const lexical = typeof page.data.lexical === 'string' ? page.data.lexical : unde
       {page.excerpt && <p>{page.excerpt}</p>}
     </header>
     <div class="article-body">
-      <PublishedContent body={page.body} {lexical} client:only="react" />
+      <PublishedContent body={page.body} {lexical} {serverHtml} client:load />
     </div>
   </article>
 </Base>

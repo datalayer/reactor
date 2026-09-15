@@ -58,10 +58,10 @@ From the Reactor monorepo root:
 make cms-astro-install       # Core, editable from this checkout
 make cms-astro-seed          # demo site + admin/admin, user1/user1, user2/user2
 make cms-astro               # backend + Astro development server
-make cms-astro-ai            # backend + Astro with authenticated AI authoring
+make cms-astro-ai            # launch with the already-installed AI extension
 make cms-astro-ai-build      # build only the optional AI extension frontend
 make cms-astro-pro           # optional, in another terminal
-make cms-astro-x402          # backend + Astro with paid-content support
+make cms-astro-x402          # launch with the already-installed x402 extension
 make cms-astro-x402-build    # build only the optional x402 extension wheel
 make cms-astro-package       # local Core, AI Agents, Pro, and x402 wheels
 ```
@@ -86,10 +86,11 @@ The client-side administration UI starts at <http://localhost:4321/_cms/login>
 and exposes history-aware React routes under `/_cms/content`, `/_cms/users`,
 `/_cms/sites`, `/_cms/appearance`, and `/_cms/extensions`. Astro provides only
 the thin application mount for these routes; it renders the public content pages.
-Start the AI-enabled CMS with `make cms-astro-ai` instead of `make cms-astro`.
-The target builds and installs the optional extension before starting the API,
-so Reactor discovers it during application startup. After login, return to the
-published website to see the floating **Astro CMS Author**. The public site
+After installing the AI extension, start the AI-enabled CMS with
+`make cms-astro-ai` instead of `make cms-astro`. The launch target does not
+build or install packages; Reactor discovers the existing extension during
+application startup. After login, return to the published website to see the
+floating **Astro CMS Author**. The public site
 discovers its embedded JavaScript at runtime; Core does not depend on the AI
 runtime packages. Anonymous visitors do not load or see the agent. Its header displays
 the anonymous inference-key timer; CMS writes still use the signed-in user's
@@ -108,14 +109,12 @@ pip install examples/cms-astro/x402
 ```
 
 Build the AI frontend without launching either server with
-`make cms-astro-ai-build`. The combined `make cms-astro-ai` target builds and
-installs the extension, then starts the same API and Astro development servers
-as `make cms-astro` with AI Agents enabled.
+`make cms-astro-ai-build`. The `make cms-astro-ai` target only starts the API
+and Astro development servers with the already-installed AI Agents extension.
 
 The x402 targets follow the same split. `make cms-astro-x402-build` creates its
-Python wheel without launching services. `make cms-astro-x402` builds and
-installs the extension, then starts the API and Astro servers with paid-content
-support enabled.
+Python wheel without launching services. `make cms-astro-x402` only starts the
+API and Astro servers with the already-installed paid-content extension.
 
 `make cms-astro` sets `CMS_API_URL` for the Astro server automatically.
 

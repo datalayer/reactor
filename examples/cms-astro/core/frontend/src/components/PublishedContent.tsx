@@ -4,82 +4,36 @@
  * Datalayer License
  */
 
-import { useMemo } from 'react';
-import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
-import { ContentEditable } from '@lexical/react/LexicalContentEditable';
-import {
-  LexicalComposer,
-  type InitialConfigType,
-} from '@lexical/react/LexicalComposer';
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { HashtagPlugin } from '@lexical/react/LexicalHashtagPlugin';
-import { HorizontalRulePlugin } from '@lexical/react/LexicalHorizontalRulePlugin';
-import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { ListPlugin } from '@lexical/react/LexicalListPlugin';
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { CodeBlockHighlightPlugin } from '@datalayer/jupyter-lexical/lib/plugins/CodeHighlightPlugin.js';
-import { CollapsiblePlugin } from '@datalayer/jupyter-lexical/lib/plugins/CollapsiblePlugin/index.js';
-import { EquationsPlugin } from '@datalayer/jupyter-lexical/lib/plugins/EquationsPlugin.js';
-import { ExcalidrawPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ExcalidrawPlugin.js';
-import { ImagesPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ImagesPlugin.js';
-import { TablePlugin } from '@datalayer/jupyter-lexical/lib/plugins/TablePlugin.js';
-import { YouTubePlugin } from '@datalayer/jupyter-lexical/lib/plugins/YouTubePlugin.js';
-
-import {
-  cmsEditorNodes,
-  cmsEditorTheme,
-  cmsInitialEditorState,
-} from './cmsLexical';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import '@datalayer/jupyter-lexical/style/lexical/index.css';
+import 'katex/dist/katex.min.css';
+
+const PublishedLexicalEditor = lazy(() => import('./PublishedLexicalEditor'));
 
 export type PublishedContentProps = {
   body: string;
   lexical?: string;
+  serverHtml: string;
 };
 
-/** Read-only renderer for the exact Lexical document authored in the CMS. */
-export function PublishedContent({ body, lexical }: PublishedContentProps) {
-  const initialConfig = useMemo<InitialConfigType>(
-    () => ({
-      namespace: 'CmsAstroPublishedContent',
-      theme: cmsEditorTheme,
-      nodes: cmsEditorNodes,
-      editorState: cmsInitialEditorState(lexical, body),
-      editable: false,
-      onError: error => {
-        throw error;
-      },
-    }),
-    [body, lexical],
-  );
-
+function ServerContent({ html }: { html: string }) {
   return (
-    <LexicalComposer initialConfig={initialConfig}>
-      <div className="published-lexical">
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              className="published-content-input"
-              aria-label="Published article content"
-            />
-          }
-          placeholder={null}
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <ListPlugin />
-        <CheckListPlugin />
-        <LinkPlugin />
-        <HashtagPlugin />
-        <CodeBlockHighlightPlugin />
-        <TablePlugin />
-        <CollapsiblePlugin />
-        <EquationsPlugin />
-        <ExcalidrawPlugin />
-        <ImagesPlugin />
-        <HorizontalRulePlugin />
-        <YouTubePlugin />
-      </div>
-    </LexicalComposer>
+    <div
+      className="published-lexical published-lexical-server"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+/** Render server HTML first, then enhance decorator nodes with Lexical. */
+export function PublishedContent({ body, lexical, serverHtml }: PublishedContentProps) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  if (!hydrated) return <ServerContent html={serverHtml} />;
+  return (
+    <Suspense fallback={<ServerContent html={serverHtml} />}>
+      <PublishedLexicalEditor body={body} lexical={lexical} />
+    </Suspense>
   );
 }
 
