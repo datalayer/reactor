@@ -40,7 +40,7 @@ cms-astro/
 | Rendering | Astro 6 live collections loaded at request time |
 | Administration | A client-side React application under `/_cms/*`, drawn with Primer |
 | Authoring | CMS-owned Jupyter Lexical composition with a rich toolbar and plugins, structured JSON, and a plain-text projection |
-| Appearance | Portable Datalayer themes, Astro layouts, color modes, and a live homepage preview |
+| Appearance | Portable Datalayer themes, visibly distinct Editorial/Studio layouts, color modes, and a live homepage preview |
 | Authentication | PBKDF2 password hashes and expiring bearer sessions |
 | Discovery | Python entry points under `datalayer.reactor.extensions` |
 | Optional capabilities | Independently installable Pro and x402 wheels |

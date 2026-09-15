@@ -48,7 +48,10 @@ The top-level Appearance screen controls only the signed-in user's CMS
 application. The Sites view has a separate Appearance editor for visitors. It
 offers Datalayer theme cards, an Astro layout selector, light/dark/system modes,
 and a live preview of the site's homepage. The public theme and layout are stored
-on the site and used by Astro for every visitor.
+on the site and used by Astro for every visitor. Editorial uses a large featured
+story spanning the content grid; Studio uses a wider, compact, numbered grid.
+The four seeded stories make this structural difference visible immediately in
+the preview.
 
 ## Lexical authoring
 

@@ -11,6 +11,6 @@ const posts = entries ?? [];
 <Base {bootstrap} title={`Journal — ${bootstrap.site.name}`} description={`All stories from ${bootstrap.site.name}`}>
   <header class="article-header"><p class="eyebrow">The journal</p><h1>All stories</h1><p>Published notes, ideas, and updates from {bootstrap.site.name}.</p></header>
   <div class="post-grid">
-    {posts.map(({ data: post }) => <article class="post-card"><div><span class="post-meta">Published</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><a href={`/posts/${post.slug}`}>Read story →</a></article>)}
+    {posts.map(({ data: post }, index) => <article class:list={{'post-card':true,featured:post.data.featured === true}}><div><span class="post-number">{String(index + 1).padStart(2, '0')}</span><span class="post-meta">{String(post.data.category ?? 'Published')}</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><div class="card-footer"><span>{String(post.data.readingTime ?? '5 min')} read</span><a href={`/posts/${post.slug}`}>Read story →</a></div></article>)}
   </div>
 </Base>

@@ -10,6 +10,8 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "core"))
 
 from cms_astro_core.host import create_app
+from cms_astro_core.seed import seed_database
+from cms_astro_core.store import Store
 
 
 def client(tmp_path: Path) -> TestClient:
@@ -25,7 +27,7 @@ def test_seed_is_multi_user_multi_site_ready(tmp_path: Path) -> None:
     assert response.json()[0]["role"] == "author"
     assert response.json()[0]["theme_slug"] == "editorial"
     assert response.json()[0]["member_count"] == 3
-    assert response.json()[0]["entry_count"] == 1
+    assert response.json()[0]["entry_count"] == 4
 
 
 def test_password_login_and_admin_boundaries(tmp_path: Path) -> None:
@@ -86,9 +88,30 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
 def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     api = client(tmp_path)
     visible = api.get("/api/cms/sites/site-main/entries", headers={"X-CMS-User":"u-user1"})
-    assert [entry["id"] for entry in visible.json()] == ["entry-welcome"]
+    assert {entry["id"] for entry in visible.json()} == {
+        "entry-welcome", "entry-design-systems", "entry-multi-site", "entry-layout"
+    }
     response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
+
+
+def test_reseed_requires_confirmation_and_removes_existing_data(tmp_path: Path) -> None:
+    database = tmp_path / "reseed.sqlite3"
+    store = Store(database)
+    with store.connect() as db:
+        db.execute(
+            "INSERT INTO users(id,email,name,disabled,created_at,username,password_hash) VALUES(?,?,?,?,?,?,?)",
+            ("custom-user", "custom@example.test", "Custom", 0, "now", "custom", "hash"),
+        )
+
+    assert seed_database(str(database), input_fn=lambda _: "no") is False
+    with store.connect() as db:
+        assert db.execute("SELECT 1 FROM users WHERE id='custom-user'").fetchone()
+
+    assert seed_database(str(database), input_fn=lambda _: "yes") is True
+    with store.connect() as db:
+        assert not db.execute("SELECT 1 FROM users WHERE id='custom-user'").fetchone()
+        assert db.execute("SELECT COUNT(*) FROM entries").fetchone()[0] == 4
 
 
 def test_admin_can_model_content_and_switch_theme(tmp_path: Path) -> None:

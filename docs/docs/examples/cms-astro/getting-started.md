@@ -45,21 +45,30 @@ All three accounts can open the initial **Acme Journal** site. The two author
 accounts do not receive the administration navigation, and the API independently
 rejects their attempts to change users, site membership or themes.
 
-The seed is repeatable. It restores the documented passwords and roles,
-invalidates sessions for the three seeded users, and leaves unrelated content
-in the database intact.
+The seed creates four published stories with different authors, categories,
+lengths, and one featured story. This makes the layout choice easy to evaluate:
+Editorial presents a prominent lead story, while Studio presents the same
+content as a compact numbered grid.
+
+The seed is safely repeatable. When the database already contains CMS records,
+`make cms-astro-seed` reports its site, user, and entry counts and asks before
+removing **all** CMS data. Answering anything other than `y` or `yes` leaves the
+database unchanged. For deliberate non-interactive resets, run the seed module
+with `--yes`.
 
 ## Explore the example
 
 After signing in as `admin`:
 
-1. Open **Content**. The seeded welcome entry is selected automatically. The
-   editor stores both rich Lexical JSON and a plain-text projection.
+1. Open **Content**. The first of four seeded entries is selected automatically.
+   The editor stores both rich Lexical JSON and a plain-text projection.
 2. Open **Sites**, edit **Acme Journal**, and select **Appearance**. Choose a
    Datalayer theme card, an Astro layout, and a color mode. The homepage preview
    updates before you save.
 3. Save the appearance and open the visitor website. The colors, font stacks,
-   color mode, and Astro layout apply to `/`, `/blog`, and post pages.
+   color mode, and Astro layout apply to `/`, `/blog`, and post pages. Switching
+   from Editorial to Studio changes the lead-story layout into a numbered,
+   three-column grid in the live preview and visitor site.
 
 Sign in as `user1` or `user2` to verify the author experience. Authors can see
 all Acme Journal entries but can edit and publish only content they own; other

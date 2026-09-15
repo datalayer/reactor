@@ -15,6 +15,6 @@ const posts = livePosts ?? [];
   </section>
   <section>
     <div class="section-heading"><h2>Latest stories</h2><a href="/blog">View the journal →</a></div>
-    <div class="post-grid">{posts.map(({ data: post }) => <article class="post-card"><div><span class="post-meta">Journal</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><a href={`/posts/${post.slug}`}>Read story →</a></article>)}</div>
+    <div class="post-grid">{posts.map(({ data: post }, index) => <article class:list={{'post-card':true,featured:post.data.featured === true}}><div><span class="post-number">{String(index + 1).padStart(2, '0')}</span><span class="post-meta">{String(post.data.category ?? 'Journal')}</span><h2><a href={`/posts/${post.slug}`}>{post.title}</a></h2><p>{post.excerpt}</p></div><div class="card-footer"><span>{String(post.data.readingTime ?? '5 min')} read</span><a href={`/posts/${post.slug}`}>Read story →</a></div></article>)}</div>
   </section>
 </Base>

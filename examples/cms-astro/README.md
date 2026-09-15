@@ -51,7 +51,7 @@ From the Reactor monorepo root:
 
 ```bash
 make cms-astro-install       # Core, editable from this checkout
-make cms-astro-seed          # admin/admin, user1/user1, user2/user2
+make cms-astro-seed          # demo site + admin/admin, user1/user1, user2/user2
 make cms-astro               # backend + Astro development server
 make cms-astro-pro           # optional, in another terminal
 make cms-astro-x402          # optional paid-content extension
@@ -114,6 +114,10 @@ boundary to a real x402 facilitator.
 | `GET /api/content/{site}/entries/{slug}` | One published entry |
 | `GET /api/content/{site}/bootstrap` | Settings, theme, menus and widgets |
 
-The schema is initialized transactionally and seeded only when empty. Foreign
-keys, site-scoped uniqueness, membership checks and ownership rules are enforced
-on the server.
+The schema is initialized transactionally. The seed creates four contrasting
+stories so the Editorial lead-story composition and the denser Studio grid are
+immediately visible. If CMS data already exists, the command asks before
+removing all users, sites, content, themes and related records and rebuilding
+the demo. Pass `--yes` to the Python seed command for an explicit non-interactive
+reset. Foreign keys, site-scoped uniqueness, membership checks and ownership
+rules are enforced on the server.

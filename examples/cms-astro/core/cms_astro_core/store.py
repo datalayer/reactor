@@ -125,13 +125,14 @@ def slugify(value: str) -> str:
 
 
 class Store:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, auto_seed: bool = True):
         self.path = str(path)
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript(SCHEMA)
             self._migrate(db)
-            self._seed(db)
+            if auto_seed:
+                self._seed(db)
 
     def _migrate(self, db: sqlite3.Connection) -> None:
         """Bring databases created by earlier revisions forward in place."""
@@ -183,9 +184,36 @@ class Store:
         except (TypeError, ValueError):
             return False
 
-    def seed_demo(self) -> None:
+    def content_summary(self) -> dict[str, int]:
+        """Return the records that make an existing CMS database meaningful."""
         with self.connect() as db:
+            return {
+                table: int(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                for table in ("users", "sites", "entries")
+            }
+
+    def seed_demo(self, *, reset: bool = False) -> None:
+        with self.connect() as db:
+            has_content = db.execute(
+                "SELECT EXISTS(SELECT 1 FROM users) OR EXISTS(SELECT 1 FROM sites) "
+                "OR EXISTS(SELECT 1 FROM entries)"
+            ).fetchone()[0]
+            if has_content and not reset:
+                raise RuntimeError("CMS data already exists; reset must be confirmed before seeding")
+            if reset:
+                self._reset(db)
             self._seed_demo(db)
+
+    @staticmethod
+    def _reset(db: sqlite3.Connection) -> None:
+        """Remove all CMS data in foreign-key-safe order."""
+        # Sites own collections, entries, revisions, media, taxonomies, menus,
+        # widgets, settings and memberships through ON DELETE CASCADE.
+        db.execute("DELETE FROM sites")
+        db.execute("DELETE FROM themes")
+        db.execute("DELETE FROM users")
+        db.execute("DELETE FROM entry_search")
+        db.execute("DELETE FROM sqlite_sequence WHERE name='revisions'")
 
     def _seed_demo(self, db: sqlite3.Connection) -> None:
         stamp = now()
@@ -224,11 +252,43 @@ class Store:
         ])
         db.execute("INSERT INTO widgets VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING", ("widget-footer", "site-main", "footer", "text", 0, json.dumps({"text":"Built with Astro + Reactor"})))
         db.executemany("INSERT INTO settings VALUES(?,?,?) ON CONFLICT(site_id,key) DO NOTHING", [("site-main", "postsPerPage", "10"), ("site-main", "locale", "en")])
-        entry_id = "entry-welcome"
-        db.execute("INSERT INTO entries VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING", (
-            entry_id, "site-main", "collection-posts", "u-admin", "welcome", "Welcome to Acme Journal",
-            "The first database-backed story.", "# Welcome\n\nEdit this story from the CMS API.", "{}", "published", None, stamp, stamp, stamp
-        ))
+        published = datetime.now(timezone.utc)
+        entries = [
+            (
+                "entry-welcome", "u-admin", "welcome", "Welcome to Acme Journal",
+                "A field guide to the ideas, experiments, and people behind our work.",
+                "# Welcome\n\nAcme Journal is a shared place for useful ideas. Explore the stories below, then switch between Editorial and Studio layouts to see the same content take on a completely different structure.",
+                {"category": "Launch notes", "readingTime": "4 min", "featured": True},
+            ),
+            (
+                "entry-design-systems", "u-user1", "design-systems-that-travel", "Design systems that travel well",
+                "How portable tokens keep a visual language coherent across products and frameworks.",
+                "# Design systems that travel well\n\nA durable design system separates meaning from implementation. Functional tokens give every surface a shared vocabulary while allowing each framework to render in its own way.",
+                {"category": "Design", "readingTime": "6 min"},
+            ),
+            (
+                "entry-multi-site", "u-user2", "one-cms-many-sites", "One CMS, many distinct sites",
+                "Model shared infrastructure without making every publication look the same.",
+                "# One CMS, many distinct sites\n\nMulti-site publishing works best when access, content, themes, and navigation remain explicit. Teams can share the platform without giving up their identity.",
+                {"category": "Architecture", "readingTime": "5 min"},
+            ),
+            (
+                "entry-layout", "u-admin", "layout-is-part-of-the-story", "Layout is part of the story",
+                "Editorial rhythm and studio density create different ways to discover the same writing.",
+                "# Layout is part of the story\n\nAn editorial layout emphasizes hierarchy and a lead story. A studio layout favors a compact grid and quick scanning. Content stays portable while presentation changes around it.",
+                {"category": "Field notes", "readingTime": "3 min"},
+            ),
+        ]
+        for index, (entry_id, author_id, slug, title, excerpt, body, data) in enumerate(entries):
+            published_at = (published - timedelta(days=index)).isoformat()
+            db.execute(
+                "INSERT INTO entries VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING",
+                (
+                    entry_id, "site-main", "collection-posts", author_id, slug, title,
+                    excerpt, body, json.dumps(data), "published", None,
+                    published_at, published_at, published_at,
+                ),
+            )
 
     def authenticate(self, username: str, password: str) -> dict[str, Any] | None:
         with self.connect() as db:
