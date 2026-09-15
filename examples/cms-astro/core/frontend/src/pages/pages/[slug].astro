@@ -7,6 +7,7 @@
 ---
 import { getLiveEntry } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import { PublishedContent } from '../../components/PublishedContent';
 import { cms } from '../../lib/cms';
 
 const bootstrap = await cms.bootstrap();
@@ -15,6 +16,7 @@ const { entry, error } = await getLiveEntry('pages', {
 });
 if (error || !entry) return Astro.rewrite('/404');
 const page = entry.data;
+const lexical = typeof page.data.lexical === 'string' ? page.data.lexical : undefined;
 ---
 <Base
   {bootstrap}
@@ -27,6 +29,8 @@ const page = entry.data;
       <h1>{page.title}</h1>
       {page.excerpt && <p>{page.excerpt}</p>}
     </header>
-    <div class="article-body">{page.body}</div>
+    <div class="article-body">
+      <PublishedContent body={page.body} {lexical} client:only="react" />
+    </div>
   </article>
 </Base>

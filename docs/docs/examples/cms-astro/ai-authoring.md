@@ -6,7 +6,10 @@ title: AI-assisted Publishing
 # AI-assisted publishing
 
 AI authoring is the optional `datalayer-cms-astro-ai-agents` extension rather
-than part of Core. Build and install it with `make cms-astro-ai`. The published
+than part of Core. Run the complete AI-enabled example with
+`make cms-astro-ai`, or build only its frontend with
+`make cms-astro-ai-build`. The run target builds and installs the extension
+before starting the CMS, allowing Reactor to discover it at startup. The published
 site's generic extension host discovers the wheel's embedded JavaScript and
 mounts an **Astro CMS Author** with `ChatFloating`. The extension first
 validates the `cms-session` bearer token and checks that its user belongs to

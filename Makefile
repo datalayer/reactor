@@ -29,7 +29,8 @@ help:
 	@echo "  make cms-astro         Run the SQLite CMS backend and Astro site"
 	@echo "  make cms-astro-seed    Seed admin/admin, user1/user1 and user2/user2"
 	@echo "  make cms-astro-install Install Core from this monorepo"
-	@echo "  make cms-astro-ai      Add the separately packaged AI authoring extension"
+	@echo "  make cms-astro-ai      Run the CMS with the AI authoring extension enabled"
+	@echo "  make cms-astro-ai-build Build the separately packaged AI extension frontend"
 	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
 	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
 	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
@@ -189,9 +190,10 @@ cms-astro-ai-build: ## build the AI agent frontend embedded in its Python packag
 	fi
 	$(NPM) --prefix examples/cms-astro/ai-agents/frontend run build
 
-cms-astro-ai: cms-astro-ai-build ## install AI Agents as a separately discoverable wheel
+cms-astro-ai: cms-astro-ai-build ## run the CMS with the AI Agents extension enabled
 	$(PIP) install examples/cms-astro/ai-agents
-	@echo "Installed CMS AI Agents. Refresh the published Astro website."
+	@echo "Starting the CMS with the separately discovered AI Agents extension."
+	$(MAKE) cms-astro
 
 cms-astro-x402: ## install x402 as a separately discoverable wheel
 	$(PIP) install examples/cms-astro/x402
