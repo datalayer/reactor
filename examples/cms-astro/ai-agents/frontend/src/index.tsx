@@ -7,11 +7,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AgentTools, contribution, defineAgentTools, definePlugin } from '@datalayer/reactor';
+import { coreStore } from '@datalayer/agent-runtimes/lib/state/index.js';
 import type { CmsSiteSession } from './tools';
 
 const AgentRuntime = lazy(() => import('./AgentRuntime'));
 const cmsAuthChannel = 'cms-astro-auth';
 const stylesheetMarker = 'data-cms-astro-ai-agents-styles';
+const defaultInferenceUrl = 'https://r1.datalayer.run';
 const crawlParameters = {
   type: 'object',
   properties: {
@@ -96,7 +98,19 @@ type MountOptions = {
   siteId: string;
   siteName: string;
   element: HTMLElement;
+  inferenceUrl?: string;
 };
+
+function configureInference(inferenceUrl?: string) {
+  const buildUrl = (
+    import.meta as ImportMeta & {
+      env?: { VITE_DATALAYER_AI_INFERENCE_URL?: string };
+    }
+  ).env?.VITE_DATALAYER_AI_INFERENCE_URL;
+  coreStore.getState().setConfiguration({
+    aiInferenceUrl: inferenceUrl || buildUrl || defaultInferenceUrl,
+  });
+}
 
 function storedSession(): CmsSiteSession | undefined {
   try {
@@ -227,8 +241,15 @@ function PublicSiteAgent({ apiUrl, siteId, siteName }: Omit<MountOptions, 'eleme
 const mounted = new WeakMap<HTMLElement, Root>();
 
 /** Public-site hook consumed by CMS Core's generic extension host. */
-export function mountPublicSiteExtension({ apiUrl, siteId, siteName, element }: MountOptions) {
+export function mountPublicSiteExtension({
+  apiUrl,
+  siteId,
+  siteName,
+  element,
+  inferenceUrl,
+}: MountOptions) {
   ensureStylesheet();
+  configureInference(inferenceUrl);
   mounted.get(element)?.unmount();
   const root = createRoot(element);
   mounted.set(element, root);
