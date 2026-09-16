@@ -174,5 +174,57 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         return result(entry, values.collection, values.publish ? 'Page updated and published.' : 'Page updated.');
       },
     },
+    {
+      name: 'cms_publish_site_page',
+      description: 'Publish an existing post or standalone page identified by its entry ID or exact slug.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          existing_slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        required: ['collection'],
+        anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
+      },
+      handler: async args => {
+        const values = args as {
+          entry_id?: string;
+          existing_slug?: string;
+          collection: Collection;
+        };
+        const target = values.entry_id
+          ? `/api/cms/sites/${context.siteId}/entries/${values.entry_id}/publish`
+          : `/api/cms/sites/${context.siteId}/entries/by-slug/${encodeURIComponent(values.existing_slug ?? '')}/publish?collection=${values.collection}`;
+        const entry = await cmsRequest<EntryResult>(context, target, { method: 'POST' });
+        return result(entry, values.collection, 'Page published.');
+      },
+    },
+    {
+      name: 'cms_show_site_page',
+      description: 'Open a published post or standalone page in its rendered Astro website view.',
+      parameters: {
+        type: 'object',
+        properties: {
+          slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        required: ['slug', 'collection'],
+      },
+      handler: async args => {
+        const values = args as { slug: string; collection: Collection };
+        const publicUrl = `/${values.collection === 'posts' ? 'posts' : 'pages'}/${encodeURIComponent(values.slug)}`;
+        const opened = window.open(publicUrl, '_blank', 'noopener,noreferrer') !== null;
+        return {
+          slug: values.slug,
+          collection: values.collection,
+          public_url: publicUrl,
+          opened,
+          message: opened
+            ? 'Published page opened in a new tab.'
+            : 'The browser blocked the new tab; use public_url to open the page.',
+        };
+      },
+    },
   ];
 }

@@ -257,6 +257,13 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     )
     assert page.status_code == 200
     assert page.json()["id"] == duplicate.json()["id"]
+    published_page = api.post(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel/publish?collection=pages",
+        headers={"X-CMS-User": "u-user1"},
+    )
+    assert published_page.status_code == 200
+    assert published_page.json()["id"] == duplicate.json()["id"]
+    assert published_page.json()["status"] == "published"
 
 
 def test_reseed_requires_confirmation_and_removes_existing_data(tmp_path: Path) -> None:

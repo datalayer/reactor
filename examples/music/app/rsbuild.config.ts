@@ -20,7 +20,6 @@ import path from 'node:path';
 
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
-import { pluginStyledComponents } from '@rsbuild/plugin-styled-components';
 
 const MUSIC = path.resolve(__dirname, '..');
 const REACTOR = path.resolve(__dirname, '../../..');
@@ -41,10 +40,12 @@ const APP_MODULES = path.dirname(
 );
 
 export default defineConfig({
-  plugins: [
-    pluginReact(),
-    pluginStyledComponents({ displayName: true, fileName: false }),
-  ],
+  // styled-components needs no compiler transform at runtime. In a monorepo,
+  // `@rsbuild/plugin-styled-components` can resolve its SWC Wasm binary from a
+  // different install level than Rspack; that ABI mismatch then breaks every
+  // module, including Rsbuild's own HMR client. Keep the portable React
+  // transform and let styled-components run without optional display names.
+  plugins: [pluginReact()],
   source: {
     entry: { index: './src/main.tsx' },
     define: {

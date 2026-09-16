@@ -1,0 +1,151 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+deck:
+  title: About Reactor
+  subtitle: One extensibility model for TypeScript frontends and Python backends
+  template: datalayer
+  transition: slide
+  footer:
+    note: reactor.datalayer.tech
+
+slides:
+  - id: reactor
+    type: title
+    title: Reactor
+    subtitle: A plugin platform for applications that span the browser and the server
+    meta: Inspired by Eclipse / OSGi, VS Code, JupyterLab, and the IntelliJ Platform
+
+  - id: lineage
+    type: two-columns
+    title: Built on proven extension-platform ideas
+    subtitle: Reactor adapts their durable concepts to a TypeScript + Python application.
+    left:
+      type: stack
+      heading: Modular runtimes
+      blocks:
+        - type: bullets
+          icon: arrow
+          items:
+            - "**Eclipse / OSGi** — manifests, bundles, dependencies, and explicit lifecycle"
+            - "**IntelliJ Platform** — extension points, actions, services, and modular products"
+    right:
+      type: stack
+      heading: Extensible applications
+      blocks:
+        - type: bullets
+          icon: arrow
+          items:
+            - "**VS Code** — contribution points, commands, activation events, and extension metadata"
+            - "**JupyterLab** — token-driven plugins, federated extensions, and Python packages carrying web assets"
+
+  - id: one-model
+    type: mermaid
+    title: The problem is the seam between two plugin systems
+    subtitle: Without a shared contract, optional features become host code and every change coordinates two deployments.
+    diagram: |
+      flowchart LR
+        subgraph browser[Browser]
+          TS[TypeScript Reactor]
+          UI[Slots · views · commands]
+          TS --> UI
+        end
+        subgraph server[Server]
+          PY[Python Reactor]
+          API[FastAPI · CLI · services]
+          PY --> API
+        end
+        M[Shared manifests and dependency vocabulary]
+        TS <-->|declared cross-tier requirements| M
+        M <-->|state and discovery| PY
+    caption: Both tiers describe plugins, extensions, dependencies, lifecycle, and presentation metadata in the same language.
+
+  - id: architecture
+    type: mermaid
+    title: The host defines contracts; plugins supply capabilities
+    subtitle: The host never names the plugins that may extend it.
+    diagram: |
+      flowchart LR
+        E[Extension] -->|groups for delivery| P[Plugin]
+        P --> M[Readable manifest]
+        P --> C[Plugin code]
+        M --> A[Activation events]
+        P -->|offers| N[Contributions]
+        N -->|target| CP[Contribution points]
+        C -->|renders into| S[Slots]
+        C -->|registers| CR[Command registry]
+        C -->|calls| R[Reactor API]
+    caption: A plugin is the unit of function and lifecycle; an extension is the unit of installation and removal.
+
+  - id: runtimes
+    type: two-columns
+    title: Two sibling runtimes, one architecture
+    left:
+      type: bullets
+      heading: TypeScript — @datalayer/reactor
+      icon: check
+      items:
+        - Framework-agnostic core with separate React bindings
+        - Ordered init, build, register, and after-registration phases
+        - Dependencies, peers, conflicts, and reversible enable / disable
+        - Lazy activation, reactive signals, and URL-loaded federation
+    right:
+      type: bullets
+      heading: Python — datalayer_reactor
+      icon: check
+      items:
+        - Pluggy-powered registration with FastAPI control-plane endpoints
+        - Entry-point discovery, tenant scoping, and marketplace metadata
+        - Extensible CLI, command registry, and interactive slash commands
+        - Optional sandboxed calls and runtime enable / disable
+
+  - id: delivery
+    type: flow
+    title: Install late, load lazily, change safely
+    subtitle: Manifests remain visible before implementation code is fetched or activated.
+    items:
+      - label: "01"
+        title: Discover
+        detail: Read npm configuration, Python entry points, or a remote catalog.
+      - label: "02"
+        title: Describe
+        detail: List and graph a plugin from its manifest without running it.
+      - label: "03"
+        title: Activate
+        detail: Start on demand and in dependency order.
+      - label: "04"
+        title: Federate
+        detail: Load an allowed remote while sharing host singletons.
+        current: true
+      - label: "05"
+        title: Package
+        detail: Ship Python and built JavaScript together in one wheel.
+
+  - id: examples
+    type: three-columns
+    title: The examples turn each promise into something you can switch off
+    subtitle: Start with the music demo, then follow the pattern into real applications.
+    columns:
+      - type: bullets
+        heading: Music store
+        icon: none
+        items:
+          - Full two-tier plugin graph
+          - Live enable / disable
+          - Slots, commands, and contributions
+      - type: bullets
+        heading: Astro CMS
+        icon: none
+        items:
+          - Multi-user and multi-site publishing
+          - Python-packaged AI, Pro, and x402 extensions
+          - Astro, Primer, Lexical, SQLite
+      - type: bullets
+        heading: Focused examples
+        icon: none
+        items:
+          - Remote federation and failure isolation
+          - Frontend + FastAPI gating
+          - Extensible CLI and REPL
+    notes: Read and run the examples from reactor.datalayer.tech/examples/.

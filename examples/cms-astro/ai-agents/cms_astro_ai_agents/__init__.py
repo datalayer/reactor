@@ -34,6 +34,8 @@ CMS_AI_AGENT_TOOLS = {
         "cms_crawl_wordpress",
         "cms_create_site_page",
         "cms_update_site_page",
+        "cms_publish_site_page",
+        "cms_show_site_page",
     ],
     "commands": [
         {
@@ -87,6 +89,37 @@ CMS_AI_AGENT_TOOLS = {
                     {"required": ["entry_id"]},
                     {"required": ["existing_slug"]},
                 ],
+            },
+        },
+        {
+            "name": "cms_publish_site_page",
+            "command": "cmsAstroAi.publishSitePage",
+            "description": "Publish an existing post or page identified by its entry ID or exact slug.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entry_id": {"type": "string"},
+                    "existing_slug": {"type": "string"},
+                    "collection": {"type": "string", "enum": ["posts", "pages"]},
+                },
+                "required": ["collection"],
+                "anyOf": [
+                    {"required": ["entry_id"]},
+                    {"required": ["existing_slug"]},
+                ],
+            },
+        },
+        {
+            "name": "cms_show_site_page",
+            "command": "cmsAstroAi.showSitePage",
+            "description": "Open a published post or page in its rendered Astro website view.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "collection": {"type": "string", "enum": ["posts", "pages"]},
+                },
+                "required": ["slug", "collection"],
             },
         },
     ],

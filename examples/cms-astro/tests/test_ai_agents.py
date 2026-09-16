@@ -30,5 +30,7 @@ def test_ai_agents_owns_the_complete_tool_contract() -> None:
     commands = CMS_AI_AGENT_TOOLS["commands"]
     assert CMS_AI_AGENT_TOOLS["plugin"] == "@cms-astro/ai-agents"
     assert CMS_AI_AGENT_TOOLS["toolset"] == [item["name"] for item in commands]
-    assert len(commands) == 4
+    assert len(commands) == 6
+    assert commands[-2]["name"] == "cms_publish_site_page"
+    assert commands[-1]["name"] == "cms_show_site_page"
     assert all(item["description"] and item["parameters"] for item in commands)

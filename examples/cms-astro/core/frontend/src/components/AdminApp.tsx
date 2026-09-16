@@ -18,7 +18,6 @@ import * as ReactorReact from '@datalayer/reactor/react';
 import {
   useBackendPluginStream,
   useContributions,
-  usePluginManifests,
   useReactor,
 } from '@datalayer/reactor/react';
 import * as PrimerAddons from '@datalayer/primer-addons';
@@ -126,9 +125,63 @@ type Member = {
   disabled: number;
   role: string;
 };
+type BackendExtension = {
+  name: string;
+  version: string;
+  display_name: string;
+  description: string;
+  emoji?: string;
+  plugins: string[];
+};
+type BackendPlugin = {
+  name: string;
+  display_name: string;
+  description: string;
+  extension?: string;
+  enabled: boolean;
+  activated: boolean;
+  disabled_by?: string | null;
+};
+type ExtensionCatalogItem = {
+  name: string;
+  plugin: string;
+  displayName: string;
+  description: string;
+  emoji: string;
+};
 type Item = { label?: string; slug?: string; id?: string };
 type Tab = 'Content' | 'Users' | 'Sites' | 'Appearance' | 'Extensions';
 const cmsAuthChannel = 'cms-astro-auth';
+const extensionCatalog: ExtensionCatalogItem[] = [
+  {
+    name: 'cms-astro-core',
+    plugin: 'cms-astro.core',
+    displayName: 'CMS Core',
+    description: 'Database-backed content, users, websites, themes, and publishing.',
+    emoji: '🪐',
+  },
+  {
+    name: 'cms-astro-pro',
+    plugin: 'cms-astro.pro',
+    displayName: 'CMS Pro',
+    description: 'SEO analysis, editorial scheduling, audit, and premium themes.',
+    emoji: '💫',
+  },
+  {
+    name: 'cms-astro-ai-agents',
+    plugin: 'cms-astro.ai-agents',
+    displayName: 'CMS AI Agents',
+    description: 'Authenticated AI-assisted blog import and content authoring.',
+    emoji: '✍️',
+  },
+  {
+    name: 'cms-astro-x402',
+    plugin: 'cms-astro.x402',
+    displayName: 'CMS x402',
+    description: 'HTTP 402 payment requirements and paid-content enforcement.',
+    emoji: '💳',
+  },
+];
 const tabRoutes: Record<Tab, string> = {
   Content: 'content',
   Users: 'users',
@@ -375,11 +428,14 @@ function Shell({
   const hasLoaded = useRef(false);
   const [tab, setTab] = useState<Tab>(tabFromLocation),
     [busy, setBusy] = useState(true),
+    [extensionsBusy, setExtensionsBusy] = useState(false),
     [sites, setSites] = useState<Site[]>([]),
     [siteId, setSiteId] = useState(session.memberships[0]?.site_id ?? ''),
     [entries, setEntries] = useState<Entry[]>([]),
     [themes, setThemes] = useState<Theme[]>([]),
     [members, setMembers] = useState<Member[]>([]),
+    [backendExtensions, setBackendExtensions] = useState<BackendExtension[]>([]),
+    [backendPlugins, setBackendPlugins] = useState<BackendPlugin[]>([]),
     [selected, setSelected] = useState<Entry>(),
     [selectedMember, setSelectedMember] = useState<Member>(),
     [siteSection, setSiteSection] = useState<'general' | 'appearance'>('general');
@@ -433,6 +489,22 @@ function Shell({
       if (showBusy) setBusy(false);
     }
   }, [apiUrl, headers, siteId]);
+  const loadExtensions = useCallback(async () => {
+    setExtensionsBusy(true);
+    setError(undefined);
+    try {
+      const [discovered, pluginStates] = await Promise.all([
+        api<BackendExtension[]>(`${apiUrl}/extensions`),
+        api<BackendPlugin[]>(`${apiUrl}/plugins`),
+      ]);
+      setBackendExtensions(discovered);
+      setBackendPlugins(pluginStates);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setExtensionsBusy(false);
+    }
+  }, [apiUrl]);
   const navigate = useCallback((next: Tab, replace = false) => {
     setTab(next);
     window.history[replace ? 'replaceState' : 'pushState'](null, '', `/_cms/${tabRoutes[next]}`);
@@ -449,6 +521,9 @@ function Shell({
   useEffect(() => {
     if (activeSite && !isAdmin && tab !== 'Content') navigate('Content', true);
   }, [activeSite, isAdmin, navigate, tab]);
+  useEffect(() => {
+    if (tab === 'Extensions' && isAdmin) void loadExtensions();
+  }, [isAdmin, loadExtensions, tab]);
   useEffect(() => {
     setSelected(undefined);
     setTitle('');
@@ -653,12 +728,55 @@ function Shell({
       websiteTheme.slug,
     );
   }
-  const plugins = usePluginManifests(),
-    contentTypes = useContributions(ContentTypes),
+  const contentTypes = useContributions(ContentTypes),
     extensionThemes = useContributions(ExtensionThemes),
     actions = useContributions(EditorActions),
     widgets = useContributions(DashboardWidgets),
-    nav: Tab[] = isAdmin ? ['Content', 'Users', 'Sites', 'Appearance', 'Extensions'] : ['Content'];
+    nav: Tab[] = isAdmin ? ['Sites', 'Content', 'Users', 'Appearance', 'Extensions'] : ['Content'];
+  const extensionCards = useMemo(() => {
+    const catalogNames = new Set(extensionCatalog.map((item) => item.name));
+    const cards = [
+      ...extensionCatalog,
+      ...backendExtensions
+        .filter((extension) => !catalogNames.has(extension.name))
+        .map((extension) => ({
+          name: extension.name,
+          plugin: extension.plugins[0] ?? '',
+          displayName: extension.display_name,
+          description: extension.description,
+          emoji: extension.emoji ?? '🧩',
+        })),
+    ];
+    return cards.map((catalogItem) => {
+      const extension = backendExtensions.find((item) => item.name === catalogItem.name);
+      const pluginNames = extension?.plugins.length ? extension.plugins : [catalogItem.plugin];
+      const plugins = backendPlugins.filter((plugin) => pluginNames.includes(plugin.name));
+      const discovered = Boolean(extension) || plugins.length > 0;
+      const enabled = plugins.filter((plugin) => plugin.enabled).length;
+      const active = plugins.filter((plugin) => plugin.enabled && plugin.activated).length;
+      const status = !discovered
+        ? 'not enabled'
+        : plugins.length > 0 && active === plugins.length
+          ? 'active'
+          : plugins.length > 0 && enabled === plugins.length
+            ? 'enabled'
+            : enabled > 0
+              ? 'partially enabled'
+              : 'disabled';
+      return {
+        ...catalogItem,
+        displayName: extension?.display_name ?? catalogItem.displayName,
+        description: extension?.description ?? catalogItem.description,
+        emoji: extension?.emoji ?? catalogItem.emoji,
+        version: extension?.version,
+        plugins,
+        discovered,
+        enabled,
+        active,
+        status,
+      };
+    });
+  }, [backendExtensions, backendPlugins]);
   return (
     <Box className="cms-shell">
       <Box as="header" className="cms-header">
@@ -729,6 +847,16 @@ function Shell({
           )}
           {!pending && notice && <Flash variant="success">{notice}</Flash>}
           {busy && <Spinner />}
+          {tab === 'Content' && activeSite && (
+            <Box>
+              <Heading as="h3" sx={{ fontSize: 2 }}>
+                {activeSite.name}
+              </Heading>
+              <Text as="p" sx={{ color: 'fg.muted', m: 0 }}>
+                {activeSite.tagline || 'No website description has been added yet.'}
+              </Text>
+            </Box>
+          )}
           {tab === 'Content' && (
             <Box className="content-grid">
               <Box className="panel content-list">
@@ -1141,23 +1269,59 @@ function Shell({
             </Box>
           )}
           {tab === 'Extensions' && isAdmin && (
-            <Box className="cards">
-              {plugins.map((plugin) => (
-                <Box className="panel" key={plugin.name}>
-                  <Heading as="h3" sx={{ fontSize: 2 }}>
-                    {plugin.emoji} {plugin.displayName}
-                  </Heading>
-                  <Text as="p">{plugin.description}</Text>
-                  <Label variant={plugin.activated ? 'success' : 'secondary'}>
-                    {plugin.activated ? 'active' : 'available'}
-                  </Label>
-                </Box>
-              ))}
-              <Box className="panel">
-                <Text>
-                  {actions.length} editor actions · {widgets.length} dashboard widgets
-                </Text>
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                <Button onClick={() => void loadExtensions()} disabled={extensionsBusy}>
+                  {extensionsBusy ? 'Refreshing…' : 'Refresh status'}
+                </Button>
               </Box>
+              {extensionsBusy && backendExtensions.length === 0 ? (
+                <Spinner />
+              ) : (
+                <Box className="cards">
+                  {extensionCards.map((extension) => (
+                    <Box className="panel" key={extension.name}>
+                      <Heading as="h3" sx={{ fontSize: 2 }}>
+                        {extension.emoji} {extension.displayName}
+                      </Heading>
+                      <Text as="p">{extension.description}</Text>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Label
+                          variant={
+                            extension.status === 'active'
+                              ? 'success'
+                              : extension.status === 'enabled' ||
+                                  extension.status === 'partially enabled'
+                                ? 'attention'
+                                : 'secondary'
+                          }
+                        >
+                          {extension.status}
+                        </Label>
+                        {extension.discovered ? (
+                          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+                            {extension.enabled}/{extension.plugins.length} plugins enabled ·{' '}
+                            {extension.active} active
+                            {extension.version ? ` · v${extension.version}` : ''}
+                          </Text>
+                        ) : (
+                          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+                            Not discovered by this server
+                          </Text>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                  <Box className="panel">
+                    <Heading as="h3" sx={{ fontSize: 2 }}>
+                      Contributions
+                    </Heading>
+                    <Text>
+                      {actions.length} editor actions · {widgets.length} dashboard widgets
+                    </Text>
+                  </Box>
+                </Box>
+              )}
             </Box>
           )}
         </Box>
