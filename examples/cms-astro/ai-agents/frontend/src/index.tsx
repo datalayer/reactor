@@ -8,11 +8,17 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AgentTools, contribution, defineAgentTools, definePlugin } from '@datalayer/reactor';
 import { coreStore } from '@datalayer/agent-runtimes/lib/state/index.js';
+import {
+  themeVariants,
+  type ColorMode,
+  type ThemeVariant,
+} from '@datalayer/primer-addons';
 import type { CmsSiteSession } from './tools';
 
 const AgentRuntime = lazy(() => import('./AgentRuntime'));
 const cmsAuthChannel = 'cms-astro-auth';
 const stylesheetMarker = 'data-cms-astro-ai-agents-styles';
+const runtimeStylesMarker = 'data-cms-astro-ai-agents-runtime-styles';
 const astroPersistAttribute = 'data-astro-transition-persist';
 const stylesheetPersistId = 'cms-astro-ai-agents-styles';
 const defaultInferenceUrl = 'https://r1.datalayer.run';
@@ -175,6 +181,8 @@ type MountOptions = {
   apiUrl: string;
   siteId: string;
   siteName: string;
+  appearanceTheme?: string;
+  colorMode?: string;
   element: HTMLElement;
   inferenceUrl?: string;
 };
@@ -215,8 +223,21 @@ function ensureStylesheet(documentRoot: Document = document) {
 
 function preserveStylesheetForAstroSwap(event: Event) {
   const nextDocument = (event as Event & { newDocument?: Document }).newDocument;
-  if (!nextDocument || nextDocument.querySelector(`link[${stylesheetMarker}]`)) return;
-  nextDocument.head.append(ensureStylesheet().cloneNode(true));
+  if (!nextDocument) return;
+  if (!nextDocument.querySelector(`link[${stylesheetMarker}]`)) {
+    nextDocument.head.append(ensureStylesheet().cloneNode(true));
+  }
+
+  // ChatFloating's launcher is a body portal styled by styled-components.
+  // Astro swaps the document head during client navigation, which otherwise
+  // removes these runtime rules while the persisted React root still believes
+  // they are installed. Copy the active sheets into the incoming document.
+  nextDocument.querySelectorAll(`style[${runtimeStylesMarker}]`).forEach(style => style.remove());
+  document.head.querySelectorAll<HTMLStyleElement>('style[data-styled]').forEach(style => {
+    const clone = style.cloneNode(true) as HTMLStyleElement;
+    clone.setAttribute(runtimeStylesMarker, '');
+    nextDocument.head.append(clone);
+  });
 }
 
 function installStylesheetLifecycle() {
@@ -269,7 +290,13 @@ function AgentLauncherFallback() {
   return <AgentLauncherButton label="Loading the AI authoring assistant" disabled />;
 }
 
-function PublicSiteAgent({ apiUrl, siteId, siteName }: Omit<MountOptions, 'element'>) {
+function PublicSiteAgent({
+  apiUrl,
+  siteId,
+  siteName,
+  appearanceTheme = 'datalayer',
+  colorMode = 'auto',
+}: Omit<MountOptions, 'element'>) {
   const [session, setSession] = useState<CmsSiteSession>();
   const [sessionChecked, setSessionChecked] = useState(false);
   useEffect(() => {
@@ -329,9 +356,22 @@ function PublicSiteAgent({ apiUrl, siteId, siteName }: Omit<MountOptions, 'eleme
     };
   }, [apiUrl, siteId]);
   if (!sessionChecked) return <AgentLauncherFallback />;
+  const siteTheme: ThemeVariant = themeVariants.includes(appearanceTheme as ThemeVariant)
+    ? (appearanceTheme as ThemeVariant)
+    : 'datalayer';
+  const siteColorMode: ColorMode = ['light', 'dark', 'auto'].includes(colorMode)
+    ? (colorMode as ColorMode)
+    : 'auto';
   return (
     <Suspense fallback={<AgentLauncherFallback />}>
-      <AgentRuntime apiUrl={apiUrl} siteId={siteId} siteName={siteName} session={session} />
+      <AgentRuntime
+        apiUrl={apiUrl}
+        siteId={siteId}
+        siteName={siteName}
+        appearanceTheme={siteTheme}
+        colorMode={siteColorMode}
+        session={session}
+      />
     </Suspense>
   );
 }
@@ -343,6 +383,8 @@ export function mountPublicSiteExtension({
   apiUrl,
   siteId,
   siteName,
+  appearanceTheme,
+  colorMode,
   element,
   inferenceUrl,
 }: MountOptions) {
@@ -351,11 +393,27 @@ export function mountPublicSiteExtension({
   mounted.get(element)?.unmount();
   const root = createRoot(element);
   mounted.set(element, root);
-  root.render(<PublicSiteAgent apiUrl={apiUrl} siteId={siteId} siteName={siteName} />);
+  root.render(
+    <PublicSiteAgent
+      apiUrl={apiUrl}
+      siteId={siteId}
+      siteName={siteName}
+      appearanceTheme={appearanceTheme}
+      colorMode={colorMode}
+    />,
+  );
   return () => {
     if (mounted.get(element) === root) mounted.delete(element);
     root.unmount();
   };
+}
+
+/**
+ * Recreate body portals removed by an Astro view transition while retaining
+ * the persisted generic extension host.
+ */
+export function remountPublicSiteExtension(options: MountOptions) {
+  return mountPublicSiteExtension(options);
 }
 
 export default plugin;

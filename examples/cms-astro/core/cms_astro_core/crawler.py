@@ -223,7 +223,7 @@ class PageParser(HTMLParser):
         if tag == "title":
             self._in_title = True
         if tag == "meta":
-            key = (values.get("name") or values.get("property")).lower()
+            key = (values.get("name") or values.get("property") or "").lower()
             if key in {"description", "og:description"} and not self.description:
                 self.description = values.get("content", "").strip()
         if tag == "link":

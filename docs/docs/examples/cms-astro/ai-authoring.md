@@ -28,7 +28,7 @@ Python API's `viewer`, `author`, `editor`, and `admin` checks.
 The source of truth is
 `agent-runtimes/agentspecs/agentspecs/agents/worker-cms-astro.yaml`. It owns the
 model, system prompt, welcome message, and suggestions, including an opener for
-`https://openteams.com/blog`. After editing it, regenerate both language
+`https://openteams.com/feed/`. After editing it, regenerate both language
 catalogues from the top of `agent-runtimes`:
 
 ```bash
@@ -40,20 +40,27 @@ not repeat the model identifier in application code.
 
 ## Frontend tools
 
-The AI Agents plugin contributes one `AgentTools` bundle with four commands:
+The AI Agents plugin contributes one `AgentTools` bundle with eleven commands:
 
 | Tool | Effect |
 | --- | --- |
 | `cms_crawl_blog` | Follows same-origin content links from any public blog index |
+| `cms_crawl_feed` | Reads RSS or Atom metadata and extracts the full linked article pages |
 | `cms_crawl_wordpress` | Discovers `https://api.w.org/` metadata and reads `wp/v2/posts?_embed=1` |
 | `cms_create_site_page` | Creates a post or page as a draft, optionally publishing it |
+| `cms_list_site_pages` | Lists entries with optional collection and status filters |
+| `cms_read_site_page` | Reads an exact entry by ID or slug before an update |
+| `cms_get_current_site_page` | Resolves and reads the CMS page currently shown in the browser |
 | `cms_update_site_page` | Updates an exact entry ID or current slug, optionally publishing it |
+| `cms_publish_site_page` | Publishes an existing draft |
+| `cms_show_site_page` | Opens a published page in its Astro website view |
+| `cms_refresh_site_view` | Refreshes the current server-rendered view while preserving the chat |
 
-The agent spec intentionally leaves `frontend_tools: []`: following the
-[Reactor agent-tools contract](/agent-tools/), a plugin declares its own
-capabilities and a host supplies their live handlers. The browser protocol
-receives those handlers directly so tool calls run on the page the author is
-viewing.
+The worker intentionally leaves `frontend_tools: []`. Following the
+[Reactor agent-tools contract](/agent-tools/), the AI Agents plugin owns the
+tool contract and contributes matching live handlers that the host binds to
+the authenticated site. This avoids maintaining a duplicate frontend-tool
+agentspec while still letting calls run on the page the author is viewing.
 
 The crawl handlers call authenticated FastAPI endpoints instead of fetching
 third-party pages from the browser, where CORS would make general crawling

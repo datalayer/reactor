@@ -136,7 +136,7 @@ def test_feed_crawl_is_authenticated(tmp_path: Path, monkeypatch) -> None:
 def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
     page, links, wordpress = parse_page(
         """
-        <html><head><title>Example Blog</title>
+        <html><head><meta charset="utf-8"><title>Example Blog</title>
         <meta name="description" content="Useful stories">
         <link rel="https://api.w.org/" href="/wp-json/"></head>
         <body><nav>Navigation noise</nav><main><h1>Story</h1><p>Readable body.</p></main>

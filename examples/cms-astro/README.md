@@ -135,6 +135,7 @@ boundary to a real x402 facilitator.
 | `DELETE /api/cms/sites/{site}/users/{user}` | Remove site access and orphaned accounts |
 | `GET/POST /api/cms/sites/{site}/entries` | Editorial content management |
 | `POST /api/cms/sites/{site}/crawl/blog` | Extract pages linked by a public blog index |
+| `POST /api/cms/sites/{site}/crawl/feed` | Read RSS/Atom metadata and extract the linked article pages |
 | `POST /api/cms/sites/{site}/crawl/wordpress` | Discover and read a public WordPress REST feed |
 | `PATCH /api/cms/sites/{site}/entries/by-slug/{slug}` | Update an exact entry without listing private content |
 | `POST /api/cms/sites/{site}/entries/{id}/publish` | Publish with a revision |

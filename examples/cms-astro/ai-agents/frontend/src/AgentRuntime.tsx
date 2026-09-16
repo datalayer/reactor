@@ -6,7 +6,12 @@
 
 import { useMemo } from 'react';
 import { Flash } from '@primer/react';
-import { ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
+import {
+  DatalayerThemeProvider,
+  themeConfigs,
+  type ColorMode,
+  type ThemeVariant,
+} from '@datalayer/primer-addons';
 import { AnonymousKeyTimer } from '@datalayer/core/lib/components/anonymous/AnonymousKeyTimer';
 import { ChatFloating } from '@datalayer/agent-runtimes/lib/chat/ChatFloating.js';
 import { useBrowserInference } from '@datalayer/agent-runtimes/lib/hooks/useBrowserInference.js';
@@ -18,6 +23,8 @@ type Props = {
   apiUrl: string;
   siteId: string;
   siteName: string;
+  appearanceTheme: ThemeVariant;
+  colorMode: ColorMode;
   session?: CmsSiteSession;
 };
 
@@ -117,9 +124,14 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
 }
 
 export default function AgentRuntime(props: Props) {
+  const config = themeConfigs[props.appearanceTheme];
   return (
-    <ThemedProvider useStore={useThemeStore}>
+    <DatalayerThemeProvider
+      colorMode={props.colorMode}
+      theme={config.primerTheme}
+      themeStyles={config.themeStyles}
+    >
       <Runtime {...props} />
-    </ThemedProvider>
+    </DatalayerThemeProvider>
   );
 }
