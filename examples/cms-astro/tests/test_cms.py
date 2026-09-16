@@ -16,7 +16,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "core"))
 
 from cms_astro_core.host import create_app
-from cms_astro_core.crawler import fetch_url, parse_page
+from cms_astro_core.crawler import crawl_feed, fetch_url, parse_page
 from cms_astro_core.seed import seed_database
 from cms_astro_core.store import Store
 
@@ -102,6 +102,37 @@ def test_blog_crawl_is_authenticated_and_returns_public_pages(tmp_path: Path, mo
     assert response.json()["limit"] == 3
 
 
+def test_feed_crawl_is_authenticated(tmp_path: Path, monkeypatch) -> None:
+    from cms_astro_core import api as cms_api
+
+    monkeypatch.setattr(
+        cms_api,
+        "crawl_feed",
+        lambda url, limit: {
+            "source": url,
+            "kind": "feed",
+            "pages": [{"title": "Feed story", "slug": "feed-story"}],
+            "errors": [],
+            "limit": limit,
+        },
+    )
+    api = TestClient(create_app(database=tmp_path / "feed.sqlite3", discover=False))
+    assert api.post(
+        "/api/cms/sites/site-main/crawl/feed",
+        json={"url": "https://example.test/feed/"},
+    ).status_code == 401
+    login = api.post(
+        "/api/cms/auth/login", json={"username": "user1", "password": "user1"}
+    ).json()
+    response = api.post(
+        "/api/cms/sites/site-main/crawl/feed",
+        headers={"Authorization": f"Bearer {login['token']}"},
+        json={"url": "https://example.test/feed/", "limit": 3},
+    )
+    assert response.status_code == 200
+    assert response.json()["pages"][0]["slug"] == "feed-story"
+
+
 def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
     page, links, wordpress = parse_page(
         """
@@ -118,6 +149,40 @@ def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
     assert "Navigation noise" not in page["body"]
     assert links == ["/blog/story"]
     assert wordpress == "https://example.test/wp-json/"
+
+
+def test_feed_crawler_reads_rss_metadata_and_linked_page_content(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    feed = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <channel><title>Example Journal</title><link>https://example.test/</link>
+        <description>Useful stories</description><item>
+          <title>A feed story</title><link>https://example.test/feed-story/</link>
+          <description><![CDATA[A concise summary.]]></description>
+          <dc:creator>Example Author</dc:creator><category>Engineering</category>
+          <pubDate>Wed, 02 Sep 2026 01:29:09 +0000</pubDate>
+          <guid>story-42</guid>
+        </item></channel>
+    </rss>"""
+    article = """<html><head><title>A feed story</title></head><body><main>
+      <h1>A feed story</h1><p>This is the complete linked article body with
+      enough useful content for the crawler to prefer it over the summary.</p>
+    </main></body></html>"""
+
+    def fake_fetch(url: str, **_kwargs):
+        if url.endswith("/feed/"):
+            return url, "application/rss+xml", feed
+        return url, "text/html", article
+
+    monkeypatch.setattr(crawler, "fetch_url", fake_fetch)
+    result = crawl_feed("https://example.test/feed/", limit=1)
+    assert result["kind"] == "feed"
+    assert result["feed"]["title"] == "Example Journal"
+    assert result["pages"][0]["slug"] == "feed-story"
+    assert result["pages"][0]["author"] == "Example Author"
+    assert result["pages"][0]["categories"] == ["Engineering"]
+    assert "complete linked article body" in result["pages"][0]["body"]
 
 
 def test_crawler_pins_the_validated_dns_address(monkeypatch) -> None:
@@ -238,6 +303,39 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
         },
     )
     assert duplicate.status_code == 201
+    read_by_slug = api.get(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=posts",
+        headers={"X-CMS-User": "u-user2"},
+    )
+    assert read_by_slug.status_code == 200
+    assert read_by_slug.json()["id"] == "entry-design-systems"
+    assert read_by_slug.json()["collection"] == "posts"
+    read_by_id = api.get(
+        "/api/cms/sites/site-main/entries/entry-design-systems",
+        headers={"X-CMS-User": "u-user2"},
+    )
+    assert read_by_id.status_code == 200
+    assert read_by_id.json()["slug"] == "design-systems-that-travel"
+    lexical_entry = api.post(
+        "/api/cms/sites/site-main/entries",
+        headers={"X-CMS-User": "u-user1"},
+        json={
+            "collection": "posts",
+            "title": "Lexical draft",
+            "body": "Old text",
+            "data": {"source_url": "https://example.test", "lexical": "serialized"},
+        },
+    ).json()
+    assert api.patch(
+        f"/api/cms/sites/site-main/entries/{lexical_entry['id']}",
+        headers={"X-CMS-User": "u-user1"},
+        json={"body": "Updated by the agent"},
+    ).status_code == 200
+    updated_lexical_entry = api.get(
+        f"/api/cms/sites/site-main/entries/{lexical_entry['id']}",
+        headers={"X-CMS-User": "u-user1"},
+    ).json()
+    assert updated_lexical_entry["data"] == {"source_url": "https://example.test"}
     by_slug = api.patch(
         "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=posts",
         headers={"X-CMS-User": "u-user1"},

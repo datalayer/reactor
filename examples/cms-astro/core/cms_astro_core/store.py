@@ -365,6 +365,10 @@ class Store:
             db.execute("INSERT INTO revisions(entry_id,author_id,snapshot,created_at) VALUES(?,?,?,?)", (entry_id, user_id, json.dumps(dict(current)), now()))
             allowed = {"title", "slug", "excerpt", "body", "data", "status", "publish_at"}
             changes = {k: v for k, v in payload.items() if k in allowed}
+            if "body" in changes and "data" not in changes:
+                data = json.loads(current["data"])
+                data.pop("lexical", None)
+                changes["data"] = data
             if "data" in changes:
                 changes["data"] = json.dumps(changes["data"])
             if not changes:

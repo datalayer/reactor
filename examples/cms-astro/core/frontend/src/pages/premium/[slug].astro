@@ -27,7 +27,7 @@ const serverHtml = renderLexicalHtml(lexical, post.body);
   <article>
     <header class="article-header"><h1>{post.title}</h1><p>{post.excerpt}</p></header>
     <div class="article-body">
-      <PublishedContent body={post.body} {lexical} {serverHtml} client:load />
+      <PublishedContent body={post.body} {lexical} {serverHtml} />
     </div>
   </article>
 </Base>

@@ -31,17 +31,28 @@ CMS_AI_AGENT_TOOLS = {
     "plugin": "@cms-astro/ai-agents",
     "toolset": [
         "cms_crawl_blog",
+        "cms_crawl_feed",
         "cms_crawl_wordpress",
         "cms_create_site_page",
+        "cms_list_site_pages",
+        "cms_read_site_page",
+        "cms_get_current_site_page",
         "cms_update_site_page",
         "cms_publish_site_page",
         "cms_show_site_page",
+        "cms_refresh_site_view",
     ],
     "commands": [
         {
             "name": "cms_crawl_blog",
             "command": "cmsAstroAi.crawlBlog",
             "description": "Crawl pages linked from a public blog index.",
+            "parameters": CRAWL_PARAMETERS,
+        },
+        {
+            "name": "cms_crawl_feed",
+            "command": "cmsAstroAi.crawlFeed",
+            "description": "Read an RSS or Atom feed and crawl its linked article pages.",
             "parameters": CRAWL_PARAMETERS,
         },
         {
@@ -67,6 +78,51 @@ CMS_AI_AGENT_TOOLS = {
                 },
                 "required": ["collection", "title", "body"],
             },
+        },
+        {
+            "name": "cms_list_site_pages",
+            "command": "cmsAstroAi.listSitePages",
+            "description": (
+                "List posts and standalone pages in the current site with "
+                "optional collection and status filters."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "collection": {"type": "string", "enum": ["posts", "pages"]},
+                    "status": {"type": "string", "enum": ["draft", "published"]},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                },
+            },
+        },
+        {
+            "name": "cms_read_site_page",
+            "command": "cmsAstroAi.readSitePage",
+            "description": (
+                "Read one CMS post or page by stable entry ID or by exact "
+                "slug and collection before updating it."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entry_id": {"type": "string"},
+                    "slug": {"type": "string"},
+                    "collection": {"type": "string", "enum": ["posts", "pages"]},
+                },
+                "anyOf": [
+                    {"required": ["entry_id"]},
+                    {"required": ["slug", "collection"]},
+                ],
+            },
+        },
+        {
+            "name": "cms_get_current_site_page",
+            "command": "cmsAstroAi.getCurrentSitePage",
+            "description": (
+                "Get the CMS source content and slug for the page currently "
+                "displayed in the browser."
+            ),
+            "parameters": {"type": "object", "properties": {}},
         },
         {
             "name": "cms_update_site_page",
@@ -121,6 +177,15 @@ CMS_AI_AGENT_TOOLS = {
                 },
                 "required": ["slug", "collection"],
             },
+        },
+        {
+            "name": "cms_refresh_site_view",
+            "command": "cmsAstroAi.refreshSiteView",
+            "description": (
+                "Refresh the currently displayed Astro page in place while "
+                "preserving the browser tab and chat."
+            ),
+            "parameters": {"type": "object", "properties": {}},
         },
     ],
 }

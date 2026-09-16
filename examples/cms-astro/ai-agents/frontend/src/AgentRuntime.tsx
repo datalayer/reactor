@@ -36,16 +36,23 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
     () => (session ? createCmsAgentTools({ apiUrl, siteId, session }) : []),
     [apiUrl, session, siteId],
   );
+  const instructions = useMemo(
+    () =>
+      session
+        ? spec.systemPrompt
+        : `${spec.systemPrompt}\n\nCMS frontend tools are unavailable because the visitor is not signed in to this site. Do not claim to call them and do not emit tool-call markup. Ask the visitor to sign in before reading or changing CMS content.`,
+    [session],
+  );
   const protocol = useMemo(
     () =>
       browserProtocolConfig({
         agentId: spec.id,
-        instructions: spec.systemPrompt,
+        instructions,
         model: spec.model,
         frontendTools: tools,
         inference,
       }),
-    [inference, tools],
+    [inference, instructions, tools],
   );
   const suggestions = useMemo(
     () =>

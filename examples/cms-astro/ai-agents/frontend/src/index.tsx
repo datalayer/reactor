@@ -13,6 +13,8 @@ import type { CmsSiteSession } from './tools';
 const AgentRuntime = lazy(() => import('./AgentRuntime'));
 const cmsAuthChannel = 'cms-astro-auth';
 const stylesheetMarker = 'data-cms-astro-ai-agents-styles';
+const astroPersistAttribute = 'data-astro-transition-persist';
+const stylesheetPersistId = 'cms-astro-ai-agents-styles';
 const defaultInferenceUrl = 'https://r1.datalayer.run';
 const crawlParameters = {
   type: 'object',
@@ -34,6 +36,12 @@ const tools = defineAgentTools({
       name: 'cms_crawl_blog',
       command: 'cmsAstroAi.crawlBlog',
       description: 'Crawl pages linked from a public blog index.',
+      parameters: crawlParameters,
+    },
+    {
+      name: 'cms_crawl_feed',
+      command: 'cmsAstroAi.crawlFeed',
+      description: 'Read an RSS or Atom feed and crawl its linked article pages.',
       parameters: crawlParameters,
     },
     {
@@ -59,6 +67,41 @@ const tools = defineAgentTools({
         },
         required: ['collection', 'title', 'body'],
       },
+    },
+    {
+      name: 'cms_list_site_pages',
+      command: 'cmsAstroAi.listSitePages',
+      description:
+        'List posts and standalone pages in the current site with optional collection and status filters.',
+      parameters: {
+        type: 'object',
+        properties: {
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+          status: { type: 'string', enum: ['draft', 'published'] },
+          limit: { type: 'integer', minimum: 1, maximum: 100 },
+        },
+      },
+    },
+    {
+      name: 'cms_read_site_page',
+      command: 'cmsAstroAi.readSitePage',
+      description:
+        'Read one CMS post or page by stable entry ID or by exact slug and collection before updating it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        anyOf: [{ required: ['entry_id'] }, { required: ['slug', 'collection'] }],
+      },
+    },
+    {
+      name: 'cms_get_current_site_page',
+      command: 'cmsAstroAi.getCurrentSitePage',
+      description: 'Get the CMS source content and slug for the page currently displayed in the browser.',
+      parameters: { type: 'object', properties: {} },
     },
     {
       name: 'cms_update_site_page',
@@ -108,6 +151,13 @@ const tools = defineAgentTools({
         required: ['slug', 'collection'],
       },
     },
+    {
+      name: 'cms_refresh_site_view',
+      command: 'cmsAstroAi.refreshSiteView',
+      description:
+        'Refresh the currently displayed Astro page in place while preserving the browser tab and chat.',
+      parameters: { type: 'object', properties: {} },
+    },
   ],
 });
 
@@ -148,13 +198,33 @@ function storedSession(): CmsSiteSession | undefined {
   }
 }
 
-function ensureStylesheet() {
-  if (document.querySelector(`link[${stylesheetMarker}]`)) return;
-  const stylesheet = document.createElement('link');
-  stylesheet.rel = 'stylesheet';
-  stylesheet.href = new URL('./cms-astro-ai-agents.css', import.meta.url).href;
-  stylesheet.setAttribute(stylesheetMarker, '');
-  document.head.append(stylesheet);
+let stylesheetLifecycleInstalled = false;
+
+function ensureStylesheet(documentRoot: Document = document) {
+  let stylesheet = documentRoot.querySelector<HTMLLinkElement>(`link[${stylesheetMarker}]`);
+  if (!stylesheet) {
+    stylesheet = documentRoot.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = new URL('./cms-astro-ai-agents.css', import.meta.url).href;
+    stylesheet.setAttribute(stylesheetMarker, '');
+    documentRoot.head.append(stylesheet);
+  }
+  stylesheet.setAttribute(astroPersistAttribute, stylesheetPersistId);
+  return stylesheet;
+}
+
+function preserveStylesheetForAstroSwap(event: Event) {
+  const nextDocument = (event as Event & { newDocument?: Document }).newDocument;
+  if (!nextDocument || nextDocument.querySelector(`link[${stylesheetMarker}]`)) return;
+  nextDocument.head.append(ensureStylesheet().cloneNode(true));
+}
+
+function installStylesheetLifecycle() {
+  ensureStylesheet();
+  if (stylesheetLifecycleInstalled) return;
+  stylesheetLifecycleInstalled = true;
+  document.addEventListener('astro:before-swap', preserveStylesheetForAstroSwap);
+  document.addEventListener('astro:after-swap', () => ensureStylesheet());
 }
 
 function AgentLauncherButton({
@@ -276,7 +346,7 @@ export function mountPublicSiteExtension({
   element,
   inferenceUrl,
 }: MountOptions) {
-  ensureStylesheet();
+  installStylesheetLifecycle();
   configureInference(inferenceUrl);
   mounted.get(element)?.unmount();
   const root = createRoot(element);

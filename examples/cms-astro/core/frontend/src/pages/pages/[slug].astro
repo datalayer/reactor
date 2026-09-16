@@ -32,7 +32,7 @@ const serverHtml = renderLexicalHtml(lexical, page.body);
       {page.excerpt && <p>{page.excerpt}</p>}
     </header>
     <div class="article-body">
-      <PublishedContent body={page.body} {lexical} {serverHtml} client:load />
+      <PublishedContent body={page.body} {lexical} {serverHtml} />
     </div>
   </article>
 </Base>

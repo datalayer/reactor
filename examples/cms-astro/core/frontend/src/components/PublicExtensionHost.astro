@@ -16,6 +16,7 @@ const { apiUrl, siteId, siteName } = Astro.props;
 
 <div
   id="cms-public-extensions"
+  transition:persist="cms-public-extensions"
   data-api-url={apiUrl}
   data-site-id={siteId}
   data-site-name={siteName}
@@ -32,8 +33,15 @@ const { apiUrl, siteId, siteName } = Astro.props;
     }) => void | (() => void);
   };
 
-  const element = document.querySelector<HTMLElement>('#cms-public-extensions');
-  if (element) {
+  const mountPublicExtensions = (retry = false) => {
+    const element = document.querySelector<HTMLElement>('#cms-public-extensions');
+    if (!element || element.dataset.extensionState === 'loading') return;
+
+    // A persisted host can outlive one of its mounted children during an Astro
+    // view transition. Reconcile the catalog on every page load instead of
+    // treating the old `mounted` marker as proof that every extension remains.
+    if (!retry) element.dataset.extensionAttempts = '0';
+    element.dataset.extensionState = 'loading';
     const apiUrl = element.dataset.apiUrl ?? '';
     const siteId = element.dataset.siteId ?? '';
     const siteName = element.dataset.siteName ?? '';
@@ -43,22 +51,62 @@ const { apiUrl, siteId, siteName } = Astro.props;
         return response.json() as Promise<PublicExtensionRecord[]>;
       })
       .then(records =>
-        Promise.allSettled(
+        Promise.all(
           records.filter(record => record.publicEntry).map(async record => {
+            let mount: HTMLElement | undefined;
             try {
+              const existing = Array.from(element.children).find(
+                child => child instanceof HTMLElement && child.dataset.extension === record.name,
+              );
+              if (existing) return true;
               const entry = new URL(record.publicEntry!, `${apiUrl}/`).href;
               const extension = (await import(/* @vite-ignore */ entry)) as PublicExtensionModule;
-              if (!extension.mountPublicSiteExtension) return;
-              const mount = document.createElement('div');
+              if (!extension.mountPublicSiteExtension) return true;
+              mount = document.createElement('div');
               mount.dataset.extension = record.name;
               element.append(mount);
               extension.mountPublicSiteExtension({ apiUrl, siteId, siteName, element: mount });
+              return true;
             } catch (error) {
+              mount?.remove();
               console.error(`[cms-astro] could not mount public extension ${record.name}:`, error);
+              return false;
             }
           }),
         ),
       )
-      .catch(error => console.warn('[cms-astro] could not load public extensions:', error));
-  }
+      .then(results => {
+        if (!element.isConnected) {
+          mountPublicExtensions();
+          return;
+        }
+
+        const complete = results.every(Boolean);
+        element.dataset.extensionState = complete ? 'mounted' : 'retry';
+        if (!complete) {
+          const attempts = Number(element.dataset.extensionAttempts ?? '0') + 1;
+          element.dataset.extensionAttempts = String(attempts);
+          if (attempts < 3) {
+            window.setTimeout(() => mountPublicExtensions(true), 500);
+          }
+        }
+      })
+      .catch(error => {
+        if (!element.isConnected) {
+          mountPublicExtensions();
+          return;
+        }
+
+        element.dataset.extensionState = 'retry';
+        console.warn('[cms-astro] could not load public extensions:', error);
+        const attempts = Number(element.dataset.extensionAttempts ?? '0') + 1;
+        element.dataset.extensionAttempts = String(attempts);
+        if (attempts < 3) {
+          window.setTimeout(() => mountPublicExtensions(true), 500);
+        }
+      });
+  };
+
+  mountPublicExtensions();
+  document.addEventListener('astro:page-load', () => mountPublicExtensions());
 </script>

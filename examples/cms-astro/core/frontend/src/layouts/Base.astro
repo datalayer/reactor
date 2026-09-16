@@ -7,6 +7,7 @@
 ---
 import type { Bootstrap } from '../lib/cms';
 import PublicExtensionHost from '../components/PublicExtensionHost.astro';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props { bootstrap: Bootstrap; title?: string; description?: string }
 const { bootstrap, title = bootstrap.site.name, description = bootstrap.site.tagline } = Astro.props;
@@ -48,6 +49,7 @@ const appearanceCss = `:root[data-color-mode='light']{color-scheme:light;${decla
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <ClientRouter fallback="swap" />
     <style is:inline set:html={appearanceCss}></style>
   </head>
   <body>
@@ -75,6 +77,60 @@ const appearanceCss = `:root[data-color-mode='light']{color-scheme:light;${decla
     />
   </body>
 </html>
+<script>
+  const refreshEvent = 'cms-astro:refresh-view';
+  const refreshedEvent = 'cms-astro:view-refreshed';
+  const refreshWindow = window as Window & { __cmsAstroRefreshViewInstalled?: boolean };
+  const documentThemeAttributes = [
+    'lang',
+    'data-site-theme',
+    'data-color-mode',
+    'data-light-theme',
+    'data-dark-theme',
+  ];
+
+  if (!refreshWindow.__cmsAstroRefreshViewInstalled) {
+    refreshWindow.__cmsAstroRefreshViewInstalled = true;
+    document.addEventListener(refreshEvent, event => {
+      const requestId = (event as CustomEvent<{ requestId?: string }>).detail?.requestId;
+      void fetch(window.location.href, {
+        cache: 'no-store',
+        headers: { Accept: 'text/html' },
+      })
+        .then(async response => {
+          if (!response.ok) throw new Error(`Website refresh failed with HTTP ${response.status}`);
+          const nextDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+          const currentMain = document.querySelector('main');
+          const nextMain = nextDocument.querySelector('main');
+          if (!currentMain || !nextMain) throw new Error('Website refresh response has no content');
+
+          currentMain.replaceWith(document.importNode(nextMain, true));
+          document.title = nextDocument.title;
+          for (const attribute of documentThemeAttributes) {
+            const value = nextDocument.documentElement.getAttribute(attribute);
+            if (value === null) document.documentElement.removeAttribute(attribute);
+            else document.documentElement.setAttribute(attribute, value);
+          }
+          document.dispatchEvent(
+            new CustomEvent(refreshedEvent, {
+              detail: { requestId, url: window.location.href },
+            }),
+          );
+        })
+        .catch(error => {
+          document.dispatchEvent(
+            new CustomEvent(refreshedEvent, {
+              detail: {
+                requestId,
+                url: window.location.href,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            }),
+          );
+        });
+    });
+  }
+</script>
 <style is:global>
   :root{--font:var(--fontStack-sansSerif);--display:var(--fontStack-sansSerifDisplay,var(--fontStack-sansSerif))}
   *{box-sizing:border-box}html{background:var(--bgColor-default)}body{margin:0;min-height:100vh;font-family:var(--font);color:var(--fgColor-default);background:radial-gradient(circle at 85% 0,color-mix(in srgb,var(--bgColor-accent-emphasis) 9%,transparent),transparent 32rem),var(--bgColor-default)}

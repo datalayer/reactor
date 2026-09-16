@@ -14,6 +14,7 @@ import re
 import socket
 import ssl
 import time
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import (
@@ -361,6 +362,152 @@ def _plain_text(markup: str) -> str:
     parser.feed(markup)
     parser.finish()
     return html.unescape(parser.text)
+
+
+def _local_name(tag: str) -> str:
+    """Return an XML element name without its RSS/Atom namespace."""
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _xml_child(element: ET.Element, *names: str) -> ET.Element | None:
+    wanted = {name.lower() for name in names}
+    return next(
+        (child for child in element if _local_name(child.tag) in wanted),
+        None,
+    )
+
+
+def _xml_value(element: ET.Element, *names: str) -> str:
+    child = _xml_child(element, *names)
+    return "" if child is None else "".join(child.itertext()).strip()
+
+
+def _feed_link(element: ET.Element, base_url: str) -> str:
+    """Read either an RSS text link or an Atom href link."""
+    links = [child for child in element if _local_name(child.tag) == "link"]
+    for link in links:
+        href = link.attrib.get("href", "").strip()
+        rel = link.attrib.get("rel", "alternate").lower()
+        if href and rel in {"", "alternate"}:
+            return urljoin(base_url, href)
+    for link in links:
+        value = "".join(link.itertext()).strip()
+        if value:
+            return urljoin(base_url, value)
+    return ""
+
+
+def _parse_feed(source: str, feed_url: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Parse bounded RSS 2.0 or Atom XML without loading external entities."""
+    try:
+        root = ET.fromstring(source)
+    except ET.ParseError as error:
+        raise ValueError("the feed returned invalid XML") from error
+
+    kind = _local_name(root.tag)
+    if kind == "rss":
+        container = _xml_child(root, "channel")
+        entries = [] if container is None else [
+            child for child in container if _local_name(child.tag) == "item"
+        ]
+    elif kind == "feed":
+        container = root
+        entries = [child for child in root if _local_name(child.tag) == "entry"]
+    else:
+        raise ValueError("the URL did not return an RSS or Atom feed")
+    if container is None:
+        raise ValueError("the RSS feed has no channel")
+
+    feed = {
+        "title": _xml_value(container, "title"),
+        "description": _plain_text(_xml_value(container, "description", "subtitle")),
+        "url": _feed_link(container, feed_url) or feed_url,
+    }
+    pages: list[dict[str, Any]] = []
+    for entry in entries:
+        link = _feed_link(entry, feed_url)
+        if not link:
+            continue
+        title = html.unescape(_xml_value(entry, "title"))
+        summary_markup = _xml_value(entry, "description", "summary")
+        content_markup = _xml_value(entry, "encoded", "content") or summary_markup
+        path = urlparse(link).path.rstrip("/")
+        pages.append(
+            {
+                "url": link,
+                "slug": path.rsplit("/", 1)[-1] or "home",
+                "title": _plain_text(title) or "Untitled",
+                "excerpt": _plain_text(summary_markup),
+                "body": _plain_text(content_markup)[:MAX_PAGE_TEXT],
+                "published_at": _xml_value(entry, "pubdate", "published", "updated") or None,
+                "author": _plain_text(_xml_value(entry, "creator", "author")) or None,
+                "categories": [
+                    html.unescape("".join(child.itertext()).strip())
+                    for child in entry
+                    if _local_name(child.tag) == "category"
+                    and "".join(child.itertext()).strip()
+                ],
+                "source_id": _xml_value(entry, "guid", "id") or None,
+            }
+        )
+    if not pages:
+        raise ValueError("the feed contains no linked entries")
+    return feed, pages
+
+
+def crawl_feed(url: str, limit: int = 12) -> dict[str, Any]:
+    """Discover RSS/Atom entries and extract full content from their linked pages."""
+    deadline = time.monotonic() + CRAWL_TIMEOUT_SECONDS
+    final_url, content_type, source = fetch_url(
+        url,
+        accept=(
+            "application/rss+xml,application/atom+xml,application/xml,text/xml,"
+            "application/xhtml+xml;q=0.8,text/html;q=0.8"
+        ),
+        deadline=deadline,
+    )
+    if content_type not in {
+        "application/rss+xml",
+        "application/atom+xml",
+        "application/xml",
+        "text/xml",
+        "text/html",
+        "application/xhtml+xml",
+    }:
+        raise ValueError("the feed URL did not return XML")
+    feed, discovered = _parse_feed(source, final_url)
+    pages: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+    for item in discovered[:limit]:
+        try:
+            page_url, page_type, markup = fetch_url(item["url"], deadline=deadline)
+            if page_type not in {"text/html", "application/xhtml+xml"}:
+                raise ValueError("the linked feed page did not return HTML")
+            page, _, _ = parse_page(markup, page_url)
+            pages.append(
+                {
+                    **item,
+                    "url": page["url"],
+                    "slug": page["slug"] or item["slug"],
+                    "title": item["title"] or page["title"],
+                    "excerpt": item["excerpt"] or page["excerpt"],
+                    "body": page["body"] if len(page["body"]) >= 80 else item["body"],
+                }
+            )
+        except ValueError as error:
+            # A feed item is still useful when its embedded content is available.
+            if item["body"]:
+                pages.append(item)
+            errors.append({"url": item["url"], "error": str(error)})
+            if time.monotonic() >= deadline:
+                break
+    return {
+        "source": final_url,
+        "kind": "feed",
+        "feed": feed,
+        "pages": pages,
+        "errors": errors,
+    }
 
 
 def crawl_wordpress(url: str, limit: int = 12) -> dict[str, Any]:

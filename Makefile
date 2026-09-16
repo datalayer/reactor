@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro cms-astro cms-astro-launch cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music deck example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-launch cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app music-install build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music deck example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -36,6 +36,7 @@ help:
 	@echo "  make cms-astro-x402-build Build the separately packaged x402 extension"
 	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
+	@echo "  make music-install     Install the music example Python packages"
 	@echo "  make music             Run the music example with a frontend dev server"
 	@echo "  make deck              Present the seven-slide Reactor overview"
 	@echo "  make frontend          Run the frontend-only React example"
@@ -227,6 +228,13 @@ music-app: build-js ## build the music store as one installable application
 	echo; \
 	echo "Built. Now run: datalayer-music-example"
 
+music-install: ## install the music example Python packages in editable mode
+	$(PIP) install -e examples/music/catalog-plugin \
+	               -e examples/music/checkout-plugin \
+	               -e examples/music/playlist-plugin \
+	               -e examples/music/mood-plugin \
+	               -e examples/music/backend
+
 music: build-js
 	@set -e; \
 	kill_port() { \
@@ -258,8 +266,6 @@ music: build-js
 	trap cleanup EXIT INT TERM; \
 	kill_port 8799; \
 	kill_port 5179; \
-	echo "[music] Installing Python backends..."; \
-	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin -e examples/music/playlist-plugin -e examples/music/mood-plugin -e examples/music/backend; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
 	$(PYTHON) -m $(UVICORN) datalayer_music_example.app:app --reload --port 8799 & \
 	PY_PID=$$!; \

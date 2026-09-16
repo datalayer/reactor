@@ -9,7 +9,6 @@ import { FormControl, SegmentedControl, Text } from '@primer/react';
 import {
   CheckCircleFillIcon,
   DeviceDesktopIcon,
-  LinkExternalIcon,
   MoonIcon,
   SunIcon,
 } from '@primer/octicons-react';
@@ -210,9 +209,6 @@ export function AppearanceSettings({
                     This is the current public homepage with the selected theme applied.
                   </Text>
                 </Box>
-                <a className="site-link" href={previewUrl} target="_blank" rel="opener">
-                  Open website <LinkExternalIcon />
-                </a>
               </Box>
               <Box className="website-preview-frame">
                 <Box className="website-preview-bar">

@@ -15,6 +15,19 @@ export type CmsSiteSession = {
 type ToolContext = { apiUrl: string; siteId: string; session: CmsSiteSession };
 type Collection = 'posts' | 'pages';
 type EntryResult = { id: string; slug: string; status: string };
+type CmsEntry = EntryResult & {
+  collection: Collection;
+  title: string;
+  excerpt: string;
+  body: string;
+  data?: Record<string, unknown>;
+  updated_at?: string;
+  published_at?: string;
+};
+type RefreshResult = { requestId?: string; url: string; error?: string };
+
+const refreshEvent = 'cms-astro:refresh-view';
+const refreshedEvent = 'cms-astro:view-refreshed';
 
 async function cmsRequest<T>(context: ToolContext, path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${context.apiUrl}${path}`, {
@@ -47,13 +60,97 @@ function result(entry: EntryResult, collection: Collection, message: string) {
   };
 }
 
-function crawlTool(context: ToolContext, kind: 'blog' | 'wordpress'): FrontendToolDefinition {
+function entryPath(
+  context: ToolContext,
+  values: { entry_id?: string; slug?: string; collection?: Collection },
+): string {
+  if (values.entry_id) {
+    return `/api/cms/sites/${context.siteId}/entries/${encodeURIComponent(values.entry_id)}`;
+  }
+  if (!values.slug || !values.collection) {
+    throw new Error('Provide entry_id, or provide both slug and collection.');
+  }
+  return `/api/cms/sites/${context.siteId}/entries/by-slug/${encodeURIComponent(values.slug)}?collection=${values.collection}`;
+}
+
+async function readEntry(
+  context: ToolContext,
+  values: { entry_id?: string; slug?: string; collection?: Collection },
+): Promise<CmsEntry> {
+  return cmsRequest<CmsEntry>(context, entryPath(context, values));
+}
+
+function readableEntry(entry: CmsEntry) {
   return {
-    name: kind === 'blog' ? 'cms_crawl_blog' : 'cms_crawl_wordpress',
-    description:
-      kind === 'blog'
-        ? 'Crawl content pages linked from a public blog index without changing the CMS.'
-        : 'Discover a public WordPress REST API and return its latest posts without changing the CMS.',
+    id: entry.id,
+    collection: entry.collection,
+    title: entry.title,
+    slug: entry.slug,
+    excerpt: entry.excerpt,
+    body: entry.body,
+    status: entry.status,
+    source_url: entry.data?.source_url,
+    content_format:
+      typeof entry.data?.lexical === 'string' ? 'lexical_with_plain_text_body' : 'markdown',
+    updated_at: entry.updated_at,
+    published_at: entry.published_at,
+    public_url: `/${entry.collection === 'posts' ? 'posts' : 'pages'}/${entry.slug}`,
+  };
+}
+
+function currentPageReference(): { collection: Collection; slug: string } {
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  if (segments.length !== 2 || !['posts', 'pages', 'premium'].includes(segments[0])) {
+    throw new Error('The current route is not an individual CMS post or page.');
+  }
+  return {
+    collection: segments[0] === 'pages' ? 'pages' : 'posts',
+    slug: decodeURIComponent(segments[1]),
+  };
+}
+
+function refreshCurrentView(): Promise<Record<string, unknown>> {
+  const requestId = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      document.removeEventListener(refreshedEvent, onRefreshed);
+      reject(new Error('This page does not support an in-place CMS refresh.'));
+    }, 15_000);
+    const onRefreshed = (event: Event) => {
+      const detail = (event as CustomEvent<RefreshResult>).detail;
+      if (detail?.requestId !== requestId) return;
+      window.clearTimeout(timeout);
+      document.removeEventListener(refreshedEvent, onRefreshed);
+      if (detail.error) {
+        reject(new Error(detail.error));
+        return;
+      }
+      resolve({
+        refreshed: true,
+        url: detail.url,
+        message: 'The current Astro view was refreshed without reloading the browser tab.',
+      });
+    };
+    document.addEventListener(refreshedEvent, onRefreshed);
+    document.dispatchEvent(new CustomEvent(refreshEvent, { detail: { requestId } }));
+  });
+}
+
+function crawlTool(context: ToolContext, kind: 'blog' | 'feed' | 'wordpress'): FrontendToolDefinition {
+  const names = {
+    blog: 'cms_crawl_blog',
+    feed: 'cms_crawl_feed',
+    wordpress: 'cms_crawl_wordpress',
+  } as const;
+  const descriptions = {
+    blog: 'Crawl content pages linked from a public blog index without changing the CMS.',
+    feed: 'Read an RSS or Atom feed and crawl its linked article pages without changing the CMS.',
+    wordpress:
+      'Discover a public WordPress REST API and return its latest posts without changing the CMS.',
+  } as const;
+  return {
+    name: names[kind],
+    description: descriptions[kind],
     parameters: {
       type: 'object',
       properties: {
@@ -75,6 +172,7 @@ function crawlTool(context: ToolContext, kind: 'blog' | 'wordpress'): FrontendTo
 export function createCmsAgentTools(context: ToolContext): FrontendToolDefinition[] {
   return [
     crawlTool(context, 'blog'),
+    crawlTool(context, 'feed'),
     crawlTool(context, 'wordpress'),
     {
       name: 'cms_create_site_page',
@@ -121,6 +219,65 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
           );
         }
         return result(entry, values.collection, values.publish ? 'Page created and published.' : 'Draft page created.');
+      },
+    },
+    {
+      name: 'cms_list_site_pages',
+      description:
+        'List posts and standalone pages in the current site, optionally filtered by collection or publication status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+          status: { type: 'string', enum: ['draft', 'published'] },
+          limit: { type: 'integer', minimum: 1, maximum: 100 },
+        },
+      },
+      handler: async args => {
+        const values = args as { collection?: Collection; status?: string; limit?: number };
+        const query = values.status ? `?status=${encodeURIComponent(values.status)}` : '';
+        const entries = await cmsRequest<CmsEntry[]>(
+          context,
+          `/api/cms/sites/${context.siteId}/entries${query}`,
+        );
+        const pages = entries
+          .filter(entry => !values.collection || entry.collection === values.collection)
+          .slice(0, values.limit ?? 50)
+          .map(entry => {
+            const { body: _body, ...summary } = readableEntry(entry);
+            return summary;
+          });
+        return { count: pages.length, pages };
+      },
+    },
+    {
+      name: 'cms_read_site_page',
+      description:
+        'Read one CMS post or page before updating it, using its stable entry ID or its exact slug and collection.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        anyOf: [{ required: ['entry_id'] }, { required: ['slug', 'collection'] }],
+      },
+      handler: async args => {
+        const values = args as { entry_id?: string; slug?: string; collection?: Collection };
+        const entry = await readEntry(context, values);
+        return readableEntry(entry);
+      },
+    },
+    {
+      name: 'cms_get_current_site_page',
+      description:
+        'Get the CMS source content and slug for the post or page currently displayed in the browser.',
+      parameters: { type: 'object', properties: {} },
+      handler: async () => {
+        const reference = currentPageReference();
+        const entry = await readEntry(context, reference);
+        return { ...readableEntry(entry), current_url: window.location.href };
       },
     },
     {
@@ -225,6 +382,13 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
             : 'The browser blocked the new tab; use public_url to open the page.',
         };
       },
+    },
+    {
+      name: 'cms_refresh_site_view',
+      description:
+        'Refresh the currently displayed Astro page in place after published content changes, preserving the open chat and browser tab.',
+      parameters: { type: 'object', properties: {} },
+      handler: refreshCurrentView,
     },
   ];
 }

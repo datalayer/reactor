@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections import defaultdict
 from dataclasses import asdict, replace
@@ -41,6 +42,29 @@ from .types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _frontend_asset_url(
+    base_url: str,
+    extension_name: str,
+    frontend: FrontendExtension,
+    asset: str,
+) -> str:
+    """Return a content-versioned URL for a frontend entry module.
+
+    Extension entries intentionally keep a stable filename (usually
+    ``index.js``), while their lazy chunks carry build hashes. Without a
+    version on the entry URL, a browser can reuse an entry from the previous
+    build and ask the current extension directory for chunks that no longer
+    exist. Hashing the small entry file keeps one build internally consistent
+    without coupling Reactor to Vite, Rsbuild, or any particular chunk name.
+    """
+    url = f"{base_url}/{extension_name}/{asset}"
+    resolved = frontend.resolve(asset)
+    if resolved is None:
+        return url
+    digest = hashlib.sha256(resolved.read_bytes()).hexdigest()[:12]
+    return f"{url}?v={digest}"
 
 
 class PluginPlatform:
@@ -910,7 +934,11 @@ class PluginPlatform:
                 if value
             }
             public = (
-                {"publicEntry": f"{base_url}/{name}/{frontend.public_entry}"}
+                {
+                    "publicEntry": _frontend_asset_url(
+                        base_url, name, frontend, frontend.public_entry
+                    )
+                }
                 if frontend.public_entry
                 else {}
             )
@@ -925,7 +953,9 @@ class PluginPlatform:
                     "apiVersion": frontend.api_version,
                     "kind": frontend.kind,
                     **container,
-                    "entry": f"{base_url}/{name}/{frontend.entry}",
+                    "entry": _frontend_asset_url(
+                        base_url, name, frontend, frontend.entry
+                    ),
                     **public,
                     "plugins": [plugin.to_dict() for plugin in frontend.plugins],
                     # What this extension's Python half brought, so a host can

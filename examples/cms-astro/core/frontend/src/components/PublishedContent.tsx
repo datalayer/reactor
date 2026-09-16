@@ -4,11 +4,8 @@
  * Datalayer License
  */
 
-import { lazy, Suspense, useEffect, useState } from 'react';
 import '@datalayer/jupyter-lexical/style/lexical/index.css';
 import 'katex/dist/katex.min.css';
-
-const PublishedLexicalEditor = lazy(() => import('./PublishedLexicalEditor'));
 
 export type PublishedContentProps = {
   body: string;
@@ -25,15 +22,7 @@ function ServerContent({ html }: { html: string }) {
   );
 }
 
-/** Render server HTML first, then enhance decorator nodes with Lexical. */
-export function PublishedContent({ body, lexical, serverHtml }: PublishedContentProps) {
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
-  if (!hydrated) return <ServerContent html={serverHtml} />;
-  return (
-    <Suspense fallback={<ServerContent html={serverHtml} />}>
-      <PublishedLexicalEditor body={body} lexical={lexical} />
-    </Suspense>
-  );
+/** Render published Lexical content entirely on the server. */
+export function PublishedContent({ serverHtml }: PublishedContentProps) {
+  return <ServerContent html={serverHtml} />;
 }
-

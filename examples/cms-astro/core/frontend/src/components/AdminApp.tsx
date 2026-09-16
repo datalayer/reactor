@@ -461,6 +461,7 @@ function Shell({
     [session.token],
   );
   const activeSite = sites.find((site) => site.id === siteId),
+    publicSiteUrl = activeSite ? (activeSite.slug === 'acme' ? '/' : `/${activeSite.slug}`) : undefined,
     isAdmin = activeSite?.role === 'admin',
     canEditSelected =
       !selected ||
@@ -813,30 +814,37 @@ function Shell({
             <Heading as="h2" sx={{ fontSize: 3 }}>
               {tab}
             </Heading>
-            <ActionMenu>
-              <ActionMenu.Button
-                aria-label={`Select website. Current website: ${activeSite?.name ?? 'none'}`}
-              >
-                {activeSite?.name ?? 'Select website'}
-              </ActionMenu.Button>
-              <ActionMenu.Overlay align="end" width="medium">
-                <ActionList selectionVariant="single">
-                  {sites.map((site) => (
-                    <ActionList.Item
-                      key={site.id}
-                      selected={site.id === siteId}
-                      onSelect={() => setSiteId(site.id)}
-                    >
-                      {site.name}
-                      <ActionList.Description variant="block">
-                        /{site.slug} · {site.entry_count}{' '}
-                        {site.entry_count === 1 ? 'entry' : 'entries'} · {site.role}
-                      </ActionList.Description>
-                    </ActionList.Item>
-                  ))}
-                </ActionList>
-              </ActionMenu.Overlay>
-            </ActionMenu>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {publicSiteUrl && (
+                <Button as="a" href={publicSiteUrl} target="_blank" rel="opener">
+                  <LinkExternalIcon /> Open website
+                </Button>
+              )}
+              <ActionMenu>
+                <ActionMenu.Button
+                  aria-label={`Select website. Current website: ${activeSite?.name ?? 'none'}`}
+                >
+                  {activeSite?.name ?? 'Select website'}
+                </ActionMenu.Button>
+                <ActionMenu.Overlay align="end" width="medium">
+                  <ActionList selectionVariant="single">
+                    {sites.map((site) => (
+                      <ActionList.Item
+                        key={site.id}
+                        selected={site.id === siteId}
+                        onSelect={() => setSiteId(site.id)}
+                      >
+                        {site.name}
+                        <ActionList.Description variant="block">
+                          /{site.slug} · {site.entry_count}{' '}
+                          {site.entry_count === 1 ? 'entry' : 'entries'} · {site.role}
+                        </ActionList.Description>
+                      </ActionList.Item>
+                    ))}
+                  </ActionList>
+                </ActionMenu.Overlay>
+              </ActionMenu>
+            </Box>
           </Box>
           {error && <Flash variant="danger">{error}</Flash>}
           {pending && (
@@ -848,13 +856,23 @@ function Shell({
           {!pending && notice && <Flash variant="success">{notice}</Flash>}
           {busy && <Spinner />}
           {tab === 'Content' && activeSite && (
-            <Box>
-              <Heading as="h3" sx={{ fontSize: 2 }}>
-                {activeSite.name}
-              </Heading>
-              <Text as="p" sx={{ color: 'fg.muted', m: 0 }}>
-                {activeSite.tagline || 'No website description has been added yet.'}
-              </Text>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 3,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Box>
+                <Heading as="h3" sx={{ fontSize: 2 }}>
+                  {activeSite.name}
+                </Heading>
+                <Text as="p" sx={{ color: 'fg.muted', m: 0 }}>
+                  {activeSite.tagline || 'No website description has been added yet.'}
+                </Text>
+              </Box>
             </Box>
           )}
           {tab === 'Content' && (
@@ -930,16 +948,6 @@ function Shell({
                   <Heading as="h3" sx={{ fontSize: 2 }}>
                     {selected ? (canEditSelected ? 'Edit entry' : 'View entry') : 'New entry'}
                   </Heading>
-                  {selected?.status === 'published' && (
-                    <Button
-                      as="a"
-                      href={`/posts/${encodeURIComponent(selected.slug)}`}
-                      target="_blank"
-                      rel="opener"
-                    >
-                      <LinkExternalIcon /> Open website
-                    </Button>
-                  )}
                 </Box>
                 <form className="form-grid editor-form" onSubmit={save}>
                   <FormControl required>
@@ -1182,16 +1190,6 @@ function Shell({
                     </Text>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    {activeSite && (
-                      <Button
-                        as="a"
-                        href={activeSite.slug === 'acme' ? '/' : `/${activeSite.slug}`}
-                        target="_blank"
-                        rel="opener"
-                      >
-                        <LinkExternalIcon /> Open website
-                      </Button>
-                    )}
                     <SegmentedControl
                       aria-label="Website settings"
                       onChange={(index) => setSiteSection(index === 0 ? 'general' : 'appearance')}

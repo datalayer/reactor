@@ -100,6 +100,23 @@ slides:
         - Extensible CLI, command registry, and interactive slash commands
         - Optional sandboxed calls and runtime enable / disable
 
+  - id: agent-tools
+    type: mermaid
+    title: Agent Tools make plugin capabilities available to AI
+    subtitle: A plugin declares its tools once; every agent host discovers only the tools of enabled plugins.
+    diagram: |
+      flowchart LR
+        P[Enabled plugin] --> C[AgentTools contract]
+        P --> H[Commands and browser handlers]
+        C --> R[Reactor contributions]
+        R --> A[Agent host]
+        H --> A
+        S[Agent spec<br/>model · instructions · suggestions] --> A
+        A --> M[Model]
+        M -->|tool call with JSON arguments| A
+        A -->|execute command| H
+    caption: TypeScript hosts collect live contributions; Python exposes the same contracts. The agent spec guides behavior without becoming a second tool registry.
+
   - id: delivery
     type: flow
     title: Install late, load lazily, change safely
