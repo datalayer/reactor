@@ -8,11 +8,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AgentTools, contribution, defineAgentTools, definePlugin } from '@datalayer/reactor';
 import { coreStore } from '@datalayer/agent-runtimes/lib/state/index.js';
-import {
-  themeVariants,
-  type ColorMode,
-  type ThemeVariant,
-} from '@datalayer/primer-addons';
+import { themeVariants, type ColorMode, type ThemeVariant } from '@datalayer/primer-addons';
 import type { CmsSiteSession } from './tools';
 
 const AgentRuntime = lazy(() => import('./AgentRuntime'));
@@ -106,7 +102,8 @@ const tools = defineAgentTools({
     {
       name: 'cms_get_current_site_page',
       command: 'cmsAstroAi.getCurrentSitePage',
-      description: 'Get the CMS source content and slug for the page currently displayed in the browser.',
+      description:
+        'Get the CMS source content and slug for the page currently displayed in the browser.',
       parameters: { type: 'object', properties: {} },
     },
     {
@@ -141,6 +138,39 @@ const tools = defineAgentTools({
           collection: { type: 'string', enum: ['posts', 'pages'] },
         },
         required: ['collection'],
+        anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
+      },
+    },
+    {
+      name: 'cms_unpublish_site_page',
+      command: 'cmsAstroAi.unpublishSitePage',
+      description:
+        'Unpublish an existing post or page, returning it to draft status and removing it from the public website.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          existing_slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        required: ['collection'],
+        anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
+      },
+    },
+    {
+      name: 'cms_delete_site_page',
+      command: 'cmsAstroAi.deleteSitePage',
+      description:
+        'Permanently delete an unpublished post or page after explicit user confirmation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          existing_slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+          confirm: { type: 'boolean' },
+        },
+        required: ['collection', 'confirm'],
         anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
       },
     },
@@ -232,8 +262,8 @@ function preserveStylesheetForAstroSwap(event: Event) {
   // Astro swaps the document head during client navigation, which otherwise
   // removes these runtime rules while the persisted React root still believes
   // they are installed. Copy the active sheets into the incoming document.
-  nextDocument.querySelectorAll(`style[${runtimeStylesMarker}]`).forEach(style => style.remove());
-  document.head.querySelectorAll<HTMLStyleElement>('style[data-styled]').forEach(style => {
+  nextDocument.querySelectorAll(`style[${runtimeStylesMarker}]`).forEach((style) => style.remove());
+  document.head.querySelectorAll<HTMLStyleElement>('style[data-styled]').forEach((style) => {
     const clone = style.cloneNode(true) as HTMLStyleElement;
     clone.setAttribute(runtimeStylesMarker, '');
     nextDocument.head.append(clone);

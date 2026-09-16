@@ -267,12 +267,32 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     assert published.status_code == 200
     assert published.json()["status"] == "published"
     assert api.get(f"/api/content/acme/entries/{entry['slug']}").json()["title"] == "A new Astro story"
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 403
+    unpublished = api.post(
+        f"/api/cms/sites/site-main/entries/{entry['id']}/unpublish", headers=headers
+    )
+    assert unpublished.status_code == 200
+    assert unpublished.json()["status"] == "draft"
+    assert unpublished.json()["published_at"] is None
+    assert api.get(f"/api/content/acme/entries/{entry['slug']}").status_code == 404
     revisions = api.get(f"/api/cms/sites/site-main/entries/{entry['id']}/revisions", headers=headers)
-    assert len(revisions.json()) == 1
+    assert len(revisions.json()) == 2
     assert api.get(
         f"/api/cms/sites/site-main/entries/{entry['id']}/revisions",
         headers={"X-CMS-User": "u-user2"},
     ).status_code == 403
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}",
+        headers={"X-CMS-User": "u-user2"},
+    ).status_code == 403
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 204
+    assert api.get(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 404
 
     second_site = api.post(
         "/api/cms/sites",

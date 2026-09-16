@@ -24,6 +24,7 @@ import * as PrimerAddons from '@datalayer/primer-addons';
 import {
   AppearanceControlsWithStore,
   Box,
+  SlidingPanel,
   ThemedProvider,
   useThemeStore,
   type ColorMode,
@@ -35,6 +36,7 @@ import {
   ActionList,
   ActionMenu,
   Button,
+  ConfirmationDialog,
   Flash,
   FormControl,
   Label,
@@ -437,6 +439,7 @@ function Shell({
     [backendExtensions, setBackendExtensions] = useState<BackendExtension[]>([]),
     [backendPlugins, setBackendPlugins] = useState<BackendPlugin[]>([]),
     [selected, setSelected] = useState<Entry>(),
+    [deleteCandidate, setDeleteCandidate] = useState<Entry>(),
     [selectedMember, setSelectedMember] = useState<Member>(),
     [siteSection, setSiteSection] = useState<'general' | 'appearance'>('general');
   const [title, setTitle] = useState(''),
@@ -531,6 +534,7 @@ function Shell({
     setExcerpt('');
     setBody('');
     setLexical(undefined);
+    setDeleteCandidate(undefined);
     setSelectedMember(undefined);
   }, [siteId]);
   useEffect(() => {
@@ -584,6 +588,10 @@ function Shell({
     }
   }
   async function publish(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Publishing “${entry.title}”…`);
     try {
       await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}/publish`, {
         method: 'POST',
@@ -593,6 +601,45 @@ function Shell({
       await load();
     } catch (reason) {
       setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  async function unpublish(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Unpublishing “${entry.title}”…`);
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}/unpublish`, {
+        method: 'POST',
+        headers,
+      });
+      setNotice(`Unpublished “${entry.title}”.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  async function deleteEntry(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Deleting “${entry.title}”…`);
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (selected?.id === entry.id) edit();
+      setNotice(`Deleted “${entry.title}”.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
     }
   }
   function editMember(member?: Member) {
@@ -846,14 +893,31 @@ function Shell({
               </ActionMenu>
             </Box>
           </Box>
-          {error && <Flash variant="danger">{error}</Flash>}
-          {pending && (
-            <Flash className="status-flash">
-              <Spinner size="small" srText={null} />
-              <span>{pending}</span>
-            </Flash>
-          )}
-          {!pending && notice && <Flash variant="success">{notice}</Flash>}
+          <SlidingPanel
+            isOpen={Boolean(error || pending || notice)}
+            message={
+              pending ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Spinner size="small" srText={null} />
+                  <span>{pending}</span>
+                </Box>
+              ) : (
+                (error ?? notice ?? '')
+              )
+            }
+            position="north"
+            variant={error ? 'error' : pending ? 'info' : 'success'}
+            durationMs={!error && !pending && notice ? 4000 : undefined}
+            onDismiss={
+              pending
+                ? undefined
+                : () => {
+                    setError(undefined);
+                    setNotice(undefined);
+                  }
+            }
+            zIndex={1100}
+          />
           {busy && <Spinner />}
           {tab === 'Content' && activeSite && (
             <Box
@@ -922,18 +986,57 @@ function Shell({
                           {canEdit ? 'Edit' : 'View'}
                         </Button>
                         {canEdit && entry.status !== 'published' && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="primary"
+                              disabled={Boolean(pending)}
+                              onClick={() => void publish(entry)}
+                            >
+                              Publish
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="danger"
+                              disabled={Boolean(pending)}
+                              onClick={() => setDeleteCandidate(entry)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                        {canEdit && entry.status === 'published' && (
                           <Button
                             size="small"
-                            variant="primary"
-                            onClick={() => void publish(entry)}
+                            disabled={Boolean(pending)}
+                            onClick={() => void unpublish(entry)}
                           >
-                            Publish
+                            Unpublish
                           </Button>
                         )}
                       </Box>
                     </Box>
                   );
                 })}
+                {deleteCandidate && (
+                  <ConfirmationDialog
+                    title="Delete this entry?"
+                    confirmButtonContent="Delete entry"
+                    confirmButtonType="danger"
+                    cancelButtonContent="Cancel"
+                    width="large"
+                    onClose={(gesture) => {
+                      const entry = deleteCandidate;
+                      setDeleteCandidate(undefined);
+                      if (gesture === 'confirm') void deleteEntry(entry);
+                    }}
+                  >
+                    <Text as="p" sx={{ m: 0 }}>
+                      “{deleteCandidate.title}” (/{deleteCandidate.slug}) will be permanently
+                      deleted. This action cannot be undone.
+                    </Text>
+                  </ConfirmationDialog>
+                )}
               </Box>
               <Box className="panel editor-panel">
                 <Box
@@ -1107,6 +1210,32 @@ function Shell({
             <Box className="content-grid">
               <Box className="site-list-column">
                 <Box className="panel">
+                  <Heading as="h3" sx={{ fontSize: 2 }}>
+                    Create website
+                  </Heading>
+                  <form className="form-grid" onSubmit={createSite}>
+                    <FormControl required>
+                      <FormControl.Label>Name</FormControl.Label>
+                      <TextInput
+                        block
+                        value={siteName}
+                        onChange={(e) => setSiteName(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormControl required>
+                      <FormControl.Label>Slug</FormControl.Label>
+                      <TextInput
+                        block
+                        value={siteSlug}
+                        onChange={(e) => setSiteSlug(e.target.value)}
+                      />
+                    </FormControl>
+                    <Button type="submit" variant="primary">
+                      Create website
+                    </Button>
+                  </form>
+                </Box>
+                <Box className="panel">
                   <Box
                     sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   >
@@ -1151,32 +1280,6 @@ function Shell({
                       </Box>
                     </Box>
                   ))}
-                </Box>
-                <Box className="panel">
-                  <Heading as="h3" sx={{ fontSize: 2 }}>
-                    Create website
-                  </Heading>
-                  <form className="form-grid" onSubmit={createSite}>
-                    <FormControl required>
-                      <FormControl.Label>Name</FormControl.Label>
-                      <TextInput
-                        block
-                        value={siteName}
-                        onChange={(e) => setSiteName(e.target.value)}
-                      />
-                    </FormControl>
-                    <FormControl required>
-                      <FormControl.Label>Slug</FormControl.Label>
-                      <TextInput
-                        block
-                        value={siteSlug}
-                        onChange={(e) => setSiteSlug(e.target.value)}
-                      />
-                    </FormControl>
-                    <Button type="submit" variant="primary">
-                      Create website
-                    </Button>
-                  </form>
                 </Box>
               </Box>
               <Box className="panel site-editor">

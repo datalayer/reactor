@@ -390,3 +390,40 @@ class Store:
             db.execute("INSERT INTO revisions(entry_id,author_id,snapshot,created_at) VALUES(?,?,?,?)", (entry_id, user_id, json.dumps(dict(entry)), stamp))
             db.execute("UPDATE entries SET status='published', published_at=?, updated_at=? WHERE id=?", (stamp, stamp, entry_id))
             return self.row(db.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()) or {}
+
+    def unpublish(self, site_id: str, entry_id: str, user_id: str) -> dict[str, Any]:
+        with self.connect() as db:
+            role = self.require(db, site_id, user_id, "author")
+            entry = db.execute(
+                "SELECT * FROM entries WHERE site_id=? AND id=?", (site_id, entry_id)
+            ).fetchone()
+            if not entry:
+                raise LookupError("entry not found")
+            if role == "author" and entry["author_id"] != user_id:
+                raise PermissionError("authors may unpublish only their own entries")
+            if entry["status"] != "published":
+                return self.row(entry) or {}
+            stamp = now()
+            db.execute(
+                "INSERT INTO revisions(entry_id,author_id,snapshot,created_at) VALUES(?,?,?,?)",
+                (entry_id, user_id, json.dumps(dict(entry)), stamp),
+            )
+            db.execute(
+                "UPDATE entries SET status='draft', published_at=NULL, updated_at=? WHERE id=?",
+                (stamp, entry_id),
+            )
+            return self.row(db.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()) or {}
+
+    def delete_entry(self, site_id: str, entry_id: str, user_id: str) -> None:
+        with self.connect() as db:
+            role = self.require(db, site_id, user_id, "author")
+            entry = db.execute(
+                "SELECT * FROM entries WHERE site_id=? AND id=?", (site_id, entry_id)
+            ).fetchone()
+            if not entry:
+                raise LookupError("entry not found")
+            if role == "author" and entry["author_id"] != user_id:
+                raise PermissionError("authors may delete only their own entries")
+            if entry["status"] == "published":
+                raise PermissionError("published entries must be unpublished before deletion")
+            db.execute("DELETE FROM entries WHERE site_id=? AND id=?", (site_id, entry_id))

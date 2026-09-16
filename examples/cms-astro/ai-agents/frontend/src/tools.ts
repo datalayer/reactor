@@ -29,7 +29,11 @@ type RefreshResult = { requestId?: string; url: string; error?: string };
 const refreshEvent = 'cms-astro:refresh-view';
 const refreshedEvent = 'cms-astro:view-refreshed';
 
-async function cmsRequest<T>(context: ToolContext, path: string, init: RequestInit = {}): Promise<T> {
+async function cmsRequest<T>(
+  context: ToolContext,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   const response = await fetch(`${context.apiUrl}${path}`, {
     ...init,
     headers: {
@@ -47,6 +51,7 @@ async function cmsRequest<T>(context: ToolContext, path: string, init: RequestIn
     }
     throw new Error(message);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -136,7 +141,10 @@ function refreshCurrentView(): Promise<Record<string, unknown>> {
   });
 }
 
-function crawlTool(context: ToolContext, kind: 'blog' | 'feed' | 'wordpress'): FrontendToolDefinition {
+function crawlTool(
+  context: ToolContext,
+  kind: 'blog' | 'feed' | 'wordpress',
+): FrontendToolDefinition {
   const names = {
     blog: 'cms_crawl_blog',
     feed: 'cms_crawl_feed',
@@ -159,7 +167,7 @@ function crawlTool(context: ToolContext, kind: 'blog' | 'feed' | 'wordpress'): F
       },
       required: ['url'],
     },
-    handler: args => {
+    handler: (args) => {
       const { url, limit = 12 } = args as { url: string; limit?: number };
       return cmsRequest(context, `/api/cms/sites/${context.siteId}/crawl/${kind}`, {
         method: 'POST',
@@ -190,7 +198,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         },
         required: ['collection', 'title', 'body'],
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as {
           collection: Collection;
           title: string;
@@ -200,17 +208,21 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
           source_url?: string;
           publish?: boolean;
         };
-        let entry = await cmsRequest<EntryResult>(context, `/api/cms/sites/${context.siteId}/entries`, {
-          method: 'POST',
-          body: JSON.stringify({
-            collection: values.collection,
-            title: values.title,
-            slug: values.slug,
-            excerpt: values.excerpt ?? '',
-            body: values.body,
-            data: values.source_url ? { source_url: values.source_url } : {},
-          }),
-        });
+        let entry = await cmsRequest<EntryResult>(
+          context,
+          `/api/cms/sites/${context.siteId}/entries`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              collection: values.collection,
+              title: values.title,
+              slug: values.slug,
+              excerpt: values.excerpt ?? '',
+              body: values.body,
+              data: values.source_url ? { source_url: values.source_url } : {},
+            }),
+          },
+        );
         if (values.publish) {
           entry = await cmsRequest<EntryResult>(
             context,
@@ -218,7 +230,11 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
             { method: 'POST' },
           );
         }
-        return result(entry, values.collection, values.publish ? 'Page created and published.' : 'Draft page created.');
+        return result(
+          entry,
+          values.collection,
+          values.publish ? 'Page created and published.' : 'Draft page created.',
+        );
       },
     },
     {
@@ -233,7 +249,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
           limit: { type: 'integer', minimum: 1, maximum: 100 },
         },
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as { collection?: Collection; status?: string; limit?: number };
         const query = values.status ? `?status=${encodeURIComponent(values.status)}` : '';
         const entries = await cmsRequest<CmsEntry[]>(
@@ -241,9 +257,9 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
           `/api/cms/sites/${context.siteId}/entries${query}`,
         );
         const pages = entries
-          .filter(entry => !values.collection || entry.collection === values.collection)
+          .filter((entry) => !values.collection || entry.collection === values.collection)
           .slice(0, values.limit ?? 50)
-          .map(entry => {
+          .map((entry) => {
             const { body: _body, ...summary } = readableEntry(entry);
             return summary;
           });
@@ -263,7 +279,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         },
         anyOf: [{ required: ['entry_id'] }, { required: ['slug', 'collection'] }],
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as { entry_id?: string; slug?: string; collection?: Collection };
         const entry = await readEntry(context, values);
         return readableEntry(entry);
@@ -298,7 +314,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         required: ['collection'],
         anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as {
           entry_id?: string;
           existing_slug?: string;
@@ -328,12 +344,17 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
             { method: 'POST' },
           );
         }
-        return result(entry, values.collection, values.publish ? 'Page updated and published.' : 'Page updated.');
+        return result(
+          entry,
+          values.collection,
+          values.publish ? 'Page updated and published.' : 'Page updated.',
+        );
       },
     },
     {
       name: 'cms_publish_site_page',
-      description: 'Publish an existing post or standalone page identified by its entry ID or exact slug.',
+      description:
+        'Publish an existing post or standalone page identified by its entry ID or exact slug.',
       parameters: {
         type: 'object',
         properties: {
@@ -344,7 +365,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         required: ['collection'],
         anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as {
           entry_id?: string;
           existing_slug?: string;
@@ -358,6 +379,92 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
       },
     },
     {
+      name: 'cms_unpublish_site_page',
+      description:
+        'Unpublish an existing post or standalone page, returning it to draft status and removing it from the public website.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          existing_slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+        },
+        required: ['collection'],
+        anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
+      },
+      handler: async (args) => {
+        const values = args as {
+          entry_id?: string;
+          existing_slug?: string;
+          collection: Collection;
+        };
+        const entryId = values.entry_id
+          ? values.entry_id
+          : (
+              await readEntry(context, {
+                slug: values.existing_slug,
+                collection: values.collection,
+              })
+            ).id;
+        const entry = await cmsRequest<EntryResult>(
+          context,
+          `/api/cms/sites/${context.siteId}/entries/${encodeURIComponent(entryId)}/unpublish`,
+          { method: 'POST' },
+        );
+        return result(entry, values.collection, 'Page unpublished and returned to draft status.');
+      },
+    },
+    {
+      name: 'cms_delete_site_page',
+      description:
+        'Permanently delete an unpublished post or standalone page after explicit confirmation. Published pages must be unpublished first.',
+      parameters: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'string' },
+          existing_slug: { type: 'string' },
+          collection: { type: 'string', enum: ['posts', 'pages'] },
+          confirm: {
+            type: 'boolean',
+            description: 'Must be true only after the user explicitly confirms permanent deletion.',
+          },
+        },
+        required: ['collection', 'confirm'],
+        anyOf: [{ required: ['entry_id'] }, { required: ['existing_slug'] }],
+      },
+      handler: async (args) => {
+        const values = args as {
+          entry_id?: string;
+          existing_slug?: string;
+          collection: Collection;
+          confirm: boolean;
+        };
+        if (values.confirm !== true) {
+          throw new Error('Explicit confirmation is required before deleting a page.');
+        }
+        const entry = await readEntry(context, {
+          entry_id: values.entry_id,
+          slug: values.existing_slug,
+          collection: values.collection,
+        });
+        if (entry.status === 'published') {
+          throw new Error('Published pages must be unpublished before deletion.');
+        }
+        await cmsRequest<void>(
+          context,
+          `/api/cms/sites/${context.siteId}/entries/${encodeURIComponent(entry.id)}`,
+          { method: 'DELETE' },
+        );
+        return {
+          id: entry.id,
+          slug: entry.slug,
+          collection: entry.collection,
+          status: 'deleted',
+          message: 'Page permanently deleted.',
+        };
+      },
+    },
+    {
       name: 'cms_show_site_page',
       description: 'Open a published post or standalone page in its rendered Astro website view.',
       parameters: {
@@ -368,7 +475,7 @@ export function createCmsAgentTools(context: ToolContext): FrontendToolDefinitio
         },
         required: ['slug', 'collection'],
       },
-      handler: async args => {
+      handler: async (args) => {
         const values = args as { slug: string; collection: Collection };
         const publicUrl = `/${values.collection === 'posts' ? 'posts' : 'pages'}/${encodeURIComponent(values.slug)}`;
         const opened = window.open(publicUrl, '_blank', 'noopener,noreferrer') !== null;

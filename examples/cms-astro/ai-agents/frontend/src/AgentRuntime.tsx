@@ -37,7 +37,14 @@ const spec = (() => {
   return value;
 })();
 
-function Runtime({ apiUrl, siteId, siteName, session }: Props) {
+function Runtime({
+  apiUrl,
+  siteId,
+  siteName,
+  appearanceTheme,
+  colorMode,
+  session,
+}: Props) {
   const { inference, anonymous, needsSignIn } = useBrowserInference(true);
   const tools = useMemo(
     () => (session ? createCmsAgentTools({ apiUrl, siteId, session }) : []),
@@ -98,6 +105,8 @@ function Runtime({ apiUrl, siteId, siteName, session }: Props) {
       <ChatFloating
         protocol={protocol}
         useStore={false}
+        themeVariant={appearanceTheme}
+        colorMode={colorMode}
         title={spec.name}
         description={`${spec.welcomeMessage ?? spec.description} Current site: ${siteName}.${
           session ? '' : ' Sign in to the CMS to enable content tools.'

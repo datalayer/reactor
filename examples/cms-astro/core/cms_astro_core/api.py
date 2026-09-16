@@ -543,6 +543,18 @@ async def publish(site_id: str, entry_id: str, request: Request, user_id: str = 
     except Exception as error: fail(error); return {}
 
 
+@router.post("/api/cms/sites/{site_id}/entries/{entry_id}/unpublish")
+async def unpublish(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    try: return store(request).unpublish(site_id, entry_id, user_id)
+    except Exception as error: fail(error); return {}
+
+
+@router.delete("/api/cms/sites/{site_id}/entries/{entry_id}", status_code=204)
+async def delete_entry(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> None:
+    try: store(request).delete_entry(site_id, entry_id, user_id)
+    except Exception as error: fail(error)
+
+
 @router.get("/api/cms/sites/{site_id}/entries/{entry_id}/revisions")
 async def revisions(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> list[dict]:
     with store(request).connect() as db:
