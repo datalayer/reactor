@@ -15,7 +15,7 @@ slides:
     type: title
     title: Reactor
     subtitle: A plugin platform for applications that span the browser and the server
-    meta: Inspired by Eclipse / OSGi, VS Code, JupyterLab, and the IntelliJ Platform
+    meta: Inspired by Eclipse / OSGi, the IntelliJ Platform, Lexical, VS Code, and JupyterLab
 
   - id: lineage
     type: two-columns
@@ -30,6 +30,7 @@ slides:
           items:
             - "**Eclipse / OSGi** — manifests, bundles, dependencies, and explicit lifecycle"
             - "**IntelliJ Platform** — extension points, actions, services, and modular products"
+            - "**Lexical** — named extensions that declare their dependencies and register with a teardown"
     right:
       type: stack
       heading: Extensible applications
