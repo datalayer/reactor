@@ -1,0 +1,23 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "datalayer-cms-astro-ai-agents"
+version = "0.1.0"
+description = "AI authoring agent Reactor extension for the Astro CMS example"
+requires-python = ">=3.10"
+dependencies = ["datalayer-reactor"]
+
+[project.entry-points."datalayer.reactor.extensions"]
+cms-astro-ai-agents = "cms_astro_ai_agents:extension"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cms_astro_ai_agents"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"share/datalayer/reactor/extensions/cms-astro-ai-agents" = "share/datalayer/reactor/extensions/cms-astro-ai-agents"

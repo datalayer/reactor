@@ -30,4 +30,3 @@ class CorePlugin:
         if action == "capabilities":
             return {"collections": True, "revisions": True, "search": "fts5", "multiSite": True}
         raise ValueError(f"Unsupported action '{action}'")
-

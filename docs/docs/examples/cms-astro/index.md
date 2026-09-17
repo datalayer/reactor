@@ -13,6 +13,7 @@ combines four ideas in one installable example:
 - a FastAPI API backed by SQLite;
 - a Primer React administration interface with a rich editor composed from
   `@datalayer/jupyter-lexical`;
+- an authenticated, in-browser AI author on the published website;
 - Reactor extensions discovered from Python packages, including optional Pro
   and x402 packages.
 
@@ -26,6 +27,7 @@ cms-astro/
 │   ├── cms_astro_core/       Python host, API, auth, database and seed command
 │   ├── frontend/             Astro SSR application and Primer React admin
 │   └── share/datalayer/      embedded Reactor frontend extension
+├── ai-agents/                optional AI authoring extension and frontend
 ├── pro/                      optional editorial extension
 ├── x402/                     optional paid-content extension
 └── tests/                    API, authorization and x402 acceptance tests
@@ -42,8 +44,9 @@ cms-astro/
 | Authoring | CMS-owned Jupyter Lexical composition with a rich toolbar and plugins, structured JSON, and a plain-text projection |
 | Appearance | Portable Datalayer themes, visibly distinct Editorial/Studio layouts, color modes, and a live homepage preview |
 | Authentication | PBKDF2 password hashes and expiring bearer sessions |
+| AI authoring | `ChatFloating`, an anonymous inference key with a visible timer, and CMS-scoped Reactor frontend tools |
 | Discovery | Python entry points under `datalayer.reactor.extensions` |
-| Optional capabilities | Independently installable Pro and x402 wheels |
+| Optional capabilities | Independently installable AI Agents, Pro and x402 wheels |
 
 The public website reads only published entries. Drafts and revisions remain
 behind the authenticated CMS API.
@@ -55,7 +58,8 @@ behind the authenticated CMS API.
 | [Run and seed the example](/examples/cms-astro/getting-started) | Commands, URLs and demo accounts |
 | [Architecture](/examples/cms-astro/architecture) | Astro, SQLite and the Python-packaged frontend |
 | [Users and authoring](/examples/cms-astro/users-and-authoring) | Site roles, API enforcement and Lexical storage |
-| [Pro and x402 extensions](/examples/cms-astro/extensions) | Runtime discovery and paid routes |
+| [AI-assisted publishing](/examples/cms-astro/ai-authoring) | Browser agent, anonymous key, crawling and CMS frontend tools |
+| [AI Agents, Pro and x402 extensions](/examples/cms-astro/extensions) | Runtime discovery, AI authoring and paid routes |
 
 The implementation README is also available at
 `examples/cms-astro/README.md` in the repository.

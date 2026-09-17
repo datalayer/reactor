@@ -9,7 +9,7 @@ NPM ?= npm
 UVICORN ?= uvicorn
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: all cms cms-build cms-pro cms-astro cms-astro-seed cms-astro-install cms-astro-build cms-astro-pro cms-astro-x402 cms-astro-package music-app build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music example-frontend example-frontend-backend example-music clean
+.PHONY: all cms cms-build cms-pro cms-astro cms-astro-launch cms-astro-seed cms-astro-install cms-astro-build cms-astro-ai cms-astro-ai-build cms-astro-pro cms-astro-x402 cms-astro-x402-build cms-astro-package music-app music-install build-lib publish-pypi publish-npm help install install-js install-py install-py-dev build build-js build-py typecheck package package-js package-py frontend frontend-backend music decks deck example-frontend example-frontend-backend example-music clean
 
 help:
 	@echo "Common Reactor operations"
@@ -29,11 +29,16 @@ help:
 	@echo "  make cms-astro         Run the SQLite CMS backend and Astro site"
 	@echo "  make cms-astro-seed    Seed admin/admin, user1/user1 and user2/user2"
 	@echo "  make cms-astro-install Install Core from this monorepo"
+	@echo "  make cms-astro-ai      Run the CMS with the AI authoring extension enabled"
+	@echo "  make cms-astro-ai-build Build the separately packaged AI extension frontend"
 	@echo "  make cms-astro-pro     Add the separately packaged Pro extension"
-	@echo "  make cms-astro-x402    Add the paid-content x402 extension"
-	@echo "  make cms-astro-package Build the Core, Pro and x402 wheels"
+	@echo "  make cms-astro-x402    Run the CMS with the paid-content x402 extension"
+	@echo "  make cms-astro-x402-build Build the separately packaged x402 extension"
+	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
+	@echo "  make music-install     Install the music example Python packages"
 	@echo "  make music             Run the music example with a frontend dev server"
+	@echo "  make decks             Present the seven-slide Reactor overview"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
 	@echo "  make example-frontend          Alias for frontend example"
@@ -117,6 +122,13 @@ publish-npm: clean build ## publish the reactor and every plugin package
 frontend:
 	$(NPM) run example:dev
 
+decks: ## serve the Reactor overview deck
+	datalayer decks serve ./decks/about-reactor.yaml
+
+# The target was `deck` first, and `decks` is what the directory, the CLI
+# subcommand and everyone's fingers say. Both work.
+deck: decks
+
 example-frontend: frontend
 
 frontend-backend:
@@ -167,10 +179,12 @@ cms-astro-build: cms-astro-install ## typecheck and build the Astro SSR site
 	rm -rf examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/*
 	cp -r examples/cms-astro/core/frontend/dist/. examples/cms-astro/core/share/datalayer/reactor/apps/cms-astro/
 
-cms-astro: cms-astro-install ## run the CMS API and Astro SSR site in development
+cms-astro: cms-astro-install cms-astro-launch ## install Core, then run the CMS API and Astro SSR site
+
+cms-astro-launch: ## launch the already-installed CMS without building or installing
 	@set -e; \
 	trap 'kill $$CMS_ASTRO_PID 2>/dev/null || true' EXIT INT TERM; \
-	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
+	CMS_ASTRO_DB="$${CMS_ASTRO_DB:-examples/cms-astro/cms-astro.sqlite3}" PYTHONPATH="$(CMS_ASTRO_EXTENSION_PATHS)$${PYTHONPATH:+:$$PYTHONPATH}" $(PYTHON) -m uvicorn cms_astro_core.app:app --port 8791 & \
 	CMS_ASTRO_PID=$$!; \
 	echo "CMS API: http://localhost:8791/docs"; \
 	echo "Astro site: http://localhost:4321 (admin at /_cms/admin)"; \
@@ -180,14 +194,29 @@ cms-astro-pro: ## install Pro as a separately discoverable wheel
 	$(PIP) install examples/cms-astro/pro
 	@echo "Installed CMS Pro. Refresh the Astro admin page."
 
-cms-astro-x402: ## install x402 as a separately discoverable wheel
-	$(PIP) install examples/cms-astro/x402
-	@echo "Installed CMS x402. Refresh the Astro admin page."
+cms-astro-ai-build: ## build the AI agent frontend embedded in its Python package
+	@if [ -L ../../../node_modules/@datalayer/agent-runtimes ] || [ -d examples/cms-astro/ai-agents/frontend/node_modules/@datalayer/agent-runtimes ]; then \
+		echo "Using the installed @datalayer/agent-runtimes package"; \
+	else \
+		$(NPM) --prefix examples/cms-astro/ai-agents/frontend install --workspaces=false; \
+	fi
+	$(NPM) --prefix examples/cms-astro/ai-agents/frontend run build
 
-cms-astro-package: cms-astro-build ## build locally installable Core, Pro and x402 wheels
-	$(PYTHON) -m build --wheel examples/cms-astro/core
-	$(PYTHON) -m build --wheel examples/cms-astro/pro
+cms-astro-ai: ## launch the already-installed CMS with the AI Agents extension enabled
+	@echo "Starting the CMS with the separately discovered AI Agents extension."
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/ai-agents
+
+cms-astro-x402-build: ## build the separately discoverable x402 wheel
 	$(PYTHON) -m build --wheel examples/cms-astro/x402
+
+cms-astro-x402: ## launch the already-installed CMS with the x402 extension enabled
+	@echo "Starting the CMS with the separately discovered x402 extension."
+	$(MAKE) cms-astro-launch CMS_ASTRO_EXTENSION_PATHS=examples/cms-astro/x402
+
+cms-astro-package: cms-astro-build cms-astro-ai-build cms-astro-x402-build ## build locally installable Core, AI Agents, Pro and x402 wheels
+	$(PYTHON) -m build --wheel examples/cms-astro/core
+	$(PYTHON) -m build --wheel examples/cms-astro/ai-agents
+	$(PYTHON) -m build --wheel examples/cms-astro/pro
 
 music-app: build-js ## build the music store as one installable application
 	@set -e; \
@@ -202,6 +231,13 @@ music-app: build-js ## build the music store as one installable application
 	                -e examples/music/backend; \
 	echo; \
 	echo "Built. Now run: datalayer-music-example"
+
+music-install: ## install the music example Python packages in editable mode
+	$(PIP) install -e examples/music/catalog-plugin \
+	               -e examples/music/checkout-plugin \
+	               -e examples/music/playlist-plugin \
+	               -e examples/music/mood-plugin \
+	               -e examples/music/backend
 
 music: build-js
 	@set -e; \
@@ -234,8 +270,6 @@ music: build-js
 	trap cleanup EXIT INT TERM; \
 	kill_port 8799; \
 	kill_port 5179; \
-	echo "[music] Installing Python backends..."; \
-	$(PYTHON) -m pip install -e examples/music/catalog-plugin -e examples/music/checkout-plugin -e examples/music/playlist-plugin -e examples/music/mood-plugin -e examples/music/backend; \
 	echo "[music] Starting backend on http://localhost:8799 ..."; \
 	$(PYTHON) -m $(UVICORN) datalayer_music_example.app:app --reload --port 8799 & \
 	PY_PID=$$!; \

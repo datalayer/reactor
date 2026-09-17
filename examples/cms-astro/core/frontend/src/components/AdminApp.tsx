@@ -6,25 +6,55 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Reactor from '@datalayer/reactor';
-import { bootstrapExtensions, buildReactorFromPlugins, defineContributionPoint, setReactorSharedModules, type LazyPluginRef, type ReactorExtension } from '@datalayer/reactor';
+import {
+  bootstrapExtensions,
+  buildReactorFromPlugins,
+  defineContributionPoint,
+  setReactorSharedModules,
+  type LazyPluginRef,
+  type ReactorExtension,
+} from '@datalayer/reactor';
 import * as ReactorReact from '@datalayer/reactor/react';
-import { useBackendPluginStream, useContributions, usePluginManifests, useReactor } from '@datalayer/reactor/react';
+import {
+  useBackendPluginStream,
+  useContributions,
+  useReactor,
+} from '@datalayer/reactor/react';
 import * as PrimerAddons from '@datalayer/primer-addons';
-import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore, type ColorMode, type PortableTheme, type ThemeVariant } from '@datalayer/primer-addons';
+import {
+  AppearanceControlsWithStore,
+  Box,
+  SlidingPanel,
+  ThemedProvider,
+  useThemeStore,
+  type ColorMode,
+  type PortableTheme,
+  type ThemeVariant,
+} from '@datalayer/primer-addons';
 import * as PrimerReact from '@primer/react';
-import { ActionList, ActionMenu, Button, Flash, FormControl, Label, SegmentedControl, Select, Spinner, Text, TextInput, Textarea } from '@primer/react';
+import {
+  ActionList,
+  ActionMenu,
+  Button,
+  ConfirmationDialog,
+  Flash,
+  FormControl,
+  Label,
+  SegmentedControl,
+  Select,
+  Spinner,
+  Text,
+  TextInput,
+  Textarea,
+} from '@primer/react';
 import { LinkExternalIcon, SignOutIcon } from '@primer/octicons-react';
 import { CommentsProvider } from '@datalayer/jupyter-lexical/lib/context/CommentsContext.js';
 import { ToolbarContext } from '@datalayer/jupyter-lexical/lib/context/ToolbarContext.js';
-import { EquationNode } from '@datalayer/jupyter-lexical/lib/nodes/EquationNode.js';
-import { ExcalidrawNode } from '@datalayer/jupyter-lexical/lib/nodes/ExcalidrawNode.js';
-import { ImageNode } from '@datalayer/jupyter-lexical/lib/nodes/ImageNode.js';
-import { YouTubeNode } from '@datalayer/jupyter-lexical/lib/nodes/YouTubeNode.js';
 import { AutoEmbedPlugin } from '@datalayer/jupyter-lexical/lib/plugins/AutoEmbedPlugin.js';
 import { AutoLinkPlugin } from '@datalayer/jupyter-lexical/lib/plugins/AutoLinkPlugin.js';
 import { CodeActionMenuPlugin } from '@datalayer/jupyter-lexical/lib/plugins/CodeActionMenuPlugin.js';
 import { CodeBlockHighlightPlugin } from '@datalayer/jupyter-lexical/lib/plugins/CodeHighlightPlugin.js';
-import { CollapsibleContainerNode, CollapsibleContentNode, CollapsiblePlugin, CollapsibleTitleNode } from '@datalayer/jupyter-lexical/lib/plugins/CollapsiblePlugin/index.js';
+import { CollapsiblePlugin } from '@datalayer/jupyter-lexical/lib/plugins/CollapsiblePlugin/index.js';
 import { DraggableBlockPlugin } from '@datalayer/jupyter-lexical/lib/plugins/DraggableBlockPlugin.js';
 import { EquationsPlugin } from '@datalayer/jupyter-lexical/lib/plugins/EquationsPlugin.js';
 import { ExcalidrawPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ExcalidrawPlugin.js';
@@ -39,22 +69,13 @@ import { TableOfContentsPlugin } from '@datalayer/jupyter-lexical/lib/plugins/Ta
 import { TablePlugin } from '@datalayer/jupyter-lexical/lib/plugins/TablePlugin.js';
 import { ToolbarPlugin } from '@datalayer/jupyter-lexical/lib/plugins/ToolbarPlugin/index.js';
 import { YouTubePlugin } from '@datalayer/jupyter-lexical/lib/plugins/YouTubePlugin.js';
-import { commentTheme } from '@datalayer/jupyter-lexical/lib/themes/CommentEditorTheme.js';
 import { LexicalComposer, type InitialConfigType } from '@lexical/react/LexicalComposer';
-import { AutoLinkNode, LinkNode } from '@lexical/link';
-import { CodeHighlightNode, CodeNode } from '@lexical/code';
-import { HashtagNode } from '@lexical/hashtag';
-import { ListItemNode, ListNode } from '@lexical/list';
-import { MarkNode } from '@lexical/mark';
 import { TRANSFORMERS } from '@lexical/markdown';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
 import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HashtagPlugin } from '@lexical/react/LexicalHashtagPlugin';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
-import { HorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 import { HorizontalRulePlugin } from '@lexical/react/LexicalHorizontalRulePlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
@@ -62,91 +83,1427 @@ import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $createParagraphNode, $createTextNode, $getRoot, type EditorState, type LexicalEditor } from 'lexical';
+import { $getRoot, type EditorState, type LexicalEditor } from 'lexical';
 import { AppearanceSettings } from './AppearanceSettings';
 import { CmsSlashCommandPlugin } from './CmsSlashCommandPlugin';
+import { cmsEditorNodes, cmsEditorTheme, cmsInitialEditorState } from './cmsLexical';
 import '@datalayer/jupyter-lexical/style/lexical/index.css';
 import '../styles.css';
 
-type Membership={site_id:string;role:'admin'|'editor'|'author'|'viewer'};
-type Session={token:string;user:{id:string;username:string;email:string;name:string};memberships:Membership[]};
-type Site={id:string;name:string;slug:string;tagline:string;role:Membership['role'];theme_slug:string;member_count:number;entry_count:number;appearance_theme:ThemeVariant;appearance_color_mode:ColorMode};
-type Entry={id:string;author_id:string;title:string;slug:string;excerpt:string;body:string;data:Record<string,unknown>;status:string};
-type Theme={id:string;name:string;slug:string;description:string};
-type Member={id:string;username:string;email:string;name:string;disabled:number;role:string};
-type Item={label?:string;slug?:string;id?:string};
-type Tab='Content'|'Users'|'Sites'|'Appearance'|'Extensions';
-const tabRoutes:Record<Tab,string>={Content:'content',Users:'users',Sites:'sites',Appearance:'appearance',Extensions:'extensions'};
-const routeTabs:Record<string,Tab>=Object.fromEntries(Object.entries(tabRoutes).map(([tab,path])=>[path,tab])) as Record<string,Tab>;
-function tabFromLocation():Tab{return routeTabs[window.location.pathname.split('/').filter(Boolean)[1]??'']??'Content'}
-const ContentTypes=defineContributionPoint<Item>('cmsAstro.contentType');
-const ExtensionThemes=defineContributionPoint<Item>('cmsAstro.theme');
-const EditorActions=defineContributionPoint<Item>('cmsAstro.editorAction');
-const DashboardWidgets=defineContributionPoint<Item>('cmsAstro.dashboardWidget');
-setReactorSharedModules({react:React,'@datalayer/reactor':Reactor,'@datalayer/reactor/react':ReactorReact,'@primer/react':PrimerReact,'@datalayer/primer-addons':PrimerAddons});
-
-async function api<T>(url:string,init:RequestInit={}):Promise<T>{const response=await fetch(url,init);if(!response.ok)throw new Error((await response.text())||`HTTP ${response.status}`);if(response.status===204)return undefined as T;return response.json()as Promise<T>}
-
-function Heading({as='h2',children}:{as?:'h1'|'h2'|'h3';children:React.ReactNode;sx?:unknown}){return React.createElement(as,{className:'primer-heading'},children)}
-
-function EditablePlugin({editable}:{editable:boolean}){const[editor]=useLexicalComposerContext();useEffect(()=>editor.setEditable(editable),[editable,editor]);return null}
-
-const cmsEditorNodes:InitialConfigType['nodes']=[
- AutoLinkNode,CodeNode,CodeHighlightNode,CollapsibleContainerNode,CollapsibleContentNode,CollapsibleTitleNode,
- EquationNode,ExcalidrawNode,HashtagNode,HeadingNode,HorizontalRuleNode,ImageNode,
- LinkNode,ListItemNode,ListNode,MarkNode,QuoteNode,
- TableCellNode,TableNode,TableRowNode,YouTubeNode,
+type Membership = { site_id: string; role: 'admin' | 'editor' | 'author' | 'viewer' };
+type Session = {
+  token: string;
+  user: { id: string; username: string; email: string; name: string };
+  memberships: Membership[];
+};
+type Site = {
+  id: string;
+  name: string;
+  slug: string;
+  tagline: string;
+  role: Membership['role'];
+  theme_slug: string;
+  member_count: number;
+  entry_count: number;
+  appearance_theme: ThemeVariant;
+  appearance_color_mode: ColorMode;
+};
+type Entry = {
+  id: string;
+  author_id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  body: string;
+  data: Record<string, unknown>;
+  status: string;
+};
+type Theme = { id: string; name: string; slug: string; description: string };
+type Member = {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  disabled: number;
+  role: string;
+};
+type BackendExtension = {
+  name: string;
+  version: string;
+  display_name: string;
+  description: string;
+  emoji?: string;
+  plugins: string[];
+};
+type BackendPlugin = {
+  name: string;
+  display_name: string;
+  description: string;
+  extension?: string;
+  enabled: boolean;
+  activated: boolean;
+  disabled_by?: string | null;
+};
+type ExtensionCatalogItem = {
+  name: string;
+  plugin: string;
+  displayName: string;
+  description: string;
+  emoji: string;
+};
+type Item = { label?: string; slug?: string; id?: string };
+type Tab = 'Content' | 'Users' | 'Sites' | 'Appearance' | 'Extensions';
+const cmsAuthChannel = 'cms-astro-auth';
+const extensionCatalog: ExtensionCatalogItem[] = [
+  {
+    name: 'cms-astro-core',
+    plugin: 'cms-astro.core',
+    displayName: 'CMS Core',
+    description: 'Database-backed content, users, websites, themes, and publishing.',
+    emoji: '🪐',
+  },
+  {
+    name: 'cms-astro-pro',
+    plugin: 'cms-astro.pro',
+    displayName: 'CMS Pro',
+    description: 'SEO analysis, editorial scheduling, audit, and premium themes.',
+    emoji: '💫',
+  },
+  {
+    name: 'cms-astro-ai-agents',
+    plugin: 'cms-astro.ai-agents',
+    displayName: 'CMS AI Agents',
+    description: 'Authenticated AI-assisted blog import and content authoring.',
+    emoji: '✍️',
+  },
+  {
+    name: 'cms-astro-x402',
+    plugin: 'cms-astro.x402',
+    displayName: 'CMS x402',
+    description: 'HTTP 402 payment requirements and paid-content enforcement.',
+    emoji: '💳',
+  },
 ];
+const tabRoutes: Record<Tab, string> = {
+  Content: 'content',
+  Users: 'users',
+  Sites: 'sites',
+  Appearance: 'appearance',
+  Extensions: 'extensions',
+};
+const routeTabs: Record<string, Tab> = Object.fromEntries(
+  Object.entries(tabRoutes).map(([tab, path]) => [path, tab]),
+) as Record<string, Tab>;
+function tabFromLocation(): Tab {
+  return routeTabs[window.location.pathname.split('/').filter(Boolean)[1] ?? ''] ?? 'Content';
+}
+const ContentTypes = defineContributionPoint<Item>('cmsAstro.contentType');
+const ExtensionThemes = defineContributionPoint<Item>('cmsAstro.theme');
+const EditorActions = defineContributionPoint<Item>('cmsAstro.editorAction');
+const DashboardWidgets = defineContributionPoint<Item>('cmsAstro.dashboardWidget');
+setReactorSharedModules({
+  react: React,
+  '@datalayer/reactor': Reactor,
+  '@datalayer/reactor/react': ReactorReact,
+  '@primer/react': PrimerReact,
+  '@datalayer/primer-addons': PrimerAddons,
+});
 
-function CmsEditorSurface({readOnly,onChange}:{readOnly:boolean;onChange:(plain:string,state:string)=>void}){
- const[editor]=useLexicalComposerContext();
- const[activeEditor,setActiveEditor]=useState<LexicalEditor>(editor),[isLinkEditMode,setIsLinkEditMode]=useState(false),[anchor,setAnchor]=useState<HTMLDivElement|null>(null);
- const anchorRef=useCallback((element:HTMLDivElement|null)=>setAnchor(element),[]);
- const changed=useCallback((state:EditorState)=>state.read(()=>onChange($getRoot().getTextContent(),JSON.stringify(state.toJSON()))),[onChange]);
- return <CommentsProvider><ToolbarContext><div className={`editor-shell cms-rich-editor${readOnly?' read-only':''}`}><div className="editor-container">
-  {!readOnly&&<ToolbarPlugin editor={editor} activeEditor={activeEditor} setActiveEditor={setActiveEditor} setIsLinkEditMode={setIsLinkEditMode}/>}<div className="editor-inner">
-  <RichTextPlugin contentEditable={<div className="editor-scroller"><div className="editor" ref={anchorRef}><ContentEditable className="editor-input" aria-placeholder="Write your story…" placeholder={()=>null}/></div></div>} placeholder={<div className="editor-placeholder">Write your story…</div>} ErrorBoundary={LexicalErrorBoundary}/>
-  <EditablePlugin editable={!readOnly}/><HistoryPlugin/><ListPlugin/><CheckListPlugin/><LinkPlugin/><AutoLinkPlugin/><HashtagPlugin/><CodeBlockHighlightPlugin/><TablePlugin/><ListMaxIndentLevelPlugin maxDepth={7}/><MarkdownShortcutPlugin transformers={TRANSFORMERS}/><EquationsPlugin/><ExcalidrawPlugin/><ImagesPlugin/><HorizontalRulePlugin/><YouTubePlugin/><AutoEmbedPlugin/>{!readOnly&&<><OnChangePlugin onChange={changed}/><CmsSlashCommandPlugin/><TableCellResizerPlugin/><TableActionMenuPlugin/><TableHoverActionsV2Plugin/><CodeActionMenuPlugin/><TableOfContentsPlugin/>{anchor&&<><DraggableBlockPlugin anchorElem={anchor}/><FloatingLinkEditorPlugin anchorElem={anchor} isLinkEditMode={isLinkEditMode} setIsLinkEditMode={setIsLinkEditMode}/><FloatingTextFormatToolbarPlugin anchorElem={anchor} setIsLinkEditMode={setIsLinkEditMode}/></>}</>}</div>
- </div></div></ToolbarContext></CommentsProvider>
+async function api<T>(url: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
 }
 
-function RichEditor({initialState,initialText,readOnly=false,onChange}:{initialState?:string;initialText?:string;readOnly?:boolean;onChange:(plain:string,state:string)=>void}){const editorState=useRef(initialState??(initialText?()=>{$getRoot().append($createParagraphNode().append($createTextNode(initialText)))}:undefined)).current;const initialConfig=useMemo<InitialConfigType>(()=>({namespace:'CmsAstroEditor',theme:commentTheme,nodes:cmsEditorNodes,editorState,onError:error=>{throw error}}),[editorState]);return <LexicalComposer initialConfig={initialConfig}><CmsEditorSurface readOnly={readOnly} onChange={onChange}/></LexicalComposer>}
-
-function Login({apiUrl,onLogin}:{apiUrl:string;onLogin:(session:Session)=>void}){const[username,setUsername]=useState('admin'),[password,setPassword]=useState('admin'),[error,setError]=useState<string>();async function submit(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();setError(undefined);try{onLogin(await api<Session>(`${apiUrl}/api/cms/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password})}))}catch(reason){setError(reason instanceof Error?reason.message:String(reason))}}return <Box className="login-page"><Box className="login-card"><Heading as="h1" sx={{fontSize:3}}>Reactor CMS</Heading><Text sx={{color:'fg.muted'}}>Sign in to manage Astro content.</Text>{error&&<Flash variant="danger">{error}</Flash>}<form className="form-grid" onSubmit={submit}><FormControl required><FormControl.Label>Username</FormControl.Label><TextInput block value={username} onChange={e=>setUsername(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Password</FormControl.Label><TextInput block type="password" value={password} onChange={e=>setPassword(e.target.value)}/></FormControl><Button type="submit" variant="primary" block>Sign in</Button></form><Text sx={{fontSize:0,color:'fg.muted'}}>Seeded accounts: admin/admin, user1/user1, user2/user2</Text></Box></Box>}
-
-function Shell({apiUrl,remotes,session,onLogout}:{apiUrl:string;remotes:(LazyPluginRef|ReactorExtension)[];session:Session;onLogout:()=>void}){
- const reactor=useMemo(()=>buildReactorFromPlugins(remotes),[remotes]);useReactor(reactor);useBackendPluginStream(apiUrl);
- const hasLoaded=useRef(false);
- const[tab,setTab]=useState<Tab>(tabFromLocation),[busy,setBusy]=useState(true),[sites,setSites]=useState<Site[]>([]),[siteId,setSiteId]=useState(session.memberships[0]?.site_id??''),[entries,setEntries]=useState<Entry[]>([]),[themes,setThemes]=useState<Theme[]>([]),[members,setMembers]=useState<Member[]>([]),[selected,setSelected]=useState<Entry>(),[selectedMember,setSelectedMember]=useState<Member>(),[siteSection,setSiteSection]=useState<'general'|'appearance'>('general');
- const[title,setTitle]=useState(''),[excerpt,setExcerpt]=useState(''),[body,setBody]=useState(''),[lexical,setLexical]=useState<string>(),[name,setName]=useState(''),[username,setUsername]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[role,setRole]=useState('author'),[siteName,setSiteName]=useState(''),[siteSlug,setSiteSlug]=useState(''),[editSiteName,setEditSiteName]=useState(''),[editSiteSlug,setEditSiteSlug]=useState(''),[editSiteTagline,setEditSiteTagline]=useState(''),[notice,setNotice]=useState<string>(),[pending,setPending]=useState<string>(),[error,setError]=useState<string>();
- const headers=useMemo(()=>({'content-type':'application/json',Authorization:`Bearer ${session.token}`}),[session.token]);
- const activeSite=sites.find(site=>site.id===siteId),isAdmin=activeSite?.role==='admin',canEditSelected=!selected||isAdmin||activeSite?.role==='editor'||selected.author_id===session.user.id;
- const load=useCallback(async()=>{const showBusy=!hasLoaded.current;if(showBusy)setBusy(true);setError(undefined);try{const visibleSites=await api<Site[]>(`${apiUrl}/api/cms/sites`,{headers});setSites(visibleSites);const current=visibleSites.find(site=>site.id===siteId)??visibleSites[0];if(!current)return;if(current.id!==siteId)setSiteId(current.id);setEntries(await api<Entry[]>(`${apiUrl}/api/cms/sites/${current.id}/entries`,{headers}));setThemes(await api<Theme[]>(`${apiUrl}/api/cms/themes`,{headers}));if(current.role==='admin')setMembers(await api<Member[]>(`${apiUrl}/api/cms/sites/${current.id}/users`,{headers}));else setMembers([])}catch(reason){setError(reason instanceof Error?reason.message:String(reason))}finally{hasLoaded.current=true;if(showBusy)setBusy(false)}},[apiUrl,headers,siteId]);
- const navigate=useCallback((next:Tab,replace=false)=>{setTab(next);window.history[replace?'replaceState':'pushState'](null,'',`/_cms/${tabRoutes[next]}`)},[]);
- useEffect(()=>{const pop=()=>setTab(tabFromLocation());window.addEventListener('popstate',pop);if(/\/(admin|login)\/?$/.test(window.location.pathname))navigate('Content',true);return()=>window.removeEventListener('popstate',pop)},[navigate]);
- useEffect(()=>{void load()},[load]);useEffect(()=>{if(activeSite&&!isAdmin&&tab!=='Content')navigate('Content',true)},[activeSite,isAdmin,navigate,tab]);
- useEffect(()=>{setSelected(undefined);setTitle('');setExcerpt('');setBody('');setLexical(undefined);setSelectedMember(undefined)},[siteId]);
- useEffect(()=>{if(!selected&&entries.length>0)edit(entries[0])},[entries]);
- useEffect(()=>{setEditSiteName(activeSite?.name??'');setEditSiteSlug(activeSite?.slug??'');setEditSiteTagline(activeSite?.tagline??'')},[activeSite?.id,activeSite?.name,activeSite?.slug,activeSite?.tagline]);
- function edit(entry?:Entry){setSelected(entry);setTitle(entry?.title??'');setExcerpt(entry?.excerpt??'');setBody(entry?.body??'');setLexical(typeof entry?.data?.lexical==='string'?entry.data.lexical:undefined)}
- async function save(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();if(pending)return;const editing=Boolean(selected);setNotice(undefined);setPending(editing?'Saving changes…':'Creating draft…');try{const payload={collection:'posts',title,excerpt,body,data:{...(selected?.data??{}),lexical}};if(selected)await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${selected.id}`,{method:'PATCH',headers,body:JSON.stringify(payload)});else await api(`${apiUrl}/api/cms/sites/${siteId}/entries`,{method:'POST',headers,body:JSON.stringify(payload)});edit();await load();setNotice(editing?'Entry updated.':'Draft created.')}catch(reason){setError(String(reason))}finally{setPending(undefined)}}
- async function publish(entry:Entry){try{await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}/publish`,{method:'POST',headers});setNotice(`Published “${entry.title}”.`);await load()}catch(reason){setError(String(reason))}}
- function editMember(member?:Member){setSelectedMember(member);setName(member?.name??'');setUsername(member?.username??'');setEmail(member?.email??'');setPassword('');setRole(member?.role??'author')}
- async function saveUser(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();try{if(selectedMember){await api<Member>(`${apiUrl}/api/cms/sites/${siteId}/users/${selectedMember.id}`,{method:'PATCH',headers,body:JSON.stringify({name,username,email,...(password?{password}:{})})});if(role!==selectedMember.role)await api(`${apiUrl}/api/cms/sites/${siteId}/memberships`,{method:'PUT',headers,body:JSON.stringify({user_id:selectedMember.id,role})});setNotice(`Updated ${name}.`)}else{const user=await api<Member>(`${apiUrl}/api/cms/sites/${siteId}/users`,{method:'POST',headers,body:JSON.stringify({name,username,email,password})});await api(`${apiUrl}/api/cms/sites/${siteId}/memberships`,{method:'PUT',headers,body:JSON.stringify({user_id:user.id,role})});setNotice(`Added ${user.name}.`)}editMember();await load()}catch(reason){setError(String(reason))}}
- async function toggleUser(user:Member){try{await api(`${apiUrl}/api/cms/sites/${siteId}/users/${user.id}`,{method:'PATCH',headers,body:JSON.stringify({disabled:!user.disabled})});await load()}catch(reason){setError(String(reason))}}
- async function removeUser(user:Member){if(!window.confirm(`Remove ${user.name} from this website?`))return;try{await api(`${apiUrl}/api/cms/sites/${siteId}/users/${user.id}`,{method:'DELETE',headers});if(selectedMember?.id===user.id)editMember();setNotice(`Removed ${user.name}.`);await load()}catch(reason){setError(String(reason))}}
- async function createSite(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();try{await api(`${apiUrl}/api/cms/sites`,{method:'POST',headers,body:JSON.stringify({name:siteName,slug:siteSlug,theme:'editorial'})});setSiteName('');setSiteSlug('');await load()}catch(reason){setError(String(reason))}}
- async function saveSite(event:React.SyntheticEvent<HTMLFormElement>){event.preventDefault();try{await api(`${apiUrl}/api/cms/sites/${siteId}`,{method:'PATCH',headers,body:JSON.stringify({name:editSiteName,slug:editSiteSlug,tagline:editSiteTagline})});setNotice(`Updated ${editSiteName}.`);await load()}catch(reason){setError(String(reason))}}
- async function saveSiteAppearance(theme:ThemeVariant,colorMode:ColorMode,portable:PortableTheme,layoutTheme=activeSite?.theme_slug){try{await api(`${apiUrl}/api/cms/sites/${siteId}/appearance`,{method:'PATCH',headers,body:JSON.stringify({theme,color_mode:colorMode,layout_theme:layoutTheme,light:portable.modes.light,dark:portable.modes.dark})});setNotice(`Applied ${portable.label} to ${activeSite?.name}.`);await load()}catch(reason){setError(String(reason))}}
- async function selectWebsiteTheme(websiteTheme:Theme,appearanceTheme:ThemeVariant,portable:PortableTheme){await saveSiteAppearance(appearanceTheme,activeSite?.appearance_color_mode??'auto',portable,websiteTheme.slug)}
- const plugins=usePluginManifests(),contentTypes=useContributions(ContentTypes),extensionThemes=useContributions(ExtensionThemes),actions=useContributions(EditorActions),widgets=useContributions(DashboardWidgets),nav:Tab[]=isAdmin?['Content','Users','Sites','Appearance','Extensions']:['Content'];
- return <Box className="cms-shell"><Box as="header" className="cms-header"><Box><Heading as="h1" sx={{fontSize:2}}>Reactor CMS</Heading><Text sx={{fontSize:0,color:'fg.muted'}}>{activeSite?.name??'Astro content'}</Text></Box><Box sx={{display:'flex',alignItems:'center',gap:2}}><Label variant={isAdmin?'accent':'secondary'}>{activeSite?.role??'member'}</Label><AppearanceControlsWithStore useStore={useThemeStore}/><Button variant="invisible" onClick={onLogout}><SignOutIcon/> Sign out</Button></Box></Box><Box className="cms-layout"><Box as="nav" className="cms-nav">{nav.map(item=><Button key={item} variant={tab===item?'primary':'invisible'} onClick={()=>navigate(item)}>{item}</Button>)}</Box><Box as="main" className="cms-main"><Box sx={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:3}}><Heading as="h2" sx={{fontSize:3}}>{tab}</Heading><ActionMenu><ActionMenu.Button aria-label={`Select website. Current website: ${activeSite?.name??'none'}`}>{activeSite?.name??'Select website'}</ActionMenu.Button><ActionMenu.Overlay align="end" width="medium"><ActionList selectionVariant="single">{sites.map(site=><ActionList.Item key={site.id} selected={site.id===siteId} onSelect={()=>setSiteId(site.id)}>{site.name}<ActionList.Description variant="block">/{site.slug} · {site.entry_count} {site.entry_count===1?'entry':'entries'} · {site.role}</ActionList.Description></ActionList.Item>)}</ActionList></ActionMenu.Overlay></ActionMenu></Box>{error&&<Flash variant="danger">{error}</Flash>}{pending&&<Flash className="status-flash"><Spinner size="small" srText={null}/><span>{pending}</span></Flash>}{!pending&&notice&&<Flash variant="success">{notice}</Flash>}{busy&&<Spinner/>}
- {tab==='Content'&&<Box className="content-grid"><Box className="panel content-list"><Box sx={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><Box><Heading as="h3" sx={{fontSize:2}}>Entries</Heading><Text sx={{fontSize:0,color:'fg.muted'}}>{entries.length} {entries.length===1?'entry':'entries'}</Text></Box>{activeSite?.role!=='viewer'&&<Button onClick={()=>edit()}>New entry</Button>}</Box>{!busy&&entries.length===0&&<Box className="empty-state"><Text as="p" sx={{fontWeight:'semibold',m:0}}>No content yet</Text><Text as="p" sx={{color:'fg.muted',m:0}}>Create the first entry for this website.</Text></Box>}{entries.map(entry=>{const canEdit=isAdmin||activeSite?.role==='editor'||entry.author_id===session.user.id;return <Box key={entry.id} className="entry-row"><Box><Text sx={{fontWeight:'bold'}}>{entry.title}</Text><Box><Label variant={entry.status==='published'?'success':'secondary'}>{entry.status}</Label> <Text sx={{fontSize:0,color:'fg.muted'}}>/{entry.slug}</Text></Box></Box><Box sx={{display:'flex',gap:2}}><Button size="small" onClick={()=>edit(entry)}>{canEdit?'Edit':'View'}</Button>{canEdit&&entry.status!=='published'&&<Button size="small" variant="primary" onClick={()=>void publish(entry)}>Publish</Button>}</Box></Box>})}</Box><Box className="panel editor-panel"><Heading as="h3" sx={{fontSize:2}}>{selected?(canEditSelected?'Edit entry':'View entry'):'New entry'}</Heading><form className="form-grid editor-form" onSubmit={save}><FormControl required><FormControl.Label>Title</FormControl.Label><TextInput block disabled={!canEditSelected} value={title} onChange={e=>setTitle(e.target.value)}/></FormControl><FormControl><FormControl.Label>Excerpt</FormControl.Label><Textarea block disabled={!canEditSelected} value={excerpt} onChange={e=>setExcerpt(e.target.value)}/></FormControl><Box className="editor-field"><FormControl><FormControl.Label>Content</FormControl.Label><RichEditor key={selected?.id??'new'} initialState={lexical} initialText={body} readOnly={!canEditSelected} onChange={(plain,state)=>{setBody(plain);setLexical(state)}}/></FormControl></Box><Box sx={{display:'flex',gap:2}}>{canEditSelected&&<Button type="submit" variant="primary">{selected?'Save changes':'Create draft'}</Button>}{selected&&<Button onClick={()=>edit()}>Close</Button>}</Box></form><Box sx={{mt:3}}>{contentTypes.map(item=><Label key={item.id}>{item.value.label??item.value.slug}</Label>)}</Box></Box></Box>}
- {tab==='Users'&&isAdmin&&<Box className="content-grid"><Box className="panel"><Box sx={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><Heading as="h3" sx={{fontSize:2}}>People and access</Heading><Label>{members.length} users</Label></Box>{members.map(user=><Box key={user.id} className="member-row"><Box><Text sx={{fontWeight:'bold'}}>{user.name}</Text><Text as="p" sx={{fontSize:0,color:'fg.muted',m:0}}>@{user.username} · {user.email}</Text><Box sx={{mt:1}}><Label variant={user.disabled?'secondary':'success'}>{user.disabled?'disabled':user.role}</Label></Box></Box><Box className="row-actions"><Button size="small" onClick={()=>editMember(user)}>Edit</Button><Button size="small" onClick={()=>void toggleUser(user)} disabled={user.id===session.user.id}>{user.disabled?'Enable':'Disable'}</Button><Button size="small" variant="danger" onClick={()=>void removeUser(user)} disabled={user.id===session.user.id}>Remove</Button></Box></Box>)}</Box><Box className="panel"><Heading as="h3" sx={{fontSize:2}}>{selectedMember?'Edit user':'Add user'}</Heading><form className="form-grid" onSubmit={saveUser}><FormControl required><FormControl.Label>Name</FormControl.Label><TextInput block value={name} onChange={e=>setName(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Username</FormControl.Label><TextInput block value={username} onChange={e=>setUsername(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Email</FormControl.Label><TextInput block type="email" value={email} onChange={e=>setEmail(e.target.value)}/></FormControl><FormControl required={!selectedMember}><FormControl.Label>{selectedMember?'New password (optional)':'Password'}</FormControl.Label><TextInput block type="password" value={password} onChange={e=>setPassword(e.target.value)}/></FormControl><FormControl><FormControl.Label>Site role</FormControl.Label><Select block value={role} onChange={e=>setRole(e.target.value)}><Select.Option value="author">author</Select.Option><Select.Option value="editor">editor</Select.Option><Select.Option value="viewer">viewer</Select.Option><Select.Option value="admin">admin</Select.Option></Select></FormControl><Box className="row-actions"><Button type="submit" variant="primary">{selectedMember?'Save changes':'Add user'}</Button>{selectedMember&&<Button onClick={()=>editMember()}>Cancel</Button>}</Box></form></Box></Box>}
- {tab==='Sites'&&isAdmin&&<Box className="content-grid"><Box className="site-list-column"><Box className="panel"><Box sx={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><Heading as="h3" sx={{fontSize:2}}>Websites</Heading><Label>{sites.length} sites</Label></Box>{sites.map(site=><Box key={site.id} className={`site-row${site.id===siteId?' selected':''}`}><Box><Text sx={{fontWeight:'bold'}}>{site.name}</Text><Text as="p" sx={{fontSize:0,color:'fg.muted',m:0}}>{site.tagline||'No tagline'}</Text><Text as="p" sx={{fontSize:0,color:'fg.muted',m:0}}>{site.member_count} users · {site.entry_count} entries · {site.theme_slug}</Text></Box><Box className="row-actions"><Label>{site.role}</Label><Button size="small" onClick={()=>{setSiteId(site.id);setSiteSection('general')}}>{site.id===siteId?'Editing':'Manage'}</Button><a className="site-link" href={site.slug==='acme'?'/':`/${site.slug}`} target="_blank" rel="noreferrer">Open ↗</a></Box></Box>)}</Box><Box className="panel"><Heading as="h3" sx={{fontSize:2}}>Create website</Heading><form className="form-grid" onSubmit={createSite}><FormControl required><FormControl.Label>Name</FormControl.Label><TextInput block value={siteName} onChange={e=>setSiteName(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Slug</FormControl.Label><TextInput block value={siteSlug} onChange={e=>setSiteSlug(e.target.value)}/></FormControl><Button type="submit" variant="primary">Create website</Button></form></Box></Box><Box className="panel site-editor"><Box className="site-editor-heading"><Box><Heading as="h3" sx={{fontSize:2}}>Edit {activeSite?.name}</Heading><Text as="p" sx={{fontSize:1,color:'fg.muted',m:0}}>Manage this website and how it looks to visitors.</Text></Box><Box sx={{display:'flex',alignItems:'center',gap:2,flexWrap:'wrap'}}>{activeSite&&<Button as="a" href={activeSite.slug==='acme'?'/':`/${activeSite.slug}`} target="_blank" rel="noreferrer"><LinkExternalIcon/> Open website</Button>}<SegmentedControl aria-label="Website settings" onChange={index=>setSiteSection(index===0?'general':'appearance')}><SegmentedControl.Button selected={siteSection==='general'}>General</SegmentedControl.Button><SegmentedControl.Button selected={siteSection==='appearance'}>Appearance</SegmentedControl.Button></SegmentedControl></Box></Box>{siteSection==='general'?<form className="form-grid site-general-form" onSubmit={saveSite}><FormControl required><FormControl.Label>Name</FormControl.Label><TextInput block value={editSiteName} onChange={e=>setEditSiteName(e.target.value)}/></FormControl><FormControl required><FormControl.Label>Slug</FormControl.Label><TextInput block value={editSiteSlug} onChange={e=>setEditSiteSlug(e.target.value)}/><FormControl.Caption>Lowercase letters, numbers, and hyphens.</FormControl.Caption></FormControl><FormControl><FormControl.Label>Tagline</FormControl.Label><Textarea block value={editSiteTagline} onChange={e=>setEditSiteTagline(e.target.value)}/></FormControl><Button type="submit" variant="primary">Save website</Button></form>:activeSite&&<AppearanceSettings websiteThemes={themes} activeWebsiteTheme={activeSite.theme_slug} previewUrl={activeSite.slug==='acme'?'/':`/${activeSite.slug}`} siteAppearance={{theme:activeSite.appearance_theme,colorMode:activeSite.appearance_color_mode}} onWebsiteThemeChange={(websiteTheme,appearanceTheme,portable)=>void selectWebsiteTheme(websiteTheme,appearanceTheme,portable)} onSiteAppearanceChange={(theme,colorMode,portable)=>void saveSiteAppearance(theme,colorMode,portable)}/>}</Box></Box>}
- {tab==='Appearance'&&isAdmin&&<AppearanceSettings/>} {tab==='Appearance'&&extensionThemes.length>0&&<Box>{extensionThemes.map(item=><Label key={item.id}>{item.value.label??item.value.slug}</Label>)}</Box>}
- {tab==='Extensions'&&isAdmin&&<Box className="cards">{plugins.map(plugin=><Box className="panel" key={plugin.name}><Heading as="h3" sx={{fontSize:2}}>{plugin.emoji} {plugin.displayName}</Heading><Text as="p">{plugin.description}</Text><Label variant={plugin.activated?'success':'secondary'}>{plugin.activated?'active':'available'}</Label></Box>)}<Box className="panel"><Text>{actions.length} editor actions · {widgets.length} dashboard widgets</Text></Box></Box>}
- </Box></Box></Box>
+function Heading({
+  as = 'h2',
+  children,
+}: {
+  as?: 'h1' | 'h2' | 'h3';
+  children: React.ReactNode;
+  sx?: unknown;
+}) {
+  return React.createElement(as, { className: 'primer-heading' }, children);
 }
 
-export default function AdminApp({apiUrl='http://localhost:8791'}:{apiUrl?:string}){const[session,setSession]=useState<Session|undefined>(()=>{try{return JSON.parse(sessionStorage.getItem('cms-session')??'null')??undefined}catch{return undefined}}),[remotes,setRemotes]=useState<(LazyPluginRef|ReactorExtension)[]>(),[error,setError]=useState<string>();useEffect(()=>{bootstrapExtensions(apiUrl).then(setRemotes).catch(reason=>setError(String(reason)))},[apiUrl]);const login=(value:Session)=>{sessionStorage.setItem('cms-session',JSON.stringify(value));setSession(value)};const logout=()=>{if(session)void api(`${apiUrl}/api/cms/auth/logout`,{method:'DELETE',headers:{Authorization:`Bearer ${session.token}`}});sessionStorage.removeItem('cms-session');setSession(undefined)};return <ThemedProvider useStore={useThemeStore}>{error?<Flash variant="danger">{error}</Flash>:!session?<Login apiUrl={apiUrl} onLogin={login}/>:remotes?<Shell apiUrl={apiUrl} remotes={remotes} session={session} onLogout={logout}/>:<Box sx={{p:4}}><Spinner/></Box>}</ThemedProvider>}
+function EditablePlugin({ editable }: { editable: boolean }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => editor.setEditable(editable), [editable, editor]);
+  return null;
+}
+
+function CmsEditorSurface({
+  readOnly,
+  onChange,
+}: {
+  readOnly: boolean;
+  onChange: (plain: string, state: string) => void;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const [activeEditor, setActiveEditor] = useState<LexicalEditor>(editor),
+    [isLinkEditMode, setIsLinkEditMode] = useState(false),
+    [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
+  const anchorRef = useCallback((element: HTMLDivElement | null) => setAnchor(element), []);
+  const changed = useCallback(
+    (state: EditorState) =>
+      state.read(() => onChange($getRoot().getTextContent(), JSON.stringify(state.toJSON()))),
+    [onChange],
+  );
+  return (
+    <CommentsProvider>
+      <ToolbarContext>
+        <div className={`editor-shell cms-rich-editor${readOnly ? ' read-only' : ''}`}>
+          <div className="editor-container">
+            {!readOnly && (
+              <ToolbarPlugin
+                editor={editor}
+                activeEditor={activeEditor}
+                setActiveEditor={setActiveEditor}
+                setIsLinkEditMode={setIsLinkEditMode}
+              />
+            )}
+            <div className="editor-inner">
+              <RichTextPlugin
+                contentEditable={
+                  <div className="editor-scroller">
+                    <div className="editor" ref={anchorRef}>
+                      <ContentEditable
+                        className="editor-input"
+                        aria-placeholder="Write your story…"
+                        placeholder={() => null}
+                      />
+                    </div>
+                  </div>
+                }
+                placeholder={<div className="editor-placeholder">Write your story…</div>}
+                ErrorBoundary={LexicalErrorBoundary}
+              />
+              <EditablePlugin editable={!readOnly} />
+              <HistoryPlugin />
+              <ListPlugin />
+              <CheckListPlugin />
+              <LinkPlugin />
+              <AutoLinkPlugin />
+              <HashtagPlugin />
+              <CodeBlockHighlightPlugin />
+              <TablePlugin />
+              <ListMaxIndentLevelPlugin maxDepth={7} />
+              <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+              <EquationsPlugin />
+              <ExcalidrawPlugin />
+              <ImagesPlugin />
+              <HorizontalRulePlugin />
+              <YouTubePlugin />
+              <AutoEmbedPlugin />
+              {!readOnly && (
+                <>
+                  <OnChangePlugin onChange={changed} />
+                  <CmsSlashCommandPlugin />
+                  <TableCellResizerPlugin />
+                  <TableActionMenuPlugin />
+                  <TableHoverActionsV2Plugin />
+                  <CodeActionMenuPlugin />
+                  <TableOfContentsPlugin />
+                  {anchor && (
+                    <>
+                      <DraggableBlockPlugin anchorElem={anchor} />
+                      <FloatingLinkEditorPlugin
+                        anchorElem={anchor}
+                        isLinkEditMode={isLinkEditMode}
+                        setIsLinkEditMode={setIsLinkEditMode}
+                      />
+                      <FloatingTextFormatToolbarPlugin
+                        anchorElem={anchor}
+                        setIsLinkEditMode={setIsLinkEditMode}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </ToolbarContext>
+    </CommentsProvider>
+  );
+}
+
+function RichEditor({
+  initialState,
+  initialText = '',
+  readOnly = false,
+  onChange,
+}: {
+  initialState?: string;
+  initialText?: string;
+  readOnly?: boolean;
+  onChange: (plain: string, state: string) => void;
+}) {
+  const editorState = useRef(cmsInitialEditorState(initialState, initialText)).current;
+  const initialConfig = useMemo<InitialConfigType>(
+    () => ({
+      namespace: 'CmsAstroEditor',
+      theme: cmsEditorTheme,
+      nodes: cmsEditorNodes,
+      editorState,
+      onError: (error) => {
+        throw error;
+      },
+    }),
+    [editorState],
+  );
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <CmsEditorSurface readOnly={readOnly} onChange={onChange} />
+    </LexicalComposer>
+  );
+}
+
+function Login({ apiUrl, onLogin }: { apiUrl: string; onLogin: (session: Session) => void }) {
+  const [username, setUsername] = useState('admin'),
+    [password, setPassword] = useState('admin'),
+    [error, setError] = useState<string>();
+  async function submit(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    try {
+      onLogin(
+        await api<Session>(`${apiUrl}/api/cms/auth/login`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        }),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  }
+  return (
+    <Box className="login-page">
+      <Box className="login-card">
+        <Heading as="h1" sx={{ fontSize: 3 }}>
+          Reactor CMS
+        </Heading>
+        <Text sx={{ color: 'fg.muted' }}>Sign in to manage Astro content.</Text>
+        {error && <Flash variant="danger">{error}</Flash>}
+        <form className="form-grid" onSubmit={submit}>
+          <FormControl required>
+            <FormControl.Label>Username</FormControl.Label>
+            <TextInput block value={username} onChange={(e) => setUsername(e.target.value)} />
+          </FormControl>
+          <FormControl required>
+            <FormControl.Label>Password</FormControl.Label>
+            <TextInput
+              block
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </FormControl>
+          <Button type="submit" variant="primary" block>
+            Sign in
+          </Button>
+        </form>
+        <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+          Seeded accounts: admin/admin, user1/user1, user2/user2
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function Shell({
+  apiUrl,
+  remotes,
+  session,
+  onLogout,
+}: {
+  apiUrl: string;
+  remotes: (LazyPluginRef | ReactorExtension)[];
+  session: Session;
+  onLogout: () => void;
+}) {
+  const reactor = useMemo(() => buildReactorFromPlugins(remotes), [remotes]);
+  useReactor(reactor);
+  useBackendPluginStream(apiUrl);
+  const hasLoaded = useRef(false);
+  const [tab, setTab] = useState<Tab>(tabFromLocation),
+    [busy, setBusy] = useState(true),
+    [extensionsBusy, setExtensionsBusy] = useState(false),
+    [sites, setSites] = useState<Site[]>([]),
+    [siteId, setSiteId] = useState(session.memberships[0]?.site_id ?? ''),
+    [entries, setEntries] = useState<Entry[]>([]),
+    [themes, setThemes] = useState<Theme[]>([]),
+    [members, setMembers] = useState<Member[]>([]),
+    [backendExtensions, setBackendExtensions] = useState<BackendExtension[]>([]),
+    [backendPlugins, setBackendPlugins] = useState<BackendPlugin[]>([]),
+    [selected, setSelected] = useState<Entry>(),
+    [deleteCandidate, setDeleteCandidate] = useState<Entry>(),
+    [selectedMember, setSelectedMember] = useState<Member>(),
+    [siteSection, setSiteSection] = useState<'general' | 'appearance'>('general');
+  const [title, setTitle] = useState(''),
+    [excerpt, setExcerpt] = useState(''),
+    [body, setBody] = useState(''),
+    [lexical, setLexical] = useState<string>(),
+    [name, setName] = useState(''),
+    [username, setUsername] = useState(''),
+    [email, setEmail] = useState(''),
+    [password, setPassword] = useState(''),
+    [role, setRole] = useState('author'),
+    [siteName, setSiteName] = useState(''),
+    [siteSlug, setSiteSlug] = useState(''),
+    [editSiteName, setEditSiteName] = useState(''),
+    [editSiteSlug, setEditSiteSlug] = useState(''),
+    [editSiteTagline, setEditSiteTagline] = useState(''),
+    [notice, setNotice] = useState<string>(),
+    [pending, setPending] = useState<string>(),
+    [error, setError] = useState<string>();
+  const headers = useMemo(
+    () => ({ 'content-type': 'application/json', Authorization: `Bearer ${session.token}` }),
+    [session.token],
+  );
+  const activeSite = sites.find((site) => site.id === siteId),
+    publicSiteUrl = activeSite ? (activeSite.slug === 'acme' ? '/' : `/${activeSite.slug}`) : undefined,
+    isAdmin = activeSite?.role === 'admin',
+    canEditSelected =
+      !selected ||
+      isAdmin ||
+      activeSite?.role === 'editor' ||
+      selected.author_id === session.user.id;
+  const load = useCallback(async () => {
+    const showBusy = !hasLoaded.current;
+    if (showBusy) setBusy(true);
+    setError(undefined);
+    try {
+      const visibleSites = await api<Site[]>(`${apiUrl}/api/cms/sites`, { headers });
+      setSites(visibleSites);
+      const current = visibleSites.find((site) => site.id === siteId) ?? visibleSites[0];
+      if (!current) return;
+      if (current.id !== siteId) setSiteId(current.id);
+      setEntries(await api<Entry[]>(`${apiUrl}/api/cms/sites/${current.id}/entries`, { headers }));
+      setThemes(await api<Theme[]>(`${apiUrl}/api/cms/themes`, { headers }));
+      if (current.role === 'admin')
+        setMembers(await api<Member[]>(`${apiUrl}/api/cms/sites/${current.id}/users`, { headers }));
+      else setMembers([]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      hasLoaded.current = true;
+      if (showBusy) setBusy(false);
+    }
+  }, [apiUrl, headers, siteId]);
+  const loadExtensions = useCallback(async () => {
+    setExtensionsBusy(true);
+    setError(undefined);
+    try {
+      const [discovered, pluginStates] = await Promise.all([
+        api<BackendExtension[]>(`${apiUrl}/extensions`),
+        api<BackendPlugin[]>(`${apiUrl}/plugins`),
+      ]);
+      setBackendExtensions(discovered);
+      setBackendPlugins(pluginStates);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setExtensionsBusy(false);
+    }
+  }, [apiUrl]);
+  const navigate = useCallback((next: Tab, replace = false) => {
+    setTab(next);
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', `/_cms/${tabRoutes[next]}`);
+  }, []);
+  useEffect(() => {
+    const pop = () => setTab(tabFromLocation());
+    window.addEventListener('popstate', pop);
+    if (/\/(admin|login)\/?$/.test(window.location.pathname)) navigate('Content', true);
+    return () => window.removeEventListener('popstate', pop);
+  }, [navigate]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    if (activeSite && !isAdmin && tab !== 'Content') navigate('Content', true);
+  }, [activeSite, isAdmin, navigate, tab]);
+  useEffect(() => {
+    if (tab === 'Extensions' && isAdmin) void loadExtensions();
+  }, [isAdmin, loadExtensions, tab]);
+  useEffect(() => {
+    setSelected(undefined);
+    setTitle('');
+    setExcerpt('');
+    setBody('');
+    setLexical(undefined);
+    setDeleteCandidate(undefined);
+    setSelectedMember(undefined);
+  }, [siteId]);
+  useEffect(() => {
+    if (!selected && entries.length > 0) edit(entries[0]);
+  }, [entries]);
+  useEffect(() => {
+    setEditSiteName(activeSite?.name ?? '');
+    setEditSiteSlug(activeSite?.slug ?? '');
+    setEditSiteTagline(activeSite?.tagline ?? '');
+  }, [activeSite?.id, activeSite?.name, activeSite?.slug, activeSite?.tagline]);
+  function edit(entry?: Entry) {
+    setSelected(entry);
+    setTitle(entry?.title ?? '');
+    setExcerpt(entry?.excerpt ?? '');
+    setBody(entry?.body ?? '');
+    setLexical(typeof entry?.data?.lexical === 'string' ? entry.data.lexical : undefined);
+  }
+  async function save(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const editing = Boolean(selected);
+    setNotice(undefined);
+    setPending(editing ? 'Saving changes…' : 'Creating draft…');
+    try {
+      const payload = {
+        collection: 'posts',
+        title,
+        excerpt,
+        body,
+        data: { ...(selected?.data ?? {}), lexical },
+      };
+      if (selected)
+        await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${selected.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(payload),
+        });
+      else
+        await api(`${apiUrl}/api/cms/sites/${siteId}/entries`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+      edit();
+      await load();
+      setNotice(editing ? 'Entry updated.' : 'Draft created.');
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  async function publish(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Publishing “${entry.title}”…`);
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}/publish`, {
+        method: 'POST',
+        headers,
+      });
+      setNotice(`Published “${entry.title}”.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  async function unpublish(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Unpublishing “${entry.title}”…`);
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}/unpublish`, {
+        method: 'POST',
+        headers,
+      });
+      setNotice(`Unpublished “${entry.title}”.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  async function deleteEntry(entry: Entry) {
+    if (pending) return;
+    setError(undefined);
+    setNotice(undefined);
+    setPending(`Deleting “${entry.title}”…`);
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/entries/${entry.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (selected?.id === entry.id) edit();
+      setNotice(`Deleted “${entry.title}”.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setPending(undefined);
+    }
+  }
+  function editMember(member?: Member) {
+    setSelectedMember(member);
+    setName(member?.name ?? '');
+    setUsername(member?.username ?? '');
+    setEmail(member?.email ?? '');
+    setPassword('');
+    setRole(member?.role ?? 'author');
+  }
+  async function saveUser(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      if (selectedMember) {
+        await api<Member>(`${apiUrl}/api/cms/sites/${siteId}/users/${selectedMember.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ name, username, email, ...(password ? { password } : {}) }),
+        });
+        if (role !== selectedMember.role)
+          await api(`${apiUrl}/api/cms/sites/${siteId}/memberships`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ user_id: selectedMember.id, role }),
+          });
+        setNotice(`Updated ${name}.`);
+      } else {
+        const user = await api<Member>(`${apiUrl}/api/cms/sites/${siteId}/users`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ name, username, email, password }),
+        });
+        await api(`${apiUrl}/api/cms/sites/${siteId}/memberships`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ user_id: user.id, role }),
+        });
+        setNotice(`Added ${user.name}.`);
+      }
+      editMember();
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function toggleUser(user: Member) {
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/users/${user.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ disabled: !user.disabled }),
+      });
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function removeUser(user: Member) {
+    if (!window.confirm(`Remove ${user.name} from this website?`)) return;
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/users/${user.id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (selectedMember?.id === user.id) editMember();
+      setNotice(`Removed ${user.name}.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function createSite(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await api(`${apiUrl}/api/cms/sites`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: siteName, slug: siteSlug, theme: 'editorial' }),
+      });
+      setSiteName('');
+      setSiteSlug('');
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function saveSite(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ name: editSiteName, slug: editSiteSlug, tagline: editSiteTagline }),
+      });
+      setNotice(`Updated ${editSiteName}.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function saveSiteAppearance(
+    theme: ThemeVariant,
+    colorMode: ColorMode,
+    portable: PortableTheme,
+    layoutTheme = activeSite?.theme_slug,
+  ) {
+    try {
+      await api(`${apiUrl}/api/cms/sites/${siteId}/appearance`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          theme,
+          color_mode: colorMode,
+          layout_theme: layoutTheme,
+          light: portable.modes.light,
+          dark: portable.modes.dark,
+        }),
+      });
+      setNotice(`Applied ${portable.label} to ${activeSite?.name}.`);
+      await load();
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }
+  async function selectWebsiteTheme(
+    websiteTheme: Theme,
+    appearanceTheme: ThemeVariant,
+    portable: PortableTheme,
+  ) {
+    await saveSiteAppearance(
+      appearanceTheme,
+      activeSite?.appearance_color_mode ?? 'auto',
+      portable,
+      websiteTheme.slug,
+    );
+  }
+  const contentTypes = useContributions(ContentTypes),
+    extensionThemes = useContributions(ExtensionThemes),
+    actions = useContributions(EditorActions),
+    widgets = useContributions(DashboardWidgets),
+    nav: Tab[] = isAdmin ? ['Sites', 'Content', 'Users', 'Appearance', 'Extensions'] : ['Content'];
+  const extensionCards = useMemo(() => {
+    const catalogNames = new Set(extensionCatalog.map((item) => item.name));
+    const cards = [
+      ...extensionCatalog,
+      ...backendExtensions
+        .filter((extension) => !catalogNames.has(extension.name))
+        .map((extension) => ({
+          name: extension.name,
+          plugin: extension.plugins[0] ?? '',
+          displayName: extension.display_name,
+          description: extension.description,
+          emoji: extension.emoji ?? '🧩',
+        })),
+    ];
+    return cards.map((catalogItem) => {
+      const extension = backendExtensions.find((item) => item.name === catalogItem.name);
+      const pluginNames = extension?.plugins.length ? extension.plugins : [catalogItem.plugin];
+      const plugins = backendPlugins.filter((plugin) => pluginNames.includes(plugin.name));
+      const discovered = Boolean(extension) || plugins.length > 0;
+      const enabled = plugins.filter((plugin) => plugin.enabled).length;
+      const active = plugins.filter((plugin) => plugin.enabled && plugin.activated).length;
+      const status = !discovered
+        ? 'not enabled'
+        : plugins.length > 0 && active === plugins.length
+          ? 'active'
+          : plugins.length > 0 && enabled === plugins.length
+            ? 'enabled'
+            : enabled > 0
+              ? 'partially enabled'
+              : 'disabled';
+      return {
+        ...catalogItem,
+        displayName: extension?.display_name ?? catalogItem.displayName,
+        description: extension?.description ?? catalogItem.description,
+        emoji: extension?.emoji ?? catalogItem.emoji,
+        version: extension?.version,
+        plugins,
+        discovered,
+        enabled,
+        active,
+        status,
+      };
+    });
+  }, [backendExtensions, backendPlugins]);
+  return (
+    <Box className="cms-shell">
+      <Box as="header" className="cms-header">
+        <Box>
+          <Heading as="h1" sx={{ fontSize: 2 }}>
+            Reactor CMS
+          </Heading>
+          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>{activeSite?.name ?? 'Astro content'}</Text>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Label variant={isAdmin ? 'accent' : 'secondary'}>{activeSite?.role ?? 'member'}</Label>
+          <AppearanceControlsWithStore useStore={useThemeStore} />
+          <Button variant="invisible" onClick={onLogout}>
+            <SignOutIcon /> Sign out
+          </Button>
+        </Box>
+      </Box>
+      <Box className="cms-layout">
+        <Box as="nav" className="cms-nav">
+          {nav.map((item) => (
+            <Button
+              key={item}
+              variant={tab === item ? 'primary' : 'invisible'}
+              onClick={() => navigate(item)}
+            >
+              {item}
+            </Button>
+          ))}
+        </Box>
+        <Box as="main" className="cms-main">
+          <Box
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 3 }}
+          >
+            <Heading as="h2" sx={{ fontSize: 3 }}>
+              {tab}
+            </Heading>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              {publicSiteUrl && (
+                <Button as="a" href={publicSiteUrl} target="_blank" rel="opener">
+                  <LinkExternalIcon /> Open website
+                </Button>
+              )}
+              <ActionMenu>
+                <ActionMenu.Button
+                  aria-label={`Select website. Current website: ${activeSite?.name ?? 'none'}`}
+                >
+                  {activeSite?.name ?? 'Select website'}
+                </ActionMenu.Button>
+                <ActionMenu.Overlay align="end" width="medium">
+                  <ActionList selectionVariant="single">
+                    {sites.map((site) => (
+                      <ActionList.Item
+                        key={site.id}
+                        selected={site.id === siteId}
+                        onSelect={() => setSiteId(site.id)}
+                      >
+                        {site.name}
+                        <ActionList.Description variant="block">
+                          /{site.slug} · {site.entry_count}{' '}
+                          {site.entry_count === 1 ? 'entry' : 'entries'} · {site.role}
+                        </ActionList.Description>
+                      </ActionList.Item>
+                    ))}
+                  </ActionList>
+                </ActionMenu.Overlay>
+              </ActionMenu>
+            </Box>
+          </Box>
+          <SlidingPanel
+            isOpen={Boolean(error || pending || notice)}
+            message={
+              pending ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Spinner size="small" srText={null} />
+                  <span>{pending}</span>
+                </Box>
+              ) : (
+                (error ?? notice ?? '')
+              )
+            }
+            position="north"
+            variant={error ? 'error' : pending ? 'info' : 'success'}
+            durationMs={!error && !pending && notice ? 4000 : undefined}
+            onDismiss={
+              pending
+                ? undefined
+                : () => {
+                    setError(undefined);
+                    setNotice(undefined);
+                  }
+            }
+            zIndex={1100}
+          />
+          {busy && <Spinner />}
+          {tab === 'Content' && activeSite && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 3,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Box>
+                <Heading as="h3" sx={{ fontSize: 2 }}>
+                  {activeSite.name}
+                </Heading>
+                <Text as="p" sx={{ color: 'fg.muted', m: 0 }}>
+                  {activeSite.tagline || 'No website description has been added yet.'}
+                </Text>
+              </Box>
+            </Box>
+          )}
+          {tab === 'Content' && (
+            <Box className="content-grid">
+              <Box className="panel content-list">
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Box>
+                    <Heading as="h3" sx={{ fontSize: 2 }}>
+                      Entries
+                    </Heading>
+                    <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+                      {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+                    </Text>
+                  </Box>
+                  {activeSite?.role !== 'viewer' && (
+                    <Button onClick={() => edit()}>New entry</Button>
+                  )}
+                </Box>
+                {!busy && entries.length === 0 && (
+                  <Box className="empty-state">
+                    <Text as="p" sx={{ fontWeight: 'semibold', m: 0 }}>
+                      No content yet
+                    </Text>
+                    <Text as="p" sx={{ color: 'fg.muted', m: 0 }}>
+                      Create the first entry for this website.
+                    </Text>
+                  </Box>
+                )}
+                {entries.map((entry) => {
+                  const canEdit =
+                    isAdmin || activeSite?.role === 'editor' || entry.author_id === session.user.id;
+                  return (
+                    <Box key={entry.id} className="entry-row">
+                      <Box>
+                        <Text sx={{ fontWeight: 'bold' }}>{entry.title}</Text>
+                        <Box>
+                          <Label variant={entry.status === 'published' ? 'success' : 'secondary'}>
+                            {entry.status}
+                          </Label>{' '}
+                          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>/{entry.slug}</Text>
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Button size="small" onClick={() => edit(entry)}>
+                          {canEdit ? 'Edit' : 'View'}
+                        </Button>
+                        {canEdit && entry.status !== 'published' && (
+                          <>
+                            <Button
+                              size="small"
+                              variant="primary"
+                              disabled={Boolean(pending)}
+                              onClick={() => void publish(entry)}
+                            >
+                              Publish
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="danger"
+                              disabled={Boolean(pending)}
+                              onClick={() => setDeleteCandidate(entry)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                        {canEdit && entry.status === 'published' && (
+                          <Button
+                            size="small"
+                            disabled={Boolean(pending)}
+                            onClick={() => void unpublish(entry)}
+                          >
+                            Unpublish
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })}
+                {deleteCandidate && (
+                  <ConfirmationDialog
+                    title="Delete this entry?"
+                    confirmButtonContent="Delete entry"
+                    confirmButtonType="danger"
+                    cancelButtonContent="Cancel"
+                    width="large"
+                    onClose={(gesture) => {
+                      const entry = deleteCandidate;
+                      setDeleteCandidate(undefined);
+                      if (gesture === 'confirm') void deleteEntry(entry);
+                    }}
+                  >
+                    <Text as="p" sx={{ m: 0 }}>
+                      “{deleteCandidate.title}” (/{deleteCandidate.slug}) will be permanently
+                      deleted. This action cannot be undone.
+                    </Text>
+                  </ConfirmationDialog>
+                )}
+              </Box>
+              <Box className="panel editor-panel">
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Heading as="h3" sx={{ fontSize: 2 }}>
+                    {selected ? (canEditSelected ? 'Edit entry' : 'View entry') : 'New entry'}
+                  </Heading>
+                </Box>
+                <form className="form-grid editor-form" onSubmit={save}>
+                  <FormControl required>
+                    <FormControl.Label>Title</FormControl.Label>
+                    <TextInput
+                      block
+                      disabled={!canEditSelected}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormControl.Label>Excerpt</FormControl.Label>
+                    <Textarea
+                      block
+                      disabled={!canEditSelected}
+                      value={excerpt}
+                      onChange={(e) => setExcerpt(e.target.value)}
+                    />
+                  </FormControl>
+                  <Box className="editor-field">
+                    <FormControl>
+                      <FormControl.Label>Content</FormControl.Label>
+                      <RichEditor
+                        key={selected?.id ?? 'new'}
+                        initialState={lexical}
+                        initialText={body}
+                        readOnly={!canEditSelected}
+                        onChange={(plain, state) => {
+                          setBody(plain);
+                          setLexical(state);
+                        }}
+                      />
+                    </FormControl>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    {canEditSelected && (
+                      <Button type="submit" variant="primary">
+                        {selected ? 'Save changes' : 'Create draft'}
+                      </Button>
+                    )}
+                    {selected && <Button onClick={() => edit()}>Close</Button>}
+                  </Box>
+                </form>
+                <Box sx={{ mt: 3 }}>
+                  {contentTypes.map((item) => (
+                    <Label key={item.id}>{item.value.label ?? item.value.slug}</Label>
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+          )}
+          {tab === 'Users' && isAdmin && (
+            <Box className="content-grid">
+              <Box className="panel">
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Heading as="h3" sx={{ fontSize: 2 }}>
+                    People and access
+                  </Heading>
+                  <Label>{members.length} users</Label>
+                </Box>
+                {members.map((user) => (
+                  <Box key={user.id} className="member-row">
+                    <Box>
+                      <Text sx={{ fontWeight: 'bold' }}>{user.name}</Text>
+                      <Text as="p" sx={{ fontSize: 0, color: 'fg.muted', m: 0 }}>
+                        @{user.username} · {user.email}
+                      </Text>
+                      <Box sx={{ mt: 1 }}>
+                        <Label variant={user.disabled ? 'secondary' : 'success'}>
+                          {user.disabled ? 'disabled' : user.role}
+                        </Label>
+                      </Box>
+                    </Box>
+                    <Box className="row-actions">
+                      <Button size="small" onClick={() => editMember(user)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => void toggleUser(user)}
+                        disabled={user.id === session.user.id}
+                      >
+                        {user.disabled ? 'Enable' : 'Disable'}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="danger"
+                        onClick={() => void removeUser(user)}
+                        disabled={user.id === session.user.id}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+              <Box className="panel">
+                <Heading as="h3" sx={{ fontSize: 2 }}>
+                  {selectedMember ? 'Edit user' : 'Add user'}
+                </Heading>
+                <form className="form-grid" onSubmit={saveUser}>
+                  <FormControl required>
+                    <FormControl.Label>Name</FormControl.Label>
+                    <TextInput block value={name} onChange={(e) => setName(e.target.value)} />
+                  </FormControl>
+                  <FormControl required>
+                    <FormControl.Label>Username</FormControl.Label>
+                    <TextInput
+                      block
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl required>
+                    <FormControl.Label>Email</FormControl.Label>
+                    <TextInput
+                      block
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl required={!selectedMember}>
+                    <FormControl.Label>
+                      {selectedMember ? 'New password (optional)' : 'Password'}
+                    </FormControl.Label>
+                    <TextInput
+                      block
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormControl.Label>Site role</FormControl.Label>
+                    <Select block value={role} onChange={(e) => setRole(e.target.value)}>
+                      <Select.Option value="author">author</Select.Option>
+                      <Select.Option value="editor">editor</Select.Option>
+                      <Select.Option value="viewer">viewer</Select.Option>
+                      <Select.Option value="admin">admin</Select.Option>
+                    </Select>
+                  </FormControl>
+                  <Box className="row-actions">
+                    <Button type="submit" variant="primary">
+                      {selectedMember ? 'Save changes' : 'Add user'}
+                    </Button>
+                    {selectedMember && <Button onClick={() => editMember()}>Cancel</Button>}
+                  </Box>
+                </form>
+              </Box>
+            </Box>
+          )}
+          {tab === 'Sites' && isAdmin && (
+            <Box className="content-grid">
+              <Box className="site-list-column">
+                <Box className="panel">
+                  <Heading as="h3" sx={{ fontSize: 2 }}>
+                    Create website
+                  </Heading>
+                  <form className="form-grid" onSubmit={createSite}>
+                    <FormControl required>
+                      <FormControl.Label>Name</FormControl.Label>
+                      <TextInput
+                        block
+                        value={siteName}
+                        onChange={(e) => setSiteName(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormControl required>
+                      <FormControl.Label>Slug</FormControl.Label>
+                      <TextInput
+                        block
+                        value={siteSlug}
+                        onChange={(e) => setSiteSlug(e.target.value)}
+                      />
+                    </FormControl>
+                    <Button type="submit" variant="primary">
+                      Create website
+                    </Button>
+                  </form>
+                </Box>
+                <Box className="panel">
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Heading as="h3" sx={{ fontSize: 2 }}>
+                      Websites
+                    </Heading>
+                    <Label>{sites.length} sites</Label>
+                  </Box>
+                  {sites.map((site) => (
+                    <Box
+                      key={site.id}
+                      className={`site-row${site.id === siteId ? ' selected' : ''}`}
+                    >
+                      <Box>
+                        <Text sx={{ fontWeight: 'bold' }}>{site.name}</Text>
+                        <Text as="p" sx={{ fontSize: 0, color: 'fg.muted', m: 0 }}>
+                          {site.tagline || 'No tagline'}
+                        </Text>
+                        <Text as="p" sx={{ fontSize: 0, color: 'fg.muted', m: 0 }}>
+                          {site.member_count} users · {site.entry_count} entries · {site.theme_slug}
+                        </Text>
+                      </Box>
+                      <Box className="row-actions">
+                        <Label>{site.role}</Label>
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setSiteId(site.id);
+                            setSiteSection('general');
+                          }}
+                        >
+                          {site.id === siteId ? 'Editing' : 'Manage'}
+                        </Button>
+                        <a
+                          className="site-link"
+                          href={site.slug === 'acme' ? '/' : `/${site.slug}`}
+                          target="_blank"
+                          rel="opener"
+                        >
+                          Open ↗
+                        </a>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+              <Box className="panel site-editor">
+                <Box className="site-editor-heading">
+                  <Box>
+                    <Heading as="h3" sx={{ fontSize: 2 }}>
+                      Edit {activeSite?.name}
+                    </Heading>
+                    <Text as="p" sx={{ fontSize: 1, color: 'fg.muted', m: 0 }}>
+                      Manage this website and how it looks to visitors.
+                    </Text>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                    <SegmentedControl
+                      aria-label="Website settings"
+                      onChange={(index) => setSiteSection(index === 0 ? 'general' : 'appearance')}
+                    >
+                      <SegmentedControl.Button selected={siteSection === 'general'}>
+                        General
+                      </SegmentedControl.Button>
+                      <SegmentedControl.Button selected={siteSection === 'appearance'}>
+                        Appearance
+                      </SegmentedControl.Button>
+                    </SegmentedControl>
+                  </Box>
+                </Box>
+                {siteSection === 'general' ? (
+                  <form className="form-grid site-general-form" onSubmit={saveSite}>
+                    <FormControl required>
+                      <FormControl.Label>Name</FormControl.Label>
+                      <TextInput
+                        block
+                        value={editSiteName}
+                        onChange={(e) => setEditSiteName(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormControl required>
+                      <FormControl.Label>Slug</FormControl.Label>
+                      <TextInput
+                        block
+                        value={editSiteSlug}
+                        onChange={(e) => setEditSiteSlug(e.target.value)}
+                      />
+                      <FormControl.Caption>
+                        Lowercase letters, numbers, and hyphens.
+                      </FormControl.Caption>
+                    </FormControl>
+                    <FormControl>
+                      <FormControl.Label>Tagline</FormControl.Label>
+                      <Textarea
+                        block
+                        value={editSiteTagline}
+                        onChange={(e) => setEditSiteTagline(e.target.value)}
+                      />
+                    </FormControl>
+                    <Button type="submit" variant="primary">
+                      Save website
+                    </Button>
+                  </form>
+                ) : (
+                  activeSite && (
+                    <AppearanceSettings
+                      websiteThemes={themes}
+                      activeWebsiteTheme={activeSite.theme_slug}
+                      previewUrl={activeSite.slug === 'acme' ? '/' : `/${activeSite.slug}`}
+                      siteAppearance={{
+                        theme: activeSite.appearance_theme,
+                        colorMode: activeSite.appearance_color_mode,
+                      }}
+                      onWebsiteThemeChange={(websiteTheme, appearanceTheme, portable) =>
+                        void selectWebsiteTheme(websiteTheme, appearanceTheme, portable)
+                      }
+                      onSiteAppearanceChange={(theme, colorMode, portable) =>
+                        void saveSiteAppearance(theme, colorMode, portable)
+                      }
+                    />
+                  )
+                )}
+              </Box>
+            </Box>
+          )}
+          {tab === 'Appearance' && isAdmin && <AppearanceSettings />}{' '}
+          {tab === 'Appearance' && extensionThemes.length > 0 && (
+            <Box>
+              {extensionThemes.map((item) => (
+                <Label key={item.id}>{item.value.label ?? item.value.slug}</Label>
+              ))}
+            </Box>
+          )}
+          {tab === 'Extensions' && isAdmin && (
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                <Button onClick={() => void loadExtensions()} disabled={extensionsBusy}>
+                  {extensionsBusy ? 'Refreshing…' : 'Refresh status'}
+                </Button>
+              </Box>
+              {extensionsBusy && backendExtensions.length === 0 ? (
+                <Spinner />
+              ) : (
+                <Box className="cards">
+                  {extensionCards.map((extension) => (
+                    <Box className="panel" key={extension.name}>
+                      <Heading as="h3" sx={{ fontSize: 2 }}>
+                        {extension.emoji} {extension.displayName}
+                      </Heading>
+                      <Text as="p">{extension.description}</Text>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Label
+                          variant={
+                            extension.status === 'active'
+                              ? 'success'
+                              : extension.status === 'enabled' ||
+                                  extension.status === 'partially enabled'
+                                ? 'attention'
+                                : 'secondary'
+                          }
+                        >
+                          {extension.status}
+                        </Label>
+                        {extension.discovered ? (
+                          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+                            {extension.enabled}/{extension.plugins.length} plugins enabled ·{' '}
+                            {extension.active} active
+                            {extension.version ? ` · v${extension.version}` : ''}
+                          </Text>
+                        ) : (
+                          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>
+                            Not discovered by this server
+                          </Text>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                  <Box className="panel">
+                    <Heading as="h3" sx={{ fontSize: 2 }}>
+                      Contributions
+                    </Heading>
+                    <Text>
+                      {actions.length} editor actions · {widgets.length} dashboard widgets
+                    </Text>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+export default function AdminApp({ apiUrl = 'http://localhost:8791' }: { apiUrl?: string }) {
+  const [session, setSession] = useState<Session | undefined>(() => {
+      try {
+        return JSON.parse(sessionStorage.getItem('cms-session') ?? 'null') ?? undefined;
+      } catch {
+        return undefined;
+      }
+    }),
+    [remotes, setRemotes] = useState<(LazyPluginRef | ReactorExtension)[]>(),
+    [error, setError] = useState<string>();
+  useEffect(() => {
+    bootstrapExtensions(apiUrl)
+      .then(setRemotes)
+      .catch((reason) => setError(String(reason)));
+  }, [apiUrl]);
+  useEffect(() => {
+    const sendSession = (target?: MessageEventSource | null, origin = window.location.origin) => {
+      if (session && target && 'postMessage' in target)
+        target.postMessage({ type: 'session', session }, { targetOrigin: origin });
+    };
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === 'request-session')
+        sendSession(event.source, event.origin);
+    };
+    window.addEventListener('message', handleMessage);
+    const channel =
+      typeof BroadcastChannel === 'undefined' ? undefined : new BroadcastChannel(cmsAuthChannel);
+    if (channel)
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'request-session' && session)
+          channel.postMessage({ type: 'session', session });
+      };
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      channel?.close();
+    };
+  }, [session]);
+  const login = (value: Session) => {
+    sessionStorage.setItem('cms-session', JSON.stringify(value));
+    const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+    if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
+      window.location.assign(returnTo);
+      return;
+    }
+    setSession(value);
+  };
+  const logout = () => {
+    if (session)
+      void api(`${apiUrl}/api/cms/auth/logout`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+    sessionStorage.removeItem('cms-session');
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(cmsAuthChannel);
+      channel.postMessage({ type: 'session-cleared' });
+      channel.close();
+    }
+    setSession(undefined);
+  };
+  return (
+    <ThemedProvider useStore={useThemeStore}>
+      {error ? (
+        <Flash variant="danger">{error}</Flash>
+      ) : !session ? (
+        <Login apiUrl={apiUrl} onLogin={login} />
+      ) : remotes ? (
+        <Shell apiUrl={apiUrl} remotes={remotes} session={session} onLogout={logout} />
+      ) : (
+        <Box sx={{ p: 4 }}>
+          <Spinner />
+        </Box>
+      )}
+    </ThemedProvider>
+  );
+}

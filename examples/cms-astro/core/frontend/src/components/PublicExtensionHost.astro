@@ -1,0 +1,156 @@
+<!--
+  ~ Copyright (c) 2026-Present Datalayer, Inc.
+  ~
+  ~ Datalayer License
+-->
+
+---
+interface Props {
+  apiUrl: string;
+  siteId: string;
+  siteName: string;
+  appearanceTheme: string;
+  colorMode: string;
+}
+
+const { apiUrl, siteId, siteName, appearanceTheme, colorMode } = Astro.props;
+---
+
+<div
+  id="cms-public-extensions"
+  transition:persist="cms-public-extensions"
+  data-api-url={apiUrl}
+  data-site-id={siteId}
+  data-site-name={siteName}
+  data-appearance-theme={appearanceTheme}
+  data-color-mode={colorMode}
+></div>
+
+<script>
+  type PublicExtensionRecord = { name: string; publicEntry?: string };
+  type PublicExtensionMountOptions = {
+    apiUrl: string;
+    siteId: string;
+    siteName: string;
+    appearanceTheme: string;
+    colorMode: string;
+    element: HTMLElement;
+  };
+  type PublicExtensionModule = {
+    mountPublicSiteExtension?: (
+      options: PublicExtensionMountOptions,
+    ) => void | (() => void);
+    remountPublicSiteExtension?: (
+      options: PublicExtensionMountOptions,
+    ) => void | (() => void);
+  };
+
+  const mountPublicExtensions = (retry = false, remountExisting = false) => {
+    const element = document.querySelector<HTMLElement>('#cms-public-extensions');
+    if (!element || element.dataset.extensionState === 'loading') return;
+
+    // A persisted host can outlive one of its mounted children during an Astro
+    // view transition. Reconcile the catalog on every page load instead of
+    // treating the old `mounted` marker as proof that every extension remains.
+    if (!retry) element.dataset.extensionAttempts = '0';
+    element.dataset.extensionState = 'loading';
+    const apiUrl = element.dataset.apiUrl ?? '';
+    const siteId = element.dataset.siteId ?? '';
+    const siteName = element.dataset.siteName ?? '';
+    const appearanceTheme = element.dataset.appearanceTheme ?? 'datalayer';
+    const colorMode = element.dataset.colorMode ?? 'auto';
+    void fetch(`${apiUrl}/plugins/frontend-extensions`)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<PublicExtensionRecord[]>;
+      })
+      .then(records =>
+        Promise.all(
+          records.filter(record => record.publicEntry).map(async record => {
+            let mount: HTMLElement | undefined;
+            try {
+              const existing = Array.from(element.children).find(
+                child => child instanceof HTMLElement && child.dataset.extension === record.name,
+              ) as HTMLElement | undefined;
+              const entry = new URL(record.publicEntry!, `${apiUrl}/`).href;
+              const extension = (await import(/* @vite-ignore */ entry)) as PublicExtensionModule;
+              if (existing) {
+                if (remountExisting && extension.remountPublicSiteExtension) {
+                  extension.remountPublicSiteExtension({
+                    apiUrl,
+                    siteId,
+                    siteName,
+                    appearanceTheme,
+                    colorMode,
+                    element: existing,
+                  });
+                }
+                return true;
+              }
+              if (!extension.mountPublicSiteExtension) return true;
+              mount = document.createElement('div');
+              mount.dataset.extension = record.name;
+              element.append(mount);
+              extension.mountPublicSiteExtension({
+                apiUrl,
+                siteId,
+                siteName,
+                appearanceTheme,
+                colorMode,
+                element: mount,
+              });
+              return true;
+            } catch (error) {
+              mount?.remove();
+              console.error(`[cms-astro] could not mount public extension ${record.name}:`, error);
+              return false;
+            }
+          }),
+        ),
+      )
+      .then(results => {
+        if (!element.isConnected) {
+          mountPublicExtensions(false, remountExisting);
+          return;
+        }
+
+        const complete = results.every(Boolean);
+        element.dataset.extensionState = complete ? 'mounted' : 'retry';
+        if (!complete) {
+          const attempts = Number(element.dataset.extensionAttempts ?? '0') + 1;
+          element.dataset.extensionAttempts = String(attempts);
+          if (attempts < 3) {
+            window.setTimeout(() => mountPublicExtensions(true, remountExisting), 500);
+          }
+        }
+      })
+      .catch(error => {
+        if (!element.isConnected) {
+          mountPublicExtensions(false, remountExisting);
+          return;
+        }
+
+        element.dataset.extensionState = 'retry';
+        console.warn('[cms-astro] could not load public extensions:', error);
+        const attempts = Number(element.dataset.extensionAttempts ?? '0') + 1;
+        element.dataset.extensionAttempts = String(attempts);
+        if (attempts < 3) {
+          window.setTimeout(() => mountPublicExtensions(true, remountExisting), 500);
+        }
+      });
+  };
+
+  mountPublicExtensions();
+  document.addEventListener('astro:before-swap', event => {
+    const nextDocument = (event as Event & { newDocument?: Document }).newDocument;
+    const current = document.querySelector<HTMLElement>('#cms-public-extensions');
+    const incoming = nextDocument?.querySelector<HTMLElement>('#cms-public-extensions');
+    if (!current || !incoming) return;
+    current.dataset.apiUrl = incoming.dataset.apiUrl;
+    current.dataset.siteId = incoming.dataset.siteId;
+    current.dataset.siteName = incoming.dataset.siteName;
+    current.dataset.appearanceTheme = incoming.dataset.appearanceTheme;
+    current.dataset.colorMode = incoming.dataset.colorMode;
+  });
+  document.addEventListener('astro:page-load', () => mountPublicExtensions(false, true));
+</script>

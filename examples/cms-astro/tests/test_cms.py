@@ -6,14 +6,17 @@ from __future__ import annotations
 
 import json
 import sys
+from email.message import Message
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "core"))
 
 from cms_astro_core.host import create_app
+from cms_astro_core.crawler import crawl_feed, fetch_url, parse_page
 from cms_astro_core.seed import seed_database
 from cms_astro_core.store import Store
 
@@ -73,6 +76,185 @@ def test_authenticated_browser_request_allows_cors_preflight(tmp_path: Path) -> 
     assert "authorization" in response.headers["access-control-allow-headers"].lower()
 
 
+def test_blog_crawl_is_authenticated_and_returns_public_pages(tmp_path: Path, monkeypatch) -> None:
+    from cms_astro_core import api as cms_api
+
+    result = {
+        "source": "https://example.test/blog",
+        "kind": "blog",
+        "pages": [{"title": "A public story", "slug": "story", "body": "Public body"}],
+        "errors": [],
+    }
+    monkeypatch.setattr(cms_api, "crawl_blog", lambda url, limit: result | {"limit": limit})
+    api = TestClient(create_app(database=tmp_path / "crawl.sqlite3", discover=False))
+    assert api.post(
+        "/api/cms/sites/site-main/crawl/blog",
+        json={"url": "https://example.test/blog"},
+    ).status_code == 401
+    login = api.post("/api/cms/auth/login", json={"username": "user1", "password": "user1"}).json()
+    response = api.post(
+        "/api/cms/sites/site-main/crawl/blog",
+        headers={"Authorization": f"Bearer {login['token']}"},
+        json={"url": "https://example.test/blog", "limit": 3},
+    )
+    assert response.status_code == 200
+    assert response.json()["pages"][0]["slug"] == "story"
+    assert response.json()["limit"] == 3
+
+
+def test_feed_crawl_is_authenticated(tmp_path: Path, monkeypatch) -> None:
+    from cms_astro_core import api as cms_api
+
+    monkeypatch.setattr(
+        cms_api,
+        "crawl_feed",
+        lambda url, limit: {
+            "source": url,
+            "kind": "feed",
+            "pages": [{"title": "Feed story", "slug": "feed-story"}],
+            "errors": [],
+            "limit": limit,
+        },
+    )
+    api = TestClient(create_app(database=tmp_path / "feed.sqlite3", discover=False))
+    assert api.post(
+        "/api/cms/sites/site-main/crawl/feed",
+        json={"url": "https://example.test/feed/"},
+    ).status_code == 401
+    login = api.post(
+        "/api/cms/auth/login", json={"username": "user1", "password": "user1"}
+    ).json()
+    response = api.post(
+        "/api/cms/sites/site-main/crawl/feed",
+        headers={"Authorization": f"Bearer {login['token']}"},
+        json={"url": "https://example.test/feed/", "limit": 3},
+    )
+    assert response.status_code == 200
+    assert response.json()["pages"][0]["slug"] == "feed-story"
+
+
+def test_crawler_extracts_wordpress_discovery_and_clean_text() -> None:
+    page, links, wordpress = parse_page(
+        """
+        <html><head><meta charset="utf-8"><title>Example Blog</title>
+        <meta name="description" content="Useful stories">
+        <link rel="https://api.w.org/" href="/wp-json/"></head>
+        <body><nav>Navigation noise</nav><main><h1>Story</h1><p>Readable body.</p></main>
+        <a href="/blog/story">Read</a><script>ignored()</script></body></html>
+        """,
+        "https://example.test/blog",
+    )
+    assert page["title"] == "Example Blog"
+    assert "Readable body" in page["body"]
+    assert "Navigation noise" not in page["body"]
+    assert links == ["/blog/story"]
+    assert wordpress == "https://example.test/wp-json/"
+
+
+def test_feed_crawler_reads_rss_metadata_and_linked_page_content(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    feed = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+      <channel><title>Example Journal</title><link>https://example.test/</link>
+        <description>Useful stories</description><item>
+          <title>A feed story</title><link>https://example.test/feed-story/</link>
+          <description><![CDATA[A concise summary.]]></description>
+          <dc:creator>Example Author</dc:creator><category>Engineering</category>
+          <pubDate>Wed, 02 Sep 2026 01:29:09 +0000</pubDate>
+          <guid>story-42</guid>
+        </item></channel>
+    </rss>"""
+    article = """<html><head><title>A feed story</title></head><body><main>
+      <h1>A feed story</h1><p>This is the complete linked article body with
+      enough useful content for the crawler to prefer it over the summary.</p>
+    </main></body></html>"""
+
+    def fake_fetch(url: str, **_kwargs):
+        if url.endswith("/feed/"):
+            return url, "application/rss+xml", feed
+        return url, "text/html", article
+
+    monkeypatch.setattr(crawler, "fetch_url", fake_fetch)
+    result = crawl_feed("https://example.test/feed/", limit=1)
+    assert result["kind"] == "feed"
+    assert result["feed"]["title"] == "Example Journal"
+    assert result["pages"][0]["slug"] == "feed-story"
+    assert result["pages"][0]["author"] == "Example Author"
+    assert result["pages"][0]["categories"] == ["Engineering"]
+    assert "complete linked article body" in result["pages"][0]["body"]
+
+
+def test_crawler_pins_the_validated_dns_address(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    opened: dict[str, object] = {}
+
+    class Response:
+        status = 200
+        headers = Message()
+        headers["Content-Type"] = "text/html; charset=utf-8"
+
+        def read(self, _limit: int) -> bytes:
+            return b"<title>Pinned</title>"
+
+    class Connection:
+        def __init__(
+            self,
+            host: str,
+            port: int,
+            family: int,
+            protocol: int,
+            socket_address: tuple[object, ...],
+            timeout: float,
+        ) -> None:
+            opened.update(
+                host=host,
+                port=port,
+                family=family,
+                protocol=protocol,
+                socket_address=socket_address,
+                timeout=timeout,
+            )
+
+        def request(self, method: str, path: str, headers: dict[str, str]) -> None:
+            opened.update(method=method, path=path, headers=headers)
+
+        def getresponse(self) -> Response:
+            return Response()
+
+        def close(self) -> None:
+            opened["closed"] = True
+
+    resolutions = 0
+
+    def resolve(*_args, **_kwargs):
+        nonlocal resolutions
+        resolutions += 1
+        return [(2, 1, 6, "", ("93.184.216.34", 80))]
+
+    monkeypatch.setattr(crawler.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(crawler, "_PinnedHTTPConnection", Connection)
+    final_url, content_type, body = fetch_url("http://example.test/blog")
+    assert resolutions == 1
+    assert opened["socket_address"] == ("93.184.216.34", 80)
+    assert opened["host"] == "example.test"
+    assert opened["closed"] is True
+    assert (final_url, content_type, body) == (
+        "http://example.test/blog",
+        "text/html",
+        "<title>Pinned</title>",
+    )
+
+
+def test_fetch_rejects_an_expired_crawl_deadline(monkeypatch) -> None:
+    from cms_astro_core import crawler
+
+    monkeypatch.setattr(crawler.time, "monotonic", lambda: 20.0)
+    with pytest.raises(ValueError, match="45 second deadline"):
+        fetch_url("https://example.test/blog", deadline=19.0)
+
+
 def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     api = client(tmp_path)
     headers = {"X-CMS-User": "u-user1"}
@@ -85,12 +267,32 @@ def test_draft_publish_revision_and_public_query(tmp_path: Path) -> None:
     assert published.status_code == 200
     assert published.json()["status"] == "published"
     assert api.get(f"/api/content/acme/entries/{entry['slug']}").json()["title"] == "A new Astro story"
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 403
+    unpublished = api.post(
+        f"/api/cms/sites/site-main/entries/{entry['id']}/unpublish", headers=headers
+    )
+    assert unpublished.status_code == 200
+    assert unpublished.json()["status"] == "draft"
+    assert unpublished.json()["published_at"] is None
+    assert api.get(f"/api/content/acme/entries/{entry['slug']}").status_code == 404
     revisions = api.get(f"/api/cms/sites/site-main/entries/{entry['id']}/revisions", headers=headers)
-    assert len(revisions.json()) == 1
+    assert len(revisions.json()) == 2
     assert api.get(
         f"/api/cms/sites/site-main/entries/{entry['id']}/revisions",
         headers={"X-CMS-User": "u-user2"},
     ).status_code == 403
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}",
+        headers={"X-CMS-User": "u-user2"},
+    ).status_code == 403
+    assert api.delete(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 204
+    assert api.get(
+        f"/api/cms/sites/site-main/entries/{entry['id']}", headers=headers
+    ).status_code == 404
 
     second_site = api.post(
         "/api/cms/sites",
@@ -111,6 +313,75 @@ def test_author_cannot_edit_another_authors_entry(tmp_path: Path) -> None:
     }
     response = api.patch("/api/cms/sites/site-main/entries/entry-welcome", headers={"X-CMS-User":"u-user1"}, json={"title":"Taken over"})
     assert response.status_code == 403
+    duplicate = api.post(
+        "/api/cms/sites/site-main/entries",
+        headers={"X-CMS-User": "u-user1"},
+        json={
+            "collection": "pages",
+            "title": "Same slug, different collection",
+            "slug": "design-systems-that-travel",
+        },
+    )
+    assert duplicate.status_code == 201
+    read_by_slug = api.get(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=posts",
+        headers={"X-CMS-User": "u-user2"},
+    )
+    assert read_by_slug.status_code == 200
+    assert read_by_slug.json()["id"] == "entry-design-systems"
+    assert read_by_slug.json()["collection"] == "posts"
+    read_by_id = api.get(
+        "/api/cms/sites/site-main/entries/entry-design-systems",
+        headers={"X-CMS-User": "u-user2"},
+    )
+    assert read_by_id.status_code == 200
+    assert read_by_id.json()["slug"] == "design-systems-that-travel"
+    lexical_entry = api.post(
+        "/api/cms/sites/site-main/entries",
+        headers={"X-CMS-User": "u-user1"},
+        json={
+            "collection": "posts",
+            "title": "Lexical draft",
+            "body": "Old text",
+            "data": {"source_url": "https://example.test", "lexical": "serialized"},
+        },
+    ).json()
+    assert api.patch(
+        f"/api/cms/sites/site-main/entries/{lexical_entry['id']}",
+        headers={"X-CMS-User": "u-user1"},
+        json={"body": "Updated by the agent"},
+    ).status_code == 200
+    updated_lexical_entry = api.get(
+        f"/api/cms/sites/site-main/entries/{lexical_entry['id']}",
+        headers={"X-CMS-User": "u-user1"},
+    ).json()
+    assert updated_lexical_entry["data"] == {"source_url": "https://example.test"}
+    by_slug = api.patch(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=posts",
+        headers={"X-CMS-User": "u-user1"},
+        json={"excerpt": "Updated safely by an exact slug."},
+    )
+    assert by_slug.status_code == 200
+    assert by_slug.json() == {
+        "id": "entry-design-systems",
+        "slug": "design-systems-that-travel",
+        "status": "published",
+        "collection": "posts",
+    }
+    page = api.patch(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel?collection=pages",
+        headers={"X-CMS-User": "u-user1"},
+        json={"excerpt": "Only the standalone page."},
+    )
+    assert page.status_code == 200
+    assert page.json()["id"] == duplicate.json()["id"]
+    published_page = api.post(
+        "/api/cms/sites/site-main/entries/by-slug/design-systems-that-travel/publish?collection=pages",
+        headers={"X-CMS-User": "u-user1"},
+    )
+    assert published_page.status_code == 200
+    assert published_page.json()["id"] == duplicate.json()["id"]
+    assert published_page.json()["status"] == "published"
 
 
 def test_reseed_requires_confirmation_and_removes_existing_data(tmp_path: Path) -> None:

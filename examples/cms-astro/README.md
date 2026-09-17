@@ -25,7 +25,11 @@ editorial workflow and administration.
   React, `ThemedProvider`, and the Primer Addons appearance store used by the
   Reactor music example.
 - Lexical rich-text authoring with persisted editor JSON and plain-text search.
-- Core, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
+- An authenticated AI author on the published Astro pages. `ChatFloating`
+  runs the `worker-cms-astro` loop in the browser with a short-lived anonymous
+  inference key and CMS-session-scoped frontend tools for public blog crawling,
+  WordPress REST discovery, and draft/publish operations.
+- Core, AI Agents, Pro, and x402 wheels discovered through `datalayer.reactor.extensions`; each
   carries its browser plugin under `share/datalayer/reactor/extensions/`.
 - An optional x402 extension with HTTP `402`, `PAYMENT-REQUIRED`, and
   `PAYMENT-RESPONSE` handling for paid Astro routes.
@@ -40,6 +44,7 @@ isolated tests.
 cms-astro/
   core/                 installable host + Astro SSR site + Core extension
     frontend/           Astro routes, live loader and Primer React admin
+  ai-agents/            optional AI agent Python/JavaScript extension
   pro/                  separately installable Pro Python/JavaScript extension
   x402/                 separately installable paid-content extension
   tests/                database and HTTP acceptance tests
@@ -53,9 +58,12 @@ From the Reactor monorepo root:
 make cms-astro-install       # Core, editable from this checkout
 make cms-astro-seed          # demo site + admin/admin, user1/user1, user2/user2
 make cms-astro               # backend + Astro development server
+make cms-astro-ai            # launch with the already-installed AI extension
+make cms-astro-ai-build      # build only the optional AI extension frontend
 make cms-astro-pro           # optional, in another terminal
-make cms-astro-x402          # optional paid-content extension
-make cms-astro-package       # local Core, Pro, and x402 wheels
+make cms-astro-x402          # launch with the already-installed x402 extension
+make cms-astro-x402-build    # build only the optional x402 extension wheel
+make cms-astro-package       # local Core, AI Agents, Pro, and x402 wheels
 ```
 
 In the full Datalayer monorepo, `cms-astro-install` reuses the root npm
@@ -78,6 +86,15 @@ The client-side administration UI starts at <http://localhost:4321/_cms/login>
 and exposes history-aware React routes under `/_cms/content`, `/_cms/users`,
 `/_cms/sites`, `/_cms/appearance`, and `/_cms/extensions`. Astro provides only
 the thin application mount for these routes; it renders the public content pages.
+After installing the AI extension, start the AI-enabled CMS with
+`make cms-astro-ai` instead of `make cms-astro`. The launch target does not
+build or install packages; Reactor discovers the existing extension during
+application startup. After login, return to the published website to see the
+floating **Astro CMS Author**. The public site
+discovers its embedded JavaScript at runtime; Core does not depend on the AI
+runtime packages. Anonymous visitors do not load or see the agent. Its header displays
+the anonymous inference-key timer; CMS writes still use the signed-in user's
+bearer session and are checked against the active site's role.
 Its Appearance section uses Primer Addons to select the personal Primer theme
 and light, dark, or system color mode, while site administrators can separately
 choose the active public website theme. The same Appearance experience is
@@ -86,9 +103,18 @@ available while editing an individual website alongside its general settings.
 Install Pro while the host is running, then refresh the browser extension list:
 
 ```bash
+pip install examples/cms-astro/ai-agents
 pip install examples/cms-astro/pro
 pip install examples/cms-astro/x402
 ```
+
+Build the AI frontend without launching either server with
+`make cms-astro-ai-build`. The `make cms-astro-ai` target only starts the API
+and Astro development servers with the already-installed AI Agents extension.
+
+The x402 targets follow the same split. `make cms-astro-x402-build` creates its
+Python wheel without launching services. `make cms-astro-x402` only starts the
+API and Astro servers with the already-installed paid-content extension.
 
 `make cms-astro` sets `CMS_API_URL` for the Astro server automatically.
 
@@ -108,6 +134,10 @@ boundary to a real x402 facilitator.
 | `PATCH /api/cms/sites/{site}/users/{user}` | Edit profile, credentials, or status |
 | `DELETE /api/cms/sites/{site}/users/{user}` | Remove site access and orphaned accounts |
 | `GET/POST /api/cms/sites/{site}/entries` | Editorial content management |
+| `POST /api/cms/sites/{site}/crawl/blog` | Extract pages linked by a public blog index |
+| `POST /api/cms/sites/{site}/crawl/feed` | Read RSS/Atom metadata and extract the linked article pages |
+| `POST /api/cms/sites/{site}/crawl/wordpress` | Discover and read a public WordPress REST feed |
+| `PATCH /api/cms/sites/{site}/entries/by-slug/{slug}` | Update an exact entry without listing private content |
 | `POST /api/cms/sites/{site}/entries/{id}/publish` | Publish with a revision |
 | `GET /api/cms/sites/{site}/search?q=...` | FTS5 search |
 | `GET /api/content/{site}/entries` | Published content for Astro |

@@ -1,0 +1,38 @@
+<!--
+  ~ Copyright (c) 2026-Present Datalayer, Inc.
+  ~
+  ~ Datalayer License
+-->
+
+---
+import { getLiveEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { PublishedContent } from '../../components/PublishedContent';
+import { cms } from '../../lib/cms';
+import { renderLexicalHtml } from '../../lib/renderLexical';
+
+const bootstrap = await cms.bootstrap();
+const { entry, error } = await getLiveEntry('pages', {
+  slug: Astro.params.slug!,
+});
+if (error || !entry) return Astro.rewrite('/404');
+const page = entry.data;
+const lexical = typeof page.data.lexical === 'string' ? page.data.lexical : undefined;
+const serverHtml = renderLexicalHtml(lexical, page.body);
+---
+<Base
+  {bootstrap}
+  title={`${page.title} — ${bootstrap.site.name}`}
+  description={page.excerpt}
+>
+  <article>
+    <header class="article-header">
+      <p class="eyebrow">Page</p>
+      <h1>{page.title}</h1>
+      {page.excerpt && <p>{page.excerpt}</p>}
+    </header>
+    <div class="article-body">
+      <PublishedContent body={page.body} {lexical} {serverHtml} />
+    </div>
+  </article>
+</Base>

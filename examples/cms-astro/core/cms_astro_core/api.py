@@ -12,7 +12,9 @@ from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
+from .crawler import crawl_blog, crawl_feed, crawl_wordpress
 from .store import Store
 
 router = APIRouter()
@@ -125,6 +127,11 @@ class MembershipCreate(BaseModel):
 class Login(BaseModel):
     username: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=1, max_length=256)
+
+
+class CrawlRequest(BaseModel):
+    url: str = Field(min_length=8, max_length=2048)
+    limit: int = Field(default=12, ge=1, le=50)
 
 
 def store(request: Request) -> Store:
@@ -360,10 +367,137 @@ async def entries(site_id: str, request: Request, status: str | None = None, use
         return [store(request).row(row) for row in db.execute(sql, args)]
 
 
+@router.post("/api/cms/sites/{site_id}/crawl/blog")
+async def crawl_public_blog(site_id: str, payload: CrawlRequest, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    """Extract linked public blog pages for an authenticated site member."""
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "viewer")
+        except Exception as error: fail(error)
+    try:
+        return await run_in_threadpool(crawl_blog, payload.url, payload.limit)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@router.post("/api/cms/sites/{site_id}/crawl/wordpress")
+async def crawl_public_wordpress(site_id: str, payload: CrawlRequest, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    """Read posts through a public WordPress REST API discovered from metadata."""
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "viewer")
+        except Exception as error: fail(error)
+    try:
+        return await run_in_threadpool(crawl_wordpress, payload.url, payload.limit)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@router.post("/api/cms/sites/{site_id}/crawl/feed")
+async def crawl_public_feed(site_id: str, payload: CrawlRequest, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    """Read RSS/Atom metadata and the public pages linked by each feed item."""
+    with store(request).connect() as db:
+        try: store(request).require(db, site_id, user_id, "viewer")
+        except Exception as error: fail(error)
+    try:
+        return await run_in_threadpool(crawl_feed, payload.url, payload.limit)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
 @router.post("/api/cms/sites/{site_id}/entries", status_code=201)
 async def create_entry(site_id: str, payload: EntryCreate, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
     try: return store(request).create_entry(site_id, user_id, payload.model_dump())
     except Exception as error: fail(error); return {}
+
+
+@router.get("/api/cms/sites/{site_id}/entries/by-slug/{slug}")
+async def read_entry_by_slug(
+    site_id: str,
+    slug: str,
+    request: Request,
+    collection: str = Query(pattern="^(posts|pages)$"),
+    user_id: str = Header(alias="X-CMS-User"),
+) -> dict:
+    """Read one exact private CMS entry without enumerating the site."""
+    cms_store = store(request)
+    with cms_store.connect() as db:
+        try:
+            cms_store.require(db, site_id, user_id, "viewer")
+        except Exception as error:
+            fail(error)
+        row = db.execute(
+            """SELECT e.*,c.slug collection FROM entries e
+            JOIN collections c ON c.id=e.collection_id
+            WHERE e.site_id=? AND e.slug=? AND c.slug=?""",
+            (site_id, slug, collection),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "entry not found")
+        return cms_store.row(row) or {}
+
+
+@router.get("/api/cms/sites/{site_id}/entries/{entry_id}")
+async def read_entry(
+    site_id: str,
+    entry_id: str,
+    request: Request,
+    user_id: str = Header(alias="X-CMS-User"),
+) -> dict:
+    """Read one private CMS entry by its stable identifier."""
+    cms_store = store(request)
+    with cms_store.connect() as db:
+        try:
+            cms_store.require(db, site_id, user_id, "viewer")
+        except Exception as error:
+            fail(error)
+        row = db.execute(
+            """SELECT e.*,c.slug collection FROM entries e
+            JOIN collections c ON c.id=e.collection_id
+            WHERE e.site_id=? AND e.id=?""",
+            (site_id, entry_id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "entry not found")
+        return cms_store.row(row) or {}
+
+
+@router.patch("/api/cms/sites/{site_id}/entries/by-slug/{slug}")
+async def update_entry_by_slug(
+    site_id: str,
+    slug: str,
+    payload: EntryUpdate,
+    request: Request,
+    collection: str = Query(pattern="^(posts|pages)$"),
+    user_id: str = Header(alias="X-CMS-User"),
+) -> dict:
+    """Update an exact slug without exposing the site's private entry listing."""
+    cms_store = store(request)
+    try:
+        with cms_store.connect() as db:
+            cms_store.require(db, site_id, user_id, "author")
+            row = db.execute(
+                """SELECT e.id,c.slug collection FROM entries e
+                JOIN collections c ON c.id=e.collection_id
+                WHERE e.site_id=? AND e.slug=? AND c.slug=?""",
+                (site_id, slug, collection),
+            ).fetchone()
+    except Exception as error:
+        fail(error)
+        return {}
+    if not row:
+        raise HTTPException(404, "entry not found")
+    try:
+        entry = cms_store.update_entry(
+            site_id, row["id"], user_id, payload.model_dump(exclude_none=True)
+        )
+        return {
+            "id": entry["id"],
+            "slug": entry["slug"],
+            "status": entry["status"],
+            "collection": row["collection"],
+        }
+    except Exception as error:
+        fail(error)
+        return {}
 
 
 @router.patch("/api/cms/sites/{site_id}/entries/{entry_id}")
@@ -372,10 +506,53 @@ async def update_entry(site_id: str, entry_id: str, payload: EntryUpdate, reques
     except Exception as error: fail(error); return {}
 
 
+@router.post("/api/cms/sites/{site_id}/entries/by-slug/{slug}/publish")
+async def publish_by_slug(
+    site_id: str,
+    slug: str,
+    request: Request,
+    collection: str = Query(pattern="^(posts|pages)$"),
+    user_id: str = Header(alias="X-CMS-User"),
+) -> dict:
+    """Publish an exact slug without exposing the site's private entry listing."""
+    cms_store = store(request)
+    try:
+        with cms_store.connect() as db:
+            cms_store.require(db, site_id, user_id, "author")
+            row = db.execute(
+                """SELECT e.id FROM entries e
+                JOIN collections c ON c.id=e.collection_id
+                WHERE e.site_id=? AND e.slug=? AND c.slug=?""",
+                (site_id, slug, collection),
+            ).fetchone()
+    except Exception as error:
+        fail(error)
+        return {}
+    if not row:
+        raise HTTPException(404, "entry not found")
+    try:
+        return cms_store.publish(site_id, row["id"], user_id)
+    except Exception as error:
+        fail(error)
+        return {}
+
+
 @router.post("/api/cms/sites/{site_id}/entries/{entry_id}/publish")
 async def publish(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
     try: return store(request).publish(site_id, entry_id, user_id)
     except Exception as error: fail(error); return {}
+
+
+@router.post("/api/cms/sites/{site_id}/entries/{entry_id}/unpublish")
+async def unpublish(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> dict:
+    try: return store(request).unpublish(site_id, entry_id, user_id)
+    except Exception as error: fail(error); return {}
+
+
+@router.delete("/api/cms/sites/{site_id}/entries/{entry_id}", status_code=204)
+async def delete_entry(site_id: str, entry_id: str, request: Request, user_id: str = Header(alias="X-CMS-User")) -> None:
+    try: store(request).delete_entry(site_id, entry_id, user_id)
+    except Exception as error: fail(error)
 
 
 @router.get("/api/cms/sites/{site_id}/entries/{entry_id}/revisions")

@@ -7,7 +7,9 @@
 ---
 import { getLiveEntry } from 'astro:content';
 import Base from '../../layouts/Base.astro';
+import { PublishedContent } from '../../components/PublishedContent';
 import { cms } from '../../lib/cms';
+import { renderLexicalHtml } from '../../lib/renderLexical';
 
 const { entry, error } = await getLiveEntry('posts', { slug: Astro.params.slug! });
 if (error || !entry) return Astro.rewrite('/404');
@@ -18,7 +20,14 @@ const payment = await Astro.locals.x402({
 });
 if (payment instanceof Response) return payment;
 const bootstrap = await cms.bootstrap();
+const lexical = typeof post.data.lexical === 'string' ? post.data.lexical : undefined;
+const serverHtml = renderLexicalHtml(lexical, post.body);
 ---
 <Base {bootstrap} title={`${post.title} — ${bootstrap.site.name}`}>
-  <article><h1>{post.title}</h1><p>{post.excerpt}</p><pre>{post.body}</pre></article>
+  <article>
+    <header class="article-header"><h1>{post.title}</h1><p>{post.excerpt}</p></header>
+    <div class="article-body">
+      <PublishedContent body={post.body} {lexical} {serverHtml} />
+    </div>
+  </article>
 </Base>

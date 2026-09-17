@@ -149,6 +149,12 @@ class FrontendExtension:
     directory: Path
     #: The module within that directory the host imports.
     entry: str = "index.js"
+    #: Optional browser entry intended for unauthenticated/public site shells.
+    #:
+    #: Kept separate from ``entry`` so a public page can decide what is safe
+    #: and relevant to load from metadata, without executing every admin UI
+    #: bundle merely to probe it for a public mount export.
+    public_entry: str = ""
     #: Refused by a host that speaks a different one, rather than loaded and
     #: crashed. The Python tier has had this on ``PluginCompatibility`` all
     #: along; a module fetched over the wire needs it at least as much.

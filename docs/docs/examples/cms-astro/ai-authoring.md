@@ -1,0 +1,83 @@
+---
+sidebar_position: 4
+title: AI-assisted Publishing
+---
+
+# AI-assisted publishing
+
+AI authoring is the optional `datalayer-cms-astro-ai-agents` extension rather
+than part of Core. Run the complete AI-enabled example with
+`make cms-astro-ai`, or build only its frontend with
+`make cms-astro-ai-build`. The run target builds and installs the extension
+before starting the CMS, allowing Reactor to discover it at startup. The published
+site's generic extension host discovers the wheel's embedded JavaScript and
+mounts an **Astro CMS Author** with `ChatFloating`. The extension first
+validates the `cms-session` bearer token and checks that its user belongs to
+the site being rendered. Without that membership it renders nothing and does
+not load the larger agent bundle. Removing the extension removes the agent
+without rebuilding Core.
+
+The loop runs in the browser. `useBrowserInference` obtains a short-lived
+anonymous inference key, and `AnonymousKeyTimer` is passed to the chat through
+its header props. The timer describes only model access. Create and update
+requests carry the independent CMS bearer token and remain subject to the
+Python API's `viewer`, `author`, `editor`, and `admin` checks.
+
+## Agent spec
+
+The source of truth is
+`agent-runtimes/agentspecs/agentspecs/agents/worker-cms-astro.yaml`. It owns the
+model, system prompt, welcome message, and suggestions, including an opener for
+`https://openteams.com/feed/`. After editing it, regenerate both language
+catalogues from the top of `agent-runtimes`:
+
+```bash
+make specs
+```
+
+The Astro component resolves the generated `worker-cms-astro` spec. It does
+not repeat the model identifier in application code.
+
+## Frontend tools
+
+The AI Agents plugin contributes one `AgentTools` bundle with eleven commands:
+
+| Tool | Effect |
+| --- | --- |
+| `cms_crawl_blog` | Follows same-origin content links from any public blog index |
+| `cms_crawl_feed` | Reads RSS or Atom metadata and extracts the full linked article pages |
+| `cms_crawl_wordpress` | Discovers `https://api.w.org/` metadata and reads `wp/v2/posts?_embed=1` |
+| `cms_create_site_page` | Creates a post or page as a draft, optionally publishing it |
+| `cms_list_site_pages` | Lists entries with optional collection and status filters |
+| `cms_read_site_page` | Reads an exact entry by ID or slug before an update |
+| `cms_get_current_site_page` | Resolves and reads the CMS page currently shown in the browser |
+| `cms_update_site_page` | Updates an exact entry ID or current slug, optionally publishing it |
+| `cms_publish_site_page` | Publishes an existing draft |
+| `cms_show_site_page` | Opens a published page in its Astro website view |
+| `cms_refresh_site_view` | Refreshes the current server-rendered view while preserving the chat |
+
+The worker intentionally leaves `frontend_tools: []`. Following the
+[Reactor agent-tools contract](/agent-tools/), the AI Agents plugin owns the
+tool contract and contributes matching live handlers that the host binds to
+the authenticated site. This avoids maintaining a duplicate frontend-tool
+agentspec while still letting calls run on the page the author is viewing.
+
+The crawl handlers call authenticated FastAPI endpoints instead of fetching
+third-party pages from the browser, where CORS would make general crawling
+unreliable. The server accepts only public HTTP(S) hosts, rejects local and
+reserved address ranges, pins each connection to its validated DNS address,
+revalidates and re-pins redirects, bounds response sizes, and applies a
+45-second deadline to a generic crawl. WordPress crawling prefers the public
+REST metadata; generic crawling uses same-origin links under the blog path.
+
+## Private-content boundary
+
+Crawl tools return public web content. Write tools return only the resulting
+entry ID, slug, status, and public path. They do not enumerate or send existing
+private CMS bodies to the anonymous inference service. Updating by slug is
+resolved on the server and requires both an exact slug and collection already
+supplied by the author.
+
+Published standalone pages are rendered by Astro at `/pages/{slug}`; posts use
+`/posts/{slug}`. Bulk imports default to drafts unless the author explicitly
+asks the agent to publish.

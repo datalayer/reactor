@@ -24,6 +24,28 @@ agent spec says *which plugins* it works with; what those plugins can do
 arrives from the plugins themselves, and follows them wherever they are
 mounted.
 
+```mermaid
+flowchart LR
+  subgraph extension["Plugin extension"]
+    contract["AgentTools contract<br/>names, descriptions, schemas"]
+    commands["Commands or browser handlers<br/>executable behavior"]
+  end
+  reactor["Reactor<br/>collects enabled contributions"]
+  host["Agent host<br/>builds live model tools"]
+  spec["Agent specification<br/>model, instructions, suggestions"]
+  model["Model"]
+
+  contract --> reactor
+  commands --> host
+  reactor --> host
+  spec --> host
+  host --> model
+```
+
+The plugin owns both the contract and the behavior. The agent specification
+guides how and when the model uses those capabilities, but does not become a
+second tool registry.
+
 ## Declaring them — TypeScript
 
 `AgentTools` is a contribution point the reactor defines. A plugin
@@ -87,6 +109,32 @@ supplies its own handler — the bundle is the contract with the model; the
 handler is the host's. The `toolset` is the least-privilege list: a harness
 that admits client tools by name admits these.
 
+```mermaid
+sequenceDiagram
+  actor User
+  participant Model as Agent model
+  participant Harness as Browser agent harness
+  participant Handler as Plugin frontend handler
+  participant API as Plugin backend API
+  participant Store as Plugin store
+
+  User->>Model: Ask for a plugin operation
+  Model->>Harness: Tool name and JSON arguments
+  Harness->>Handler: Invoke the admitted frontend tool
+  Handler->>API: Authenticated request when needed
+  API->>Store: Authorize and execute
+  Store-->>API: Result
+  API-->>Handler: JSON response
+  Handler-->>Harness: Model-friendly result
+  Harness-->>Model: Tool result
+  Model-->>User: Explain the outcome
+```
+
+The browser handler binds the generic schema to live page state such as the
+selected site and session token; the backend still performs its normal
+authorization checks. A purely visual tool can stop at the handler—for
+example by selecting a view or opening a route—without making an API request.
+
 ## Declaring them — Python
 
 The Python tier has the same vocabulary. A plugin returns bundles from
@@ -120,3 +168,75 @@ no tool at all. Keeping the data operations *in* the plugin, rather than as
 callables declared beside the agent, is what lets the agent's reach follow the
 plugin wherever it is mounted, and lets the two halves of the plugin ship one
 bundle: the TypeScript declares it, and the Python serves the same file.
+
+## CMS Astro: frontend tools in practice
+
+The [`cms-astro` AI Agents extension](https://github.com/datalayer/reactor/tree/main/examples/cms-astro/ai-agents)
+uses this pattern with tools whose handlers are bound to the authenticated
+site in the browser:
+
+- `cms_crawl_blog` and `cms_crawl_wordpress` read public source material;
+- `cms_create_site_page` and `cms_update_site_page` write CMS content;
+- `cms_publish_site_page` performs the explicit transition to published;
+- `cms_show_site_page` opens the rendered Astro route for an exact slug.
+
+The Python extension advertises the same contract through
+`provide_agent_tools`. The TypeScript plugin contributes it to `AgentTools`,
+while `createCmsAgentTools` supplies live functions using the current
+`apiUrl`, `siteId`, and CMS session. The worker specification supplies the
+model and behavior—such as requiring an explicit publish request—but declares
+no duplicate tools.
+
+```mermaid
+flowchart TB
+  subgraph package["cms-astro AI Agents Python package"]
+    pycontract["Python tool contract<br/>provide_agent_tools"]
+    frontend["Embedded TypeScript extension"]
+  end
+  subgraph browser["Published Astro site"]
+    contribution["AgentTools contribution"]
+    live["createCmsAgentTools<br/>site and session-bound handlers"]
+    chat["ChatFloating browser harness"]
+  end
+  backend["CMS API<br/>authorization and SQLite"]
+  worker["worker-cms-astro<br/>prompt and suggestions"]
+
+  pycontract -->|discovered with the plugin| contribution
+  frontend --> contribution
+  frontend --> live
+  contribution --> chat
+  live --> chat
+  worker --> chat
+  live -->|authenticated requests| backend
+```
+
+Creating, publishing, and showing a page are separate tools so publication
+cannot be hidden inside a visual action. The agent first creates a draft,
+publishes only after an explicit request, and then opens the public route. If
+the browser blocks the new tab, the show tool returns the same URL for the
+agent to present as a link.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Agent as CMS authoring agent
+  participant CreateTool as cms_create_site_page
+  participant PublishTool as cms_publish_site_page
+  participant API as CMS API and SQLite
+  participant ShowTool as cms_show_site_page
+  participant Astro as Published Astro route
+
+  User->>Agent: Create, publish, and show an About page
+  Agent->>CreateTool: title, body, pages
+  CreateTool->>API: POST draft entry
+  API-->>CreateTool: id, slug, status draft
+  CreateTool-->>Agent: Draft created
+  Agent->>PublishTool: id or exact slug, pages
+  PublishTool->>API: POST publish
+  API-->>PublishTool: slug, status published
+  PublishTool-->>Agent: Page published
+  Agent->>ShowTool: slug, pages
+  ShowTool->>Astro: Open /pages/slug
+  ShowTool-->>Agent: public_url and opened status
+  Agent-->>User: Show the rendered page or its link
+```

@@ -131,6 +131,7 @@ script. See `backend/` and the [host documentation](https://reactor.datalayer.te
 Which is what a developer does, because the frontend wants a dev server:
 
 ```bash
+make music-install
 make music
 ```
 

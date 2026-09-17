@@ -38,6 +38,7 @@ def make_extension(tmp_path: Path, name: str = "hello") -> ReactorExtension:
     frontend = tmp_path / "share" / name
     frontend.mkdir(parents=True, exist_ok=True)
     (frontend / "index.js").write_text("export default { name: '@%s/panel' };" % name)
+    (frontend / "public.js").write_text("export function mountPublicSiteExtension() {}")
     (frontend / "secret.txt").write_text("not servable")
 
     return ReactorExtension(
@@ -46,6 +47,7 @@ def make_extension(tmp_path: Path, name: str = "hello") -> ReactorExtension:
         frontend=FrontendExtension(
             directory=frontend,
             entry="index.js",
+            public_entry="public.js",
             plugins=[
                 FrontendPlugin(
                     name=f"@{name}/panel",
@@ -65,7 +67,8 @@ def test_frontend_manifest_is_readable_without_the_module(tmp_path: Path) -> Non
 
     [record] = platform.frontend_extensions()
     assert record["name"] == "hello"
-    assert record["entry"] == "/reactor-extensions/hello/index.js"
+    assert record["entry"].startswith("/reactor-extensions/hello/index.js?v=")
+    assert record["publicEntry"].startswith("/reactor-extensions/hello/public.js?v=")
     assert record["apiVersion"] == "v1"
     # The Python half it arrived with, so a host can draw them together.
     assert record["backendPlugins"] == ["hello"]
@@ -74,6 +77,22 @@ def test_frontend_manifest_is_readable_without_the_module(tmp_path: Path) -> Non
     assert plugin["name"] == "@hello/panel"
     assert plugin["displayName"] == "Panel"
     assert plugin["requiredBackendPlugins"] == ["hello"]
+
+
+def test_frontend_entry_url_changes_with_its_content(tmp_path: Path) -> None:
+    """A rebuilt stable entry cannot load stale hashed chunks from cache."""
+    platform = PluginPlatform()
+    extension = make_extension(tmp_path)
+    platform._register_extension_object("hello", extension)  # noqa: SLF001
+
+    [before] = platform.frontend_extensions()
+    assert extension.frontend is not None
+    (extension.frontend.directory / "index.js").write_text(
+        "export default { name: '@hello/panel', build: 2 };"
+    )
+    [after] = platform.frontend_extensions()
+
+    assert before["entry"] != after["entry"]
 
 
 def test_assets_are_served_and_traversal_is_refused(tmp_path: Path) -> None:
@@ -381,7 +400,7 @@ def test_a_federated_frontend_is_described_as_one(tmp_path: Path) -> None:
     assert record["remoteName"] == "acme_charts"
     assert record["module"] == "./plugin"
     assert record["remoteType"] == "esm"
-    assert record["entry"] == "/reactor-extensions/charts/remoteEntry.js"
+    assert record["entry"].startswith("/reactor-extensions/charts/remoteEntry.js?v=")
     # And a plain one says so, by omission of the container fields — omission,
     # not empty strings: ``remoteType: ""`` would reach the federation runtime
     # as a type, and an empty type detects nothing.

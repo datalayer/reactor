@@ -12,7 +12,6 @@ const point = (name) => defineContributionPoint(`cmsAstro.${name}`);
 const ContentTypes = point('contentType');
 const Themes = point('theme');
 const DashboardWidgets = point('dashboardWidget');
-
 export default definePlugin({
   name: '@cms-astro/core',
   version: '0.1.0',

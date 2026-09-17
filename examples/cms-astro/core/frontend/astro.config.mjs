@@ -41,6 +41,8 @@ const dependencyDirectory = (
 const lexicalPackages = [
   'code',
   'hashtag',
+  'headless',
+  'html',
   'link',
   'list',
   'markdown',
@@ -51,9 +53,17 @@ const lexicalPackages = [
   'utils',
 ];
 const lexicalAliases = lexicalPackages.map(packageName => ({
-  find: `@lexical/${packageName}`,
+  find: new RegExp(`^@lexical/${packageName}$`),
   replacement: dependencyDirectory(`@lexical/${packageName}`),
 }));
+// `require.resolve('lexical')` selects dist/Lexical.js, the CommonJS entry.
+// Astro evaluates SSR modules as native ESM in development, where that entry
+// fails because `require` is unavailable. The neutral ESM build works in both
+// browser islands and server rendering while retaining one Lexical singleton.
+const lexicalEsmEntry = join(
+  dependencyDirectory('lexical', 'lexical', jupyterLexicalRequire),
+  'dist/Lexical.mjs',
+);
 const toastifyStyles = join(
   dependencyDirectory('react-toastify'),
   'dist/ReactToastify.css',
@@ -65,6 +75,36 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [react()],
   vite: {
+    plugins: [
+      {
+        name: 'raw-css-as-string',
+        enforce: 'pre',
+        async resolveId(source, importer) {
+          if (!source.endsWith('.raw.css') || source.includes('?raw')) {
+            return null;
+          }
+          const resolved = await this.resolve(`${source}?raw`, importer, {
+            skipSelf: true,
+          });
+          return resolved?.id ?? null;
+        },
+      },
+      // Jupyter's service-worker token uses its historical `?text` loader.
+      // Vite's portable equivalent is `?raw`; keep workspace and published
+      // agent-runtimes packages on the same import contract.
+      {
+        name: 'fix-text-query',
+        enforce: 'pre',
+        async resolveId(source, importer) {
+          if (!source.includes('?text')) return null;
+          const fixed = source.replace('?text', '?raw');
+          const resolved = await this.resolve(fixed, importer, {
+            skipSelf: true,
+          });
+          return resolved?.id ?? fixed;
+        },
+      },
+    ],
     // JupyterLab styles still use webpack's `~package/path` import convention.
     // Match the compatibility alias used by the Jupyter Vite examples.
     resolve: {
@@ -78,7 +118,7 @@ export default defineConfig({
         // Resolve every Lexical import from the selected Jupyter Lexical
         // package so a workspace build and a published package cannot mix
         // incompatible Lexical runtimes.
-        { find: /^lexical$/, replacement: jupyterLexicalRequire.resolve('lexical') },
+        { find: /^lexical$/, replacement: lexicalEsmEntry },
         ...lexicalAliases,
         // JupyterLab 4 still names Toastify's pre-v11 minified stylesheet.
         // Toastify v11 ships the same CSS only as ReactToastify.css.
@@ -118,6 +158,12 @@ export default defineConfig({
         target: 'esnext',
       },
       include: ['react', 'react-dom'],
+    },
+    ssr: {
+      // Lexical nodes use instanceof checks against their owning runtime.
+      // Bundle every split 0.49 package through the same `lexical` alias so
+      // server-side nodes cannot inherit from a second external singleton.
+      noExternal: ['lexical', /^@lexical\//],
     },
   },
 });
