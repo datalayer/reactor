@@ -41,43 +41,38 @@ slides:
             - "**VS Code** — contribution points, commands, activation events, and extension metadata"
             - "**JupyterLab** — token-driven plugins, federated extensions, and Python packages carrying web assets"
 
-  - id: one-model
-    type: mermaid
-    title: The problem is the seam between two plugin systems
-    subtitle: Without a shared contract, optional features become host code and every change coordinates two deployments.
-    diagram: |
-      flowchart LR
-        subgraph browser[Browser]
-          TS[TypeScript Reactor]
-          UI[Slots · views · commands]
-          TS --> UI
-        end
-        subgraph server[Server]
-          PY[Python Reactor]
-          API[FastAPI · CLI · services]
-          PY --> API
-        end
-        M[Shared manifests and dependency vocabulary]
-        TS <-->|declared cross-tier requirements| M
-        M <-->|state and discovery| PY
-    caption: Both tiers describe plugins, extensions, dependencies, lifecycle, and presentation metadata in the same language.
-
   - id: architecture
     type: mermaid
     title: The host defines contracts; plugins supply capabilities
-    subtitle: The host never names the plugins that may extend it.
+    subtitle: In the browser and on the server, the host never names its plugins.
     diagram: |
-      flowchart LR
-        E[Extension] -->|groups for delivery| P[Plugin]
-        P --> M[Readable manifest]
-        P --> C[Plugin code]
-        M --> A[Activation events]
-        P -->|offers| N[Contributions]
-        N -->|target| CP[Contribution points]
-        C -->|renders into| S[Slots]
-        C -->|registers| CR[Command registry]
-        C -->|calls| R[Reactor API]
+      flowchart TD
+        subgraph extension["Extension"]
+          subgraph plugin["Plugin"]
+            manifest["Plugin Manifest"]
+            contributions["Contributions"]
+            events["Activation Events"]
+            code["Plugin Code"]
+            components["Slot Components"]
+            manifest --> contributions
+            manifest --> events
+            code --> components
+          end
+        end
+        subgraph host["Reactor"]
+          points["Contribution Points"]
+          slots["Slots"]
+          registry["Command Registry"]
+          api["Reactor API"]
+        end
+        contributions -->|target| points
+        components -->|render into| slots
+        code -->|registers commands| registry
+        code -->|calls| api
     caption: A plugin is the unit of function and lifecycle; an extension is the unit of installation and removal.
+    notes: |
+      Without a shared contract, optional features become host code and every change coordinates two deployments. Both tiers describe plugins, extensions, dependencies, lifecycle and presentation metadata in the same language.
+      The manifest is readable without running anything: a plugin can be listed, drawn on the graph and switched off before its code is ever fetched.
 
   - id: runtimes
     type: two-columns

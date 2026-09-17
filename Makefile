@@ -38,7 +38,7 @@ help:
 	@echo "  make music-app         Build the music store as one installable app"
 	@echo "  make music-install     Install the music example Python packages"
 	@echo "  make music             Run the music example with a frontend dev server"
-	@echo "  make decks             Present the eight-slide Reactor overview"
+	@echo "  make decks             Present the seven-slide Reactor overview"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
 	@echo "  make example-frontend          Alias for frontend example"
