@@ -36,8 +36,8 @@ help:
 	@echo "  make cms-astro-x402-build Build the separately packaged x402 extension"
 	@echo "  make cms-astro-package Build the Core, AI Agents, Pro and x402 wheels"
 	@echo "  make music-app         Build the music store as one installable app"
-	@echo "  make music-install     Install the music example Python packages"
-	@echo "  make music             Run the music example with a frontend dev server"
+	@echo "  make music-install     Install the music example: the TypeScript build, then the Python packages"
+	@echo "  make music             Run the music example with a frontend dev server (run `make music-install` once)"
 	@echo "  make decks             Present the seven-slide Reactor overview"
 	@echo "  make frontend          Run the frontend-only React example"
 	@echo "  make frontend-backend  Run both backend and frontend for the combined example"
@@ -232,14 +232,14 @@ music-app: build-js ## build the music store as one installable application
 	echo; \
 	echo "Built. Now run: datalayer-music-example"
 
-music-install: ## install the music example Python packages in editable mode
+music-install: build-js ## install the music example: build the TypeScript (lib and plugins), then the Python packages in editable mode
 	$(PIP) install -e examples/music/catalog-plugin \
 	               -e examples/music/checkout-plugin \
 	               -e examples/music/playlist-plugin \
 	               -e examples/music/mood-plugin \
 	               -e examples/music/backend
 
-music: build-js
+music: ## run the music example: backend and frontend dev server, from what `make music-install` built
 	@set -e; \
 	kill_port() { \
 		local port="$$1"; \
