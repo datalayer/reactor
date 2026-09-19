@@ -1,6 +1,7 @@
 {
   "name": "@datalayer/reactor-shell",
   "version": "1.0.0",
+  "private": true,
   "description": "The shell plugin of a Datalayer Reactor platform — a generic view point, a segmented selector that shows nothing until plugins contribute, a choice store, and a cycle command.",
   "license": "MIT",
   "type": "module",

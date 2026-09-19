@@ -1,9 +1,12 @@
 {
   "name": "@datalayer/reactor",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "license": "BSD-3-Clause",
+  "private": false,
   "workspaces": [
     "plugins/*"
   ],
+  "homepage": "https://reactor.datalayer.tech",
   "description": "Extension reactor with framework-agnostic core and React bridge",
   "type": "module",
   "main": "lib/index.js",

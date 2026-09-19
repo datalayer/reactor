@@ -1,6 +1,7 @@
 {
   "name": "@datalayer/reactor-graph",
   "version": "1.0.0",
+  "private": true,
   "description": "Renders the plugin graph of a Datalayer Reactor platform \u2014 extensions, dependencies, contribution points and their contributors, across the frontend and backend tiers.",
   "license": "MIT",
   "type": "module",

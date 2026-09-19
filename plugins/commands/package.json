@@ -1,6 +1,7 @@
 {
   "name": "@datalayer/reactor-commands",
   "version": "1.0.0",
+  "private": true,
   "description": "A command palette for a Datalayer Reactor platform: Ctrl-K opens a floating search over every command plugins have registered, and runs the one chosen.",
   "license": "MIT",
   "type": "module",

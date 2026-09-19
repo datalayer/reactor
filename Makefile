@@ -104,7 +104,7 @@ publish-pypi: # publish the pypi package
 	@exec echo
 	@exec echo https://pypi.org/project/datalayer-reactor/#history
 
-publish-npm: clean build ## publish the reactor and every plugin package
+publish-npm: clean build ## publish the reactor, and any plugin package not marked private
 	npm publish
 	@set -e; for dir in plugins/*/; do \
 		[ -f "$$dir/package.json" ] || continue; \
