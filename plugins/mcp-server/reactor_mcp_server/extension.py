@@ -92,6 +92,21 @@ class McpExtension:
         """Callables that register MCP prompts on a server."""
         return ()
 
+    def on_server(self, server: Any) -> None:
+        """Act on a server once its tools are on it.
+
+        The escape hatch, and deliberately a narrow one. Everything an
+        extension *offers* goes through the contribution points above, where a
+        host can read it without running anything. This is for what an
+        extension has to do **to** a built server: take off a tool the host
+        registered outside the contribution model, add something the SDK
+        exposes and a spec does not describe.
+
+        Called once per built server, after the tools, resources and prompts
+        are on it, in contribution order. A server is built per set of
+        toolsets, so an extension whose toolset is not active is not called.
+        """
+
     # --- Lifecycle -----------------------------------------------------------
 
     def on_start(self) -> None:

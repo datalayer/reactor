@@ -250,3 +250,52 @@ class TestBuildingTheServer:
 
         assert before is not after
         assert "ping" in after.tool_names
+
+
+class TestActingOnTheBuiltServer:
+    """The escape hatch, for what an extension must do *to* a server.
+
+    A host that registered tools outside the contribution model — a scaffold
+    with its own decorated tools — leaves an extension no way to take one off
+    through contributions alone.
+    """
+
+    def test_it_is_called_once_the_tools_are_on(self, host) -> None:
+        seen: list[tuple[str, ...]] = []
+
+        class Acts(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="acts", version="1.0.0")
+
+            def tools(self):
+                return ()
+
+            def on_server(self, server) -> None:
+                seen.append(tuple(sorted(server._tool_manager._tools)))
+
+        host.add(Sandboxes())
+        host.add(Acts())
+        host.build()
+
+        assert seen == [("launch_sandbox",)]
+
+    def test_an_extension_that_does_not_want_it_is_not_asked(self, host) -> None:
+        host.add(Sandboxes())
+
+        assert host.build().tool_names == ("launch_sandbox",)
+
+    def test_one_that_raises_costs_only_itself(self, host) -> None:
+        class Broken(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="broken-server-hook", version="1.0.0")
+
+            def tools(self):
+                return ()
+
+            def on_server(self, server) -> None:
+                raise RuntimeError("no")
+
+        host.add(Sandboxes())
+        host.add(Broken())
+
+        assert host.build().tool_names == ("launch_sandbox",)

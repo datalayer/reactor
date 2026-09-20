@@ -69,7 +69,9 @@ class McpHost:
     instructions: str = ""
     platform: PluginPlatform = field(default_factory=PluginPlatform)
     _built: dict[str, BuiltServer] = field(default_factory=dict, init=False)
-    _registered: set[str] = field(default_factory=set, init=False)
+    #: The extensions by the name they registered as — for `on_server`, which
+    #: needs the instance rather than the contributions it made.
+    _registered: dict[str, McpExtension] = field(default_factory=dict, init=False)
 
     # --- Extensions ----------------------------------------------------------
 
@@ -80,7 +82,7 @@ class McpHost:
             logger.info("MCP extension '%s' is already registered", manifest.name)
             return manifest.name
         self.platform.register_plugin(manifest, extension)
-        self._registered.add(manifest.name)
+        self._registered[manifest.name] = extension
         # A server built before this extension arrived does not have its
         # tools, and a cached one would keep serving the old list.
         self._built.clear()
@@ -178,6 +180,16 @@ class McpHost:
             _apply(contribution.value, server, "resource", contribution.plugin)
         for contribution in self.platform.get_contributions(PROMPTS):
             _apply(contribution.value, server, "prompt", contribution.plugin)
+        # Last, so an extension acting on the server sees everything that was
+        # offered — including what other extensions offered.
+        for name, extension in self._registered.items():
+            act = getattr(extension, "on_server", None)
+            if act is None:
+                continue
+            try:
+                act(server)
+            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+                logger.exception("Plugin %s failed acting on the server", name)
 
         built = BuiltServer(
             server=server,
