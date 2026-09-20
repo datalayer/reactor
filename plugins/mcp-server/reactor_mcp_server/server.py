@@ -112,12 +112,30 @@ class McpHost:
     # --- What has been offered ----------------------------------------------
 
     def declared_toolsets(self) -> tuple[Toolset, ...]:
-        """Every toolset the registered extensions declared."""
-        return tuple(
-            contribution.value
-            for contribution in self.platform.get_contributions(TOOLSETS)
-            if isinstance(contribution.value, Toolset)
-        )
+        """Every toolset the registered extensions declared, once each.
+
+        A name is a subject, not a plugin: two extensions that add to the
+        same one declare the same name, which is how a deployment puts its
+        own sandbox tools in `sandboxes` beside the ones that ship. So the
+        *name* is what identifies a toolset here, and the first declaration
+        of it is the one described — anything else lists it twice, with two
+        descriptions, to a client that asked what there is.
+        """
+        seen: dict[str, Toolset] = {}
+        for contribution in self.platform.get_contributions(TOOLSETS):
+            toolset = contribution.value
+            if not isinstance(toolset, Toolset):
+                continue
+            if toolset.name in seen:
+                logger.debug(
+                    "Plugin %s also declares the '%s' toolset; the first "
+                    "declaration is the one described",
+                    contribution.plugin,
+                    toolset.name,
+                )
+                continue
+            seen[toolset.name] = toolset
+        return tuple(seen.values())
 
     def offered_tools(self, toolsets: Optional[Iterable[str]] = None) -> list[ToolSpec]:
         """The tools on offer, with every extension of them applied.

@@ -58,7 +58,7 @@ from reactor_mcp_server.toolsets import (
     unknown_names,
 )
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 __all__ = [
     "BuiltServer",

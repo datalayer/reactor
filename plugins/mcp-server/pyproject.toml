@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reactor_mcp_server"
-version = "1.0.1"
+version = "1.0.2"
 description = "An extensible MCP server built on Reactor: tools are contributions, and a contribution can be extended"
 readme = "README.md"
 license = { text = "Datalayer License" }

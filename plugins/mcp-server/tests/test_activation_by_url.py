@@ -201,3 +201,67 @@ class TestAHostServingThem:
         built = host.build(Selection(only=frozenset()))
 
         assert built.tool_names == ("whoami",)
+
+
+class TestTwoExtensionsOnOneToolset:
+    """A toolset name is a subject, not a plugin.
+
+    A deployment that adds its own tools to `sandboxes` declares the same
+    name, which is how they arrive together — and how a client asking what
+    there is was told about `sandboxes` twice, with two descriptions.
+    """
+
+    def _host(self):
+        from reactor import PluginCompatibility, PluginManifest
+        from reactor_mcp_server import McpExtension, ToolSpec, Toolset, build_host
+
+        class Ships(McpExtension):
+            def manifest(self):
+                return PluginManifest(
+                    name="ships",
+                    version="0.0.1",
+                    compatibility=PluginCompatibility(api_version="v1"),
+                )
+
+            def toolsets(self):
+                return (Toolset(name="sandboxes", description="Launch and use one."),)
+
+            def tools(self):
+                async def launch_sandbox(name: str) -> str:
+                    """Launch one."""
+                    return name
+
+                return [ToolSpec(name="launch_sandbox", handler=launch_sandbox)]
+
+        class AddsToIt(McpExtension):
+            def manifest(self):
+                return PluginManifest(
+                    name="adds",
+                    version="0.0.1",
+                    compatibility=PluginCompatibility(api_version="v1"),
+                )
+
+            def toolsets(self):
+                return (Toolset(name="sandboxes", description="And these too."),)
+
+            def tools(self):
+                async def snapshot_sandbox(name: str) -> str:
+                    """Keep its state."""
+                    return name
+
+                return [ToolSpec(name="snapshot_sandbox", handler=snapshot_sandbox)]
+
+        return build_host([Ships(), AddsToIt()], name="tests")
+
+    def test_it_is_listed_once(self) -> None:
+        declared = self._host().declared_toolsets()
+        assert [toolset.name for toolset in declared] == ["sandboxes"]
+
+    def test_described_by_the_first_that_declared_it(self) -> None:
+        assert self._host().declared_toolsets()[0].description == "Launch and use one."
+
+    def test_and_both_extensions_tools_are_in_it(self) -> None:
+        from reactor_mcp_server import parse_selection
+
+        built = self._host().build(parse_selection("only=sandboxes"))
+        assert set(built.tool_names) == {"launch_sandbox", "snapshot_sandbox"}
