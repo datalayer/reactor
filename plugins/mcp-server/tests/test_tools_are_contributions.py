@@ -299,3 +299,36 @@ class TestActingOnTheBuiltServer:
         host.add(Broken())
 
         assert host.build().tool_names == ("launch_sandbox",)
+
+
+class TestWhereAToolLandsWhenItNamesNoToolset:
+    def test_in_the_extension_s_first_declared_one(self, host) -> None:
+        """Not in one named after the plugin: an extension called
+        `sandboxes-datalayer` that declares the `sandboxes` toolset would
+        otherwise contribute into a toolset nobody declared, which is never
+        active — the tools would be present, filtered out, and missing with
+        nothing saying why."""
+
+        class Aggregates(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="sandboxes-datalayer", version="1.0.0")
+
+            def toolsets(self):
+                return (Toolset(name="sandboxes"),)
+
+            @tool()
+            async def share_sandbox(self) -> str:
+                """Share it."""
+                return "shared"
+
+        host.add(Aggregates())
+
+        built = host.build()
+
+        assert built.tool_names == ("share_sandbox",)
+        assert built.toolsets == frozenset({"sandboxes"})
+
+    def test_the_plugin_name_is_the_fallback(self, host) -> None:
+        host.add(Sandboxes())
+
+        assert host.build().toolsets == frozenset({"sandboxes"})

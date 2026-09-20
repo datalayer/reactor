@@ -22,8 +22,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Awaitable, Callable, MutableMapping, Optional
+
+import anyio
+from anyio.abc import TaskStatus
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -55,15 +58,35 @@ class ToolsetRouter:
     sub-application's lifespan is not run by the application that routes to
     it — so an app served without one answers every request with "Task group
     is not initialized", which reads like a bug in the protocol rather than a
-    missing startup. Each app's lifespan is entered the first time that set of
-    toolsets is asked for, and they are all closed together on shutdown.
+    missing startup.
+
+    Each lifespan runs in a **task of its own**, started the first time that
+    set of toolsets is asked for and kept until shutdown. Not opened inline
+    in the request that first asked for it: a lifespan is an async context
+    holding cancel scopes, and a scope entered in one task and left in
+    another is an error anyio raises at the end — "Attempted to exit cancel
+    scope in a different task than it was entered in", on shutdown, after the
+    work is done and where nobody is looking for it.
     """
 
-    def __init__(self, host: McpHost, *, path: str = "/mcp") -> None:
+    def __init__(
+        self,
+        host: McpHost,
+        *,
+        path: str = "/mcp",
+        app_options: Optional[dict[str, Any]] = None,
+    ) -> None:
         self._host = host
         self._path = path
+        # What the SDK's application is built with, beside the path: whether
+        # sessions are issued, how large a request may be, what the transport
+        # allows. They are the deployment's answers rather than this router's,
+        # and every selection is served with the same ones — a client that
+        # asked for another toolset did not ask for another transport.
+        self._app_options = dict(app_options or {})
         self._apps: dict[str, Any] = {}
-        self._stack: AsyncExitStack | None = None
+        self._tasks: Any = None
+        self._closing: anyio.Event | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -71,17 +94,41 @@ class ToolsetRouter:
         return self._host
 
     async def start(self) -> None:
-        """Open the scope the applications' lifespans live in."""
-        if self._stack is None:
-            self._stack = AsyncExitStack()
-            await self._stack.__aenter__()
+        """Open the scope the applications' lifespans live in.
+
+        Entered and left in the same task — this one, the application's own
+        lifespan — while each served application's lifespan runs in a child
+        of it.
+        """
+        if self._tasks is None:
+            self._closing = anyio.Event()
+            self._tasks = anyio.create_task_group()
+            await self._tasks.__aenter__()
 
     async def stop(self) -> None:
-        """Close every lifespan this router started."""
-        stack, self._stack = self._stack, None
+        """Close every lifespan this router started, and wait for it."""
+        tasks, self._tasks = self._tasks, None
+        closing, self._closing = self._closing, None
         self._apps.clear()
-        if stack is not None:
-            await stack.aclose()
+        if closing is not None:
+            closing.set()
+        if tasks is not None:
+            await tasks.__aexit__(None, None, None)
+
+    async def _serve(
+        self, app: Any, *, task_status: "TaskStatus[None]"
+    ) -> None:
+        """Run one application's lifespan until this router is stopped.
+
+        The task reports itself started once the lifespan is open, so the
+        request that asked for this application waits for its session manager
+        rather than racing it — and a lifespan that fails to start fails
+        *there*, in the request, instead of leaving it waiting.
+        """
+        assert self._closing is not None
+        async with app.router.lifespan_context(app):
+            task_status.started()
+            await self._closing.wait()
 
     async def app_for(self, key: str, built: Any) -> Any:
         """The SDK application serving this set of toolsets, started once.
@@ -103,11 +150,11 @@ class ToolsetRouter:
             if existing is not None:
                 return existing
             await self.start()
-            app = built.server.streamable_http_app(streamable_http_path=self._path)
-            assert self._stack is not None
-            await self._stack.enter_async_context(
-                app.router.lifespan_context(app)
+            app = built.server.streamable_http_app(
+                streamable_http_path=self._path, **self._app_options
             )
+            assert self._tasks is not None
+            await self._tasks.start(self._serve, app)
             self._apps[key] = app
             return app
 
@@ -136,6 +183,7 @@ def create_mcp_app(
     path: str = "/mcp",
     healthz: Optional[str] = "/healthz",
     toolsets_route: Optional[str] = "/toolsets",
+    app_options: Optional[dict[str, Any]] = None,
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -147,7 +195,7 @@ def create_mcp_app(
       activate, so a client can be *told* which name to put in its URL rather
       than being sent to read the deployment's source.
     """
-    router = ToolsetRouter(host, path=path)
+    router = ToolsetRouter(host, path=path, app_options=app_options)
 
     async def toolsets(request: Request) -> JSONResponse:
         selection = selection_from_scope(request.scope)

@@ -34,7 +34,12 @@ from reactor_mcp_server.points import (
     TOOLSETS,
     on_toolset,
 )
-from reactor_mcp_server.server import BuiltServer, McpHost, build_host
+from reactor_mcp_server.server import (
+    BuiltServer,
+    McpHost,
+    build_host,
+    put_on_server,
+)
 from reactor_mcp_server.tools import (
     Handler,
     ToolExtension,
@@ -53,7 +58,7 @@ from reactor_mcp_server.toolsets import (
     unknown_names,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "BuiltServer",
@@ -80,6 +85,7 @@ __all__ = [
     "manifest_of",
     "on_toolset",
     "parse_selection",
+    "put_on_server",
     "resolve",
     "tool",
     "tool_spec_of",

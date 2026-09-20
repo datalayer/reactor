@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from mcp.server.mcpserver import MCPServer
 from reactor import PluginPlatform
@@ -68,6 +68,18 @@ class McpHost:
     name: str = "reactor-mcp-server"
     instructions: str = ""
     platform: PluginPlatform = field(default_factory=PluginPlatform)
+    #: How a server is made, given this host's name and instructions.
+    #:
+    #: A host that serves over HTTP usually needs more than a bare
+    #: `MCPServer` — a subclass carrying CORS, an authentication middleware,
+    #: a token verifier the deployment configured. A selection is served by
+    #: the server built for it, so that subclass has to be what `build`
+    #: makes, not something wrapped around it afterwards.
+    server_factory: Callable[[str, Optional[str]], MCPServer] = field(
+        default=lambda name, instructions: MCPServer(
+            name=name, instructions=instructions
+        )
+    )
     _built: dict[str, BuiltServer] = field(default_factory=dict, init=False)
     #: The extensions by the name they registered as — for `on_server`, which
     #: needs the instance rather than the contributions it made.
@@ -167,15 +179,8 @@ class McpHost:
             )
 
         specs = self.offered_tools(active)
-        server = MCPServer(name=self.name, instructions=self.instructions or None)
-        for spec in specs:
-            server.add_tool(
-                spec.handler,
-                name=spec.name,
-                title=spec.title or None,
-                description=spec.documentation or None,
-                annotations=spec.annotations,
-            )
+        server = self.server_factory(self.name, self.instructions or None)
+        put_on_server(server, specs)
         for contribution in self.platform.get_contributions(RESOURCES):
             _apply(contribution.value, server, "resource", contribution.plugin)
         for contribution in self.platform.get_contributions(PROMPTS):
@@ -208,6 +213,25 @@ class McpHost:
         self._built.clear()
 
 
+def put_on_server(server: MCPServer, specs: Iterable[ToolSpec]) -> MCPServer:
+    """Put tools on a server, the way the host does.
+
+    The host's own step, exported: a caller assembling a server by hand — a
+    test, a script, a deployment that builds one server and keeps it — should
+    put a tool on it the same way, or the thing it exercises is not the thing
+    that is served.
+    """
+    for spec in specs:
+        server.add_tool(
+            spec.handler,
+            name=spec.name,
+            title=spec.title or None,
+            description=spec.documentation or None,
+            annotations=spec.annotations,
+        )
+    return server
+
+
 def _apply(register: Any, server: MCPServer, what: str, plugin: str) -> None:
     if not callable(register):
         logger.error("Plugin %s contributed a %s that is not callable", plugin, what)
@@ -223,9 +247,16 @@ def build_host(
     *,
     name: str = "reactor-mcp-server",
     instructions: str = "",
+    server_factory: Optional[Callable[[str, Optional[str]], MCPServer]] = None,
 ) -> McpHost:
-    """A started host with these extensions on it."""
+    """A started host with these extensions on it.
+
+    `server_factory` is how each selection's server is made — a deployment
+    serving a subclass of `MCPServer` names it here.
+    """
     host = McpHost(name=name, instructions=instructions)
+    if server_factory is not None:
+        host.server_factory = server_factory
     host.add_all(extensions)
     host.start()
     return host

@@ -125,8 +125,15 @@ class McpExtension:
         put in this extension's own, so every tool is in exactly one and
         nothing falls outside the URL's reach.
         """
-        default_toolset = self.manifest().name
-        for toolset in self.toolsets():
+        declared = list(self.toolsets())
+        # A tool that named no toolset goes in this extension's **first
+        # declared** one, not in one named after the plugin: an extension that
+        # declares `sandboxes` and is called `sandboxes-datalayer` would
+        # otherwise put its tools in a toolset nobody declared, and a toolset
+        # nobody declared is never active — the tools would be contributed,
+        # filtered out, and absent with nothing saying why.
+        default_toolset = declared[0].name if declared else self.manifest().name
+        for toolset in declared:
             contributions.contribute(
                 TOOLSETS, toolset, contribution_id=toolset.name
             )

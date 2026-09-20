@@ -25,11 +25,13 @@ import pytest
 import uvicorn
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from mcp.server.mcpserver import MCPServer
 from reactor import PluginManifest
 
 from reactor_mcp_server import (
     McpExtension,
     Toolset,
+    ToolsetRouter,
     build_host,
     create_mcp_app,
     on_toolset,
@@ -172,3 +174,114 @@ class TestWhatTheEndpointSaysAboutItself:
 
         assert answer["unknown"] == ["nosuch"]
         assert answer["active"] == ["notebooks"]
+
+
+class SaysHowItWasBuilt(MCPServer):
+    """A server subclass, so a test can tell it from the default one.
+
+    What a real deployment does here is heavier — CORS, an authentication
+    middleware, the token verifier the operator configured — and the property
+    that matters is the same: the selection is served *by this class*, not by
+    something wrapped around a bare `MCPServer`.
+    """
+
+    built: list[str] = []
+
+    def __init__(self, *args, **keywords) -> None:
+        super().__init__(*args, **keywords)
+        SaysHowItWasBuilt.built.append(self.name)
+
+    def streamable_http_app(self, **keywords):
+        SaysHowItWasBuilt.seen = dict(keywords)
+        return super().streamable_http_app(**keywords)
+
+
+class TestTheLifespansAreClosedCleanly:
+    """A served application's lifespan is opened by the request that first
+    asks for its toolsets, and closed on shutdown — two different tasks.
+
+    anyio raises at the end of a cancel scope left in a task other than the
+    one that entered it, which on a worker reads as "Application shutdown
+    failed" after the work is done, where nobody is looking for it. So each
+    lifespan gets a task of its own.
+    """
+
+    async def test_stopping_after_a_request_opened_one_does_not_raise(self) -> None:
+        import anyio
+
+        host = build_host([Notebooks()], name="tests")
+        router = ToolsetRouter(host, path="/mcp")
+        await router.start()
+
+        async def asks_for_it() -> None:
+            await router.app_for("notebooks", host.build())
+
+        async with anyio.create_task_group() as tasks:
+            tasks.start_soon(asks_for_it)
+        await router.stop()
+
+    async def test_and_the_application_it_opened_is_the_one_it_kept(self) -> None:
+        host = build_host([Notebooks()], name="tests")
+        router = ToolsetRouter(host, path="/mcp")
+        built = host.build()
+        first = await router.app_for("notebooks", built)
+        try:
+            assert await router.app_for("notebooks", built) is first
+        finally:
+            await router.stop()
+
+
+class TestTheDeploymentDecidesHowAServerIsMade:
+    """A host serves what the deployment built, not what the foundation would.
+
+    The gateway's worker is the case: its server carries CORS, an identity
+    middleware and a token verifier, and a client reaching a toolset through
+    a bare `MCPServer` would reach it unauthenticated.
+    """
+
+    def test_the_factory_makes_the_server(self) -> None:
+        SaysHowItWasBuilt.built.clear()
+        host = build_host(
+            [Notebooks()],
+            name="tests",
+            server_factory=lambda name, instructions: SaysHowItWasBuilt(
+                name=name, instructions=instructions
+            ),
+        )
+        built = host.build()
+        assert isinstance(built.server, SaysHowItWasBuilt)
+        assert SaysHowItWasBuilt.built == ["tests"]
+
+    def test_the_tools_are_on_it(self) -> None:
+        host = build_host(
+            [Notebooks()],
+            name="tests",
+            server_factory=lambda name, instructions: SaysHowItWasBuilt(
+                name=name, instructions=instructions
+            ),
+        )
+        built = host.build()
+        assert "list_notebooks" in built.tool_names
+
+    async def test_the_transport_options_reach_the_app(self) -> None:
+        """What the deployment says about sessions and limits, per selection.
+
+        The SDK takes them where the app is built, which the router does —
+        so without this a deployment that needs sessions gets the SDK's
+        default instead, and a client waiting for an `Mcp-Session-Id` is
+        handed nothing.
+        """
+        host = build_host(
+            [Notebooks()],
+            name="tests",
+            server_factory=lambda name, instructions: SaysHowItWasBuilt(
+                name=name, instructions=instructions
+            ),
+        )
+        router = ToolsetRouter(host, path="/mcp", app_options={"stateless_http": False})
+        await router.app_for("notebooks", host.build())
+        try:
+            assert SaysHowItWasBuilt.seen["stateless_http"] is False
+            assert SaysHowItWasBuilt.seen["streamable_http_path"] == "/mcp"
+        finally:
+            await router.stop()
