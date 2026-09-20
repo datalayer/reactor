@@ -57,6 +57,34 @@ def define_contribution_point(point_id: str) -> ContributionPoint[Any]:
     return ContributionPoint(id=point_id)
 
 
+def extension_point(point: ContributionPoint[T], target_id: str) -> ContributionPoint[Any]:
+    """The point that holds *extensions of* one contribution.
+
+    A plugin offers something — a view, a command, a tool — and another plugin
+    wants to add to that particular one rather than offer a rival. Without
+    this, the second plugin's only lever is to contribute a replacement and
+    hope it is read last, which makes the outcome depend on load order: the
+    thing works on the machine where the names happen to sort the right way.
+
+    An extension is an ordinary contribution to a derived point, so everything
+    the registry already does — order, identity, tenant filtering, disposal
+    with the plugin — holds for extensions too, and a host can read them
+    without a second mechanism::
+
+        TOOLS = define_contribution_point("mcp.tools")
+        contributions.extend(TOOLS, "launch_sandbox", narrowing)
+        registry.extensions_of(TOOLS, "launch_sandbox")
+
+    The target need not exist. A plugin that extends a tool nobody
+    contributed has done nothing wrong — the extension simply never applies —
+    and that is the same shape as declaring a dependency on an extension that
+    is not installed.
+    """
+    if not target_id:
+        raise ValueError("An extension needs the id of what it extends")
+    return ContributionPoint(id=f"{point.id}::{target_id}")
+
+
 @dataclass(frozen=True)
 class Contribution(Generic[T]):
     """A stored contribution, as handed back to the host."""
@@ -144,6 +172,20 @@ class ContributionRegistry:
             if allowed is None or entry.plugin in allowed
         ]
 
+    def extensions_of(
+        self,
+        point: ContributionPoint[T],
+        target_id: str,
+        *,
+        plugins: Optional[Iterable[str]] = None,
+    ) -> list[Contribution[Any]]:
+        """What plugins contributed *to* one contribution of a point.
+
+        Ordered like any other point, so a host applies them in a defined
+        order rather than the order the plugins happened to load in.
+        """
+        return self.get(extension_point(point, target_id), plugins=plugins)
+
     def dispose_plugin(self, plugin_name: str) -> int:
         """Drop everything one plugin contributed. Returns how many went."""
         removed = 0
@@ -191,6 +233,29 @@ class PluginContributions:
         return self._registry.add(
             self._plugin_name,
             point,
+            value,
+            contribution_id=contribution_id,
+            order=order,
+        )
+
+    def extend(
+        self,
+        point: ContributionPoint[T],
+        target_id: str,
+        value: Any,
+        *,
+        contribution_id: Optional[str] = None,
+        order: int = 0,
+    ) -> Dispose:
+        """Add to one contribution of a point, as this plugin.
+
+        The point a host reads back with
+        :meth:`ContributionRegistry.extensions_of`. What the value means is
+        the host's business: a wrapper, an overlay of fields, a validator.
+        """
+        return self._registry.add(
+            self._plugin_name,
+            extension_point(point, target_id),
             value,
             contribution_id=contribution_id,
             order=order,

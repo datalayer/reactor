@@ -13,6 +13,7 @@ from .extensions import (
     ReactorExtension,
 )
 from .contributions import (
+    extension_point,
     Contribution,
     ContributionPoint,
     ContributionRegistry,
@@ -59,6 +60,7 @@ __all__ = [
     "PluginContributions",
     "PluginPlatform",
     "define_contribution_point",
+    "extension_point",
     "ExtensionManifest",
     "PluginManifest",
     "PluginCompatibility",
