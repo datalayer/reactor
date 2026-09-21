@@ -74,6 +74,7 @@ URL it connects to:
 | --- | --- |
 | `https://mcp.example.com/mcp` | every toolset that is on by default |
 | `https://mcp.example.com/mcp?benchmarks` | the defaults, and `benchmarks` |
+| `https://mcp.example.com/mcp?contents,library` | the defaults, and both named sets |
 | `https://mcp.example.com/mcp?toolsets=spaces,library` | the defaults, and those two |
 | `https://mcp.example.com/mcp?only=spaces` | `spaces` alone, plus the always-on toolsets |
 | `https://mcp.example.com/mcp?without=sandboxes` | the defaults, less that one |

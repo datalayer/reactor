@@ -14,6 +14,7 @@ wants::
 
     https://mcp.datalayer.run/mcp            the default toolsets
     https://mcp.datalayer.run/mcp?benchmarks the default ones and benchmarks
+    https://mcp.datalayer.run/mcp?contents,library the defaults and both named sets
     https://mcp.datalayer.run/mcp?only=spaces only spaces (and the always-on)
 
 A bare flag is the spelling worth having: it is what somebody types into an
@@ -98,7 +99,12 @@ def parse_selection(query: str | None) -> Selection:
         elif key == WITHOUT_KEY:
             without.update(_names(value))
         else:
-            named.add(key)
+            # A bare comma-separated list is the compact spelling used in
+            # client configuration: ``?contents,library``.  Query parsers see
+            # it as one key with an empty value, so split it by the same rules
+            # as ``toolsets=contents,library`` rather than treating the comma as
+            # part of a toolset's name.
+            named.update(_names(key))
     return Selection(
         named=frozenset(named),
         only=None if only is None else frozenset(only),

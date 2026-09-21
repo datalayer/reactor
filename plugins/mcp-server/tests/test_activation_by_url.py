@@ -55,6 +55,11 @@ class TestReadingTheQuery:
             {"benchmarks", "library"}
         )
 
+    def test_a_bare_comma_separated_list(self) -> None:
+        assert parse_selection("benchmarks,library").named == frozenset(
+            {"benchmarks", "library"}
+        )
+
     def test_a_list_under_the_reserved_key(self) -> None:
         assert parse_selection("toolsets=benchmarks,library").named == frozenset(
             {"benchmarks", "library"}
