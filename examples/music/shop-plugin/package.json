@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@datalayer-examples/reactor-music-catalog-plugin": "*",
-    "@datalayer/core": "^1.0.24",
-    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/core": "^1.2.12",
+    "@datalayer/primer-addons": "^1.0.23",
     "@datalayer/reactor": "file:../../..",
     "@primer/react": "^37.31.0",
     "react": "19.2.8",

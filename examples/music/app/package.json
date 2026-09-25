@@ -16,7 +16,7 @@
     "@datalayer-examples/reactor-music-playlist-plugin": "*",
     "@datalayer-examples/reactor-music-plugins-panel-plugin": "*",
     "@datalayer-examples/reactor-music-shop-plugin": "*",
-    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/primer-addons": "^1.0.23",
     "@datalayer/reactor": "file:../../..",
     "@datalayer/reactor-commands": "file:../../../plugins/commands",
     "@datalayer/reactor-graph": "file:../../../plugins/graph",
