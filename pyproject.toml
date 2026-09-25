@@ -51,3 +51,7 @@ source = "nodejs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["reactor"]
+
+[tool.pytest.ini_options]
+# The MCP server plugin's tests are async; its own config says the same.
+asyncio_mode = "auto"
