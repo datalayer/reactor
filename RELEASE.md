@@ -62,16 +62,16 @@ environment exactly: renaming any of them means re-registering the publisher.
 
 ## Releasing
 
-1. Set the version, the same everywhere, on a branch and open a pull request:
+1. Bump the version, the same everywhere, on a branch and open a pull request:
 
    ```bash
-   # package.json and plugins/*/package.json: "version"
-   # plugins/mcp-server/pyproject.toml: version
-   # datalayer-reactor follows package.json by itself.
+   make bump-patch      # or bump-minor, bump-major; `make bump` asks
    ```
 
-   The MCP server's `datalayer_reactor>=X.Y.Z` floor moves with it (pip
-   installs the root package from the tree first). The plugins' floor on
+   `dev/bump_version.py` moves the root `package.json` (which
+   `datalayer-reactor` reads), the four plugins' `package.json`, the MCP
+   server's `pyproject.toml` with its `datalayer_reactor>=` floor, and the
+   `__version__` fallback — all of them or none. The plugins' floor on
    `@datalayer/reactor` stays at a published version: the root package is
    not an npm workspace member, so `npm install` resolves it from the
    registry, where the new version does not exist yet.
