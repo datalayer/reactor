@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterable
 import pluggy
 
 from .contributions import (
+    extension_point,
     Contribution,
     ContributionRegistry,
     ContributionPoint,
@@ -398,18 +399,49 @@ class PluginPlatform:
         a module may still be on the wire, activation here is synchronous — so
         the plugins it wakes are in the list this call returns.
         """
+        return self._contributions.get(
+            point, plugins=self._allowed_plugins(point, tenant_id)
+        )
+
+    def _allowed_plugins(
+        self, point: ContributionPoint[Any], tenant_id: str | None
+    ) -> set[str]:
+        """Who may be read for this point, waking whoever the read wakes."""
         if point.id not in self._fired_points:
             self._fired_points.add(point.id)
             self.fire_event(on_contribution_point(point.id))
         if tenant_id is not None:
-            allowed: set[str] = set(self.resolve_tenant_plugins(tenant_id))
-        else:
-            allowed = {
-                plugin_name
-                for plugin_name, record in self._records.items()
-                if record.enabled
-            }
-        return self._contributions.get(point, plugins=allowed)
+            return set(self.resolve_tenant_plugins(tenant_id))
+        return {
+            plugin_name
+            for plugin_name, record in self._records.items()
+            if record.enabled
+        }
+
+    def get_contribution_extensions(
+        self,
+        point: ContributionPoint[Any],
+        target_id: str,
+        tenant_id: str | None = None,
+    ) -> list[Contribution[Any]]:
+        """What enabled plugins have contributed *to one contribution* of a point.
+
+        Read through the same enablement and tenant filter as the
+        contributions themselves: an extension from a plugin a tenant may not
+        use is not an extension that tenant sees. Reading here fires the
+        point's activation event, exactly as reading the point does, so a
+        plugin that only exists to extend somebody else's contribution wakes
+        when that contribution is read.
+        """
+        derived = extension_point(point, target_id)
+        # The base point's activation, as reading the point fires it; then the
+        # derived point's own, for a plugin held on
+        # `onContributionPoint:<point>::<target>` until this contribution is
+        # read — and the derived point is the one whose plugins are read.
+        self._allowed_plugins(point, tenant_id)
+        return self._contributions.get(
+            derived, plugins=self._allowed_plugins(derived, tenant_id)
+        )
 
     def contributions_for(self, plugin_name: str) -> PluginContributions:
         """The registry as one plugin sees it, for contributing after startup."""

@@ -1,6 +1,6 @@
 {
   "name": "@datalayer/reactor-graph",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publishConfig": {
     "access": "public"
   },
@@ -26,7 +26,7 @@
     "echarts"
   ],
   "dependencies": {
-    "@datalayer/primer-addons": "^1.0.17",
+    "@datalayer/primer-addons": "^1.0.23",
     "@primer/react": "^37.31.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2"

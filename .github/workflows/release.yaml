@@ -1,0 +1,241 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+# Publishes a release to npm and PyPI when a `v*` tag is pushed, with no
+# stored token: both registries trust this workflow file (OIDC trusted
+# publishing, through the `npm` and `pypi` GitHub environments). Every package
+# in this repository carries the same version, which the tag must name; a
+# package whose exact version is already published is skipped, so a re-run
+# after a partial upload publishes the rest. See RELEASE.md.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # The npm packages this workflow releases: the root package, then the
+  # plugins (published in that order; the plugins depend on the root).
+  NPM_PACKAGES: . plugins/commands plugins/graph plugins/manager plugins/shell
+  # The Python packages this workflow releases (directories with a pyproject).
+  # The root package takes its version from package.json (hatch-nodejs-version).
+  PY_PACKAGES: . plugins/mcp-server
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      npm: ${{ steps.plan.outputs.npm }}
+      python: ${{ steps.plan.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check the tag names the version every package carries
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          for pkg in $NPM_PACKAGES; do
+            name="$(node -p "require('./$pkg/package.json').name")"
+            version="$(node -p "require('./$pkg/package.json').version")"
+            echo "tag=$tag $name=$version"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::Tag v$tag does not match $name $version"
+              exit 1
+            fi
+          done
+          for pkg in $PY_PACKAGES; do
+            read -r name version < <(python - "$pkg" <<'EOF'
+          import json, sys, tomllib
+          pkg = sys.argv[1]
+          meta = tomllib.load(open(f'{pkg}/pyproject.toml', 'rb'))
+          project = meta['project']
+          version = project.get('version') or json.load(open(f'{pkg}/package.json'))['version']
+          print(project['name'], version)
+          EOF
+            )
+            echo "tag=$tag $name=$version"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::Tag v$tag does not match $name $version"
+              exit 1
+            fi
+          done
+
+      - name: Find what is not published yet
+        id: plan
+        run: |
+          set -euo pipefail
+          npm_todo=""
+          for pkg in $NPM_PACKAGES; do
+            name="$(node -p "require('./$pkg/package.json').name")"
+            version="$(node -p "require('./$pkg/package.json').version")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "npm: $name@$version is already published, skipping"
+            else
+              echo "npm: $name@$version will be published"
+              npm_todo="$npm_todo $pkg"
+            fi
+          done
+          py_todo=""
+          for pkg in $PY_PACKAGES; do
+            read -r name version < <(python - "$pkg" <<'EOF'
+          import json, sys, tomllib
+          pkg = sys.argv[1]
+          meta = tomllib.load(open(f'{pkg}/pyproject.toml', 'rb'))
+          project = meta['project']
+          version = project.get('version') or json.load(open(f'{pkg}/package.json'))['version']
+          print(project['name'].replace('_', '-'), version)
+          EOF
+            )
+            status="$(curl -sL -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/$name/$version/json")"
+            if [ "$status" = "200" ]; then
+              echo "PyPI: $name $version is already published, skipping"
+            else
+              echo "PyPI: $name $version will be published"
+              py_todo="$py_todo $pkg"
+            fi
+          done
+          echo "npm=${npm_todo# }" >> "$GITHUB_OUTPUT"
+          echo "python=${py_todo# }" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        if: steps.plan.outputs.npm != '' || steps.plan.outputs.python != ''
+        run: |
+          npm install
+          python -m pip install --upgrade pip build
+          python -m pip install -e .[dev]
+          python -m pip install -e "plugins/mcp-server[test]"
+
+      - name: Build and test
+        if: steps.plan.outputs.npm != '' || steps.plan.outputs.python != ''
+        run: |
+          npm run typecheck
+          npm run build
+          npm run test:ts
+          pytest -q
+
+      - name: Pack the npm packages
+        if: steps.plan.outputs.npm != ''
+        run: |
+          set -euo pipefail
+          mkdir -p dist-npm
+          for pkg in ${{ steps.plan.outputs.npm }}; do
+            (cd "$pkg" && npm pack --pack-destination "$GITHUB_WORKSPACE/dist-npm")
+          done
+          ls -la dist-npm
+
+      - name: Build the Python packages
+        if: steps.plan.outputs.python != ''
+        run: |
+          set -euo pipefail
+          mkdir -p dist-py
+          for pkg in ${{ steps.plan.outputs.python }}; do
+            python -m build --sdist --wheel --outdir dist-py "$pkg"
+          done
+          ls -la dist-py
+
+      - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.npm != ''
+        with:
+          name: npm
+          path: dist-npm/*.tgz
+
+      - uses: actions/upload-artifact@v4
+        if: steps.plan.outputs.python != ''
+        with:
+          name: python
+          path: dist-py/*
+
+  pypi:
+    needs: build
+    if: needs.build.outputs.python != ''
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # The build job already skipped published versions; this covers a
+          # re-run after a partial upload.
+          skip-existing: true
+
+  npm:
+    needs: build
+    if: needs.build.outputs.npm != ''
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1 && npm --version
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm
+          path: dist
+      - name: Publish
+        run: |
+          set -euo pipefail
+          # @datalayer/reactor first: the plugins depend on it.
+          for tarball in $(ls dist/datalayer-reactor-[0-9]*.tgz 2>/dev/null) $(ls dist/*.tgz | grep -v '/datalayer-reactor-[0-9]'); do
+            name="$(tar -xOzf "$tarball" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0)).name")"
+            version="$(tar -xOzf "$tarball" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0)).version")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is already published, skipping"
+              continue
+            fi
+            # "./": npm reads a bare "dist/x.tgz" as the GitHub shorthand
+            # github:dist/x.tgz and refuses to fetch it (EALLOWGIT).
+            npm publish "./$tarball" --provenance --access public
+          done
+
+  release:
+    name: GitHub release
+    needs: [build, pypi, npm]
+    if: always() && needs.build.result == 'success' && needs.pypi.result != 'failure' && needs.npm.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create the release with generated notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && exit 0
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Release $version" \
+            --generate-notes \
+            --notes "## Release $version
+
+          - [PyPI datalayer-reactor](https://pypi.org/project/datalayer-reactor/$version/) · [reactor-mcp-server](https://pypi.org/project/reactor-mcp-server/$version/)
+          - [npm @datalayer/reactor](https://www.npmjs.com/package/@datalayer/reactor/v/$version) · reactor-commands · reactor-graph · reactor-manager · reactor-shell"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

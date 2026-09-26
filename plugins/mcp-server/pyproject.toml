@@ -1,0 +1,51 @@
+# Copyright (c) 2026-Present Datalayer, Inc.
+#
+# Datalayer License
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reactor_mcp_server"
+version = "1.0.3"
+description = "An extensible MCP server built on Reactor: tools are contributions, and a contribution can be extended"
+readme = "README.md"
+license = { text = "Datalayer License" }
+requires-python = ">=3.10"
+authors = [{ name = "Datalayer", email = "support@datalayer.io" }]
+keywords = ["mcp", "reactor", "plugins", "tools"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "datalayer_reactor>=1.0.3",
+    "mcp>=2,<3",
+    "starlette",
+]
+
+[project.optional-dependencies]
+server = ["uvicorn[standard]"]
+test = ["pytest", "pytest-asyncio", "httpx", "uvicorn[standard]"]
+
+[project.scripts]
+reactor-mcp-server = "reactor_mcp_server.__main__:main"
+
+# An MCP extension is discovered here. One group, so a distribution that
+# carries several extensions lists them all and a host loads them by name.
+[project.entry-points."reactor.mcp.extensions"]
+
+[project.urls]
+Homepage = "https://datalayer.ai"
+Source = "https://github.com/datalayer/reactor"
+
+[tool.hatch.build.targets.wheel]
+packages = ["reactor_mcp_server"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
