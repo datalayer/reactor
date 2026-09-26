@@ -16,13 +16,13 @@ All packages carry **one version**, the one the tag names.
 
 npm (GitHub environment `npm`):
 
-| Package                        | Path               |
-| ------------------------------ | ------------------ |
-| `@datalayer/reactor`           | `.`                |
-| `@datalayer/reactor-commands`  | `plugins/commands` |
-| `@datalayer/reactor-graph`     | `plugins/graph`    |
-| `@datalayer/reactor-manager`   | `plugins/manager`  |
-| `@datalayer/reactor-shell`     | `plugins/shell`    |
+| Package                       | Path               |
+| ----------------------------- | ------------------ |
+| `@datalayer/reactor`          | `.`                |
+| `@datalayer/reactor-commands` | `plugins/commands` |
+| `@datalayer/reactor-graph`    | `plugins/graph`    |
+| `@datalayer/reactor-manager`  | `plugins/manager`  |
+| `@datalayer/reactor-shell`    | `plugins/shell`    |
 
 PyPI (GitHub environment `pypi`):
 
@@ -38,7 +38,7 @@ The examples under `examples/` and the docs are private and never published.
 Done once per package, by an owner of the registry account.
 
 **npm** — for each of the five packages, on npmjs.com → package → Settings →
-Publishing access → *Trusted publisher*:
+Publishing access → _Trusted publisher_:
 
 - publisher: GitHub Actions
 - organization or user: `datalayer`
@@ -57,7 +57,7 @@ Publishing access → *Trusted publisher*:
 Environments); required reviewers on them are optional and add a manual
 approval before each publish.
 
-The registry matches the repository, the workflow *filename* and the
+The registry matches the repository, the workflow _filename_ and the
 environment exactly: renaming any of them means re-registering the publisher.
 
 ## Releasing
