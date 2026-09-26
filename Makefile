@@ -104,6 +104,20 @@ publish-pypi: # publish the pypi package
 	@exec echo
 	@exec echo https://pypi.org/project/datalayer-reactor/#history
 
+.PHONY: bump bump-patch bump-minor bump-major
+
+bump: ## bump the version of every package, asking which part
+	python dev/bump_version.py
+
+bump-patch: ## bump the patch version of every package (1.0.3 -> 1.0.4)
+	python dev/bump_version.py patch
+
+bump-minor: ## bump the minor version of every package (1.0.3 -> 1.1.0)
+	python dev/bump_version.py minor
+
+bump-major: ## bump the major version of every package (1.0.3 -> 2.0.0)
+	python dev/bump_version.py major
+
 publish-npm: clean build ## publish the reactor, and any plugin package not marked private
 	npm publish
 	@set -e; for dir in plugins/*/; do \
