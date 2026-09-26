@@ -6,95 +6,95 @@
 
 # Reactor Release Guide
 
-This document describes how releases are produced for this repository.
+One tag releases every package in this repository, to npm and PyPI, with no
+stored token: both registries trust the workflow
+`.github/workflows/release.yaml` through OIDC (trusted publishing).
 
 ## What Is Released
 
-- Python package: `datalayer-reactor` to PyPI.
-- TypeScript package: `@datalayer/reactor` to npm.
-- GitHub Release entry for the pushed tag.
+All packages carry **one version**, the one the tag names.
 
-## Release Trigger
+npm (GitHub environment `npm`):
 
-The workflow in `.github/workflows/release.yml` runs on:
+| Package                        | Path               |
+| ------------------------------ | ------------------ |
+| `@datalayer/reactor`           | `.`                |
+| `@datalayer/reactor-commands`  | `plugins/commands` |
+| `@datalayer/reactor-graph`     | `plugins/graph`    |
+| `@datalayer/reactor-manager`   | `plugins/manager`  |
+| `@datalayer/reactor-shell`     | `plugins/shell`    |
 
-- pushed tags matching `v*.*.*` (for example: `v0.1.0`)
-- manual dispatch (`workflow_dispatch`)
+PyPI (GitHub environment `pypi`):
 
-## Versioning Rules
+| Package              | Path                 | Version from                          |
+| -------------------- | -------------------- | ------------------------------------- |
+| `datalayer-reactor`  | `.`                  | `package.json` (hatch-nodejs-version) |
+| `reactor-mcp-server` | `plugins/mcp-server` | `pyproject.toml`                      |
 
-- Use semantic versioning.
-- Keep versions aligned across:
-   - `pyproject.toml` (`project.version`)
-   - `package.json` (`version`)
-   - tag (`vX.Y.Z`)
+The examples under `examples/` and the docs are private and never published.
 
-The release workflow validates that tag, Python version, and npm version match.
+## Trusted Publishing Setup
 
-## Required Repository Configuration
+Done once per package, by an owner of the registry account.
 
-### PyPI trusted publishing
+**npm** — for each of the five packages, on npmjs.com → package → Settings →
+Publishing access → *Trusted publisher*:
 
-In PyPI project `datalayer-reactor`:
+- publisher: GitHub Actions
+- organization or user: `datalayer`
+- repository: `reactor`
+- workflow filename: `release.yaml`
+- environment name: `npm`
 
-- add GitHub Actions trusted publisher
+**PyPI** — for each of the two packages, on pypi.org → project → Publishing:
+
 - owner: `datalayer`
 - repository: `reactor`
-- workflow: `release.yml`
-- environment: `pypi`
+- workflow name: `release.yaml`
+- environment name: `pypi`
 
-### GitHub environment
+**GitHub** — the repository has two environments, `npm` and `pypi` (Settings →
+Environments); required reviewers on them are optional and add a manual
+approval before each publish.
 
-- create environment `pypi` in repository settings
-- optional: add required reviewers for manual approval
+The registry matches the repository, the workflow *filename* and the
+environment exactly: renaming any of them means re-registering the publisher.
 
-### npm publish token
+## Releasing
 
-Add repository secret:
+1. Set the version, the same everywhere, on a branch and open a pull request:
 
-- `NPM_TOKEN`: npm automation token with publish access to `@datalayer/reactor`
+   ```bash
+   # package.json and plugins/*/package.json: "version"
+   # plugins/mcp-server/pyproject.toml: version
+   # datalayer-reactor follows package.json by itself.
+   ```
 
-## Release Steps
+   The plugins' `"@datalayer/reactor": "^X.Y.Z"` floor and the MCP server's
+   `datalayer_reactor>=X.Y.Z` floor move with it.
 
-1. Update versions.
+2. Merge, then tag the merge commit and push the tag:
+
+   ```bash
+   git checkout main && git pull
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+3. The `Release` workflow checks that the tag names every package's version,
+   builds and tests, packs the npm tarballs, builds the wheels and sdists, and
+   publishes what is not on the registries yet — in that order, `@datalayer/reactor`
+   before the plugins. A GitHub release with generated notes closes it.
+
+Packages whose exact version is already published are skipped, so a re-run
+after a partial upload, or a tag that bumps only some packages, publishes
+just what is missing.
+
+## Checking a Release
 
 ```bash
-# update both files to the same version
-$EDITOR pyproject.toml
-$EDITOR package.json
+npm view @datalayer/reactor version
+npm view @datalayer/reactor-shell version
+curl -s https://pypi.org/pypi/datalayer-reactor/json | python -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])'
+curl -s https://pypi.org/pypi/reactor-mcp-server/json | python -c 'import sys,json;print(json.load(sys.stdin)["info"]["version"])'
 ```
-
-2. Validate locally.
-
-```bash
-npm install
-npm run typecheck
-npm run build
-npm run test:ts
-
-python -m pip install -e .[dev]
-pytest -q
-```
-
-3. Create and push a tag.
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-4. Monitor `.github/workflows/release.yml` run:
-
-- verify verify/build/test job passes
-- verify PyPI publication
-- verify npm publication
-- verify GitHub Release notes and links
-
-## Rollback and Recovery
-
-- If release fails before publish: fix and push a new tag.
-- If npm publish succeeded but PyPI failed (or vice versa):
-   - avoid deleting published versions unless absolutely required
-   - increment patch version and publish a new tag
-- If GitHub Release generation fails after packages were published:
-   - rerun only the release job or create release notes manually in GitHub

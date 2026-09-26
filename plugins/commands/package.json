@@ -1,6 +1,6 @@
 {
   "name": "@datalayer/reactor-commands",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publishConfig": {
     "access": "public"
   },
@@ -42,7 +42,7 @@
     "clean": "rm -rf lib"
   },
   "peerDependencies": {
-    "@datalayer/reactor": "^1.0.0",
+    "@datalayer/reactor": "^1.0.3",
     "react": ">=18"
   }
 }

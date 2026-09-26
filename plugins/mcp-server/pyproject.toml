@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "datalayer_reactor>=1.0.2",
+    "datalayer_reactor>=1.0.3",
     "mcp>=2,<3",
     "starlette",
 ]
