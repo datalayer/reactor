@@ -1,6 +1,11 @@
 {
   "name": "@datalayer/reactor-shell",
   "version": "1.0.3",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datalayer/reactor.git",
+    "directory": "plugins/shell"
+  },
   "publishConfig": {
     "access": "public"
   },
