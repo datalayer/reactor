@@ -1,6 +1,11 @@
 {
   "name": "@datalayer/reactor-manager",
   "version": "1.0.3",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datalayer/reactor.git",
+    "directory": "plugins/manager"
+  },
   "publishConfig": {
     "access": "public"
   },
