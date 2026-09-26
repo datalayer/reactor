@@ -433,9 +433,14 @@ class PluginPlatform:
         plugin that only exists to extend somebody else's contribution wakes
         when that contribution is read.
         """
+        derived = extension_point(point, target_id)
+        # The base point's activation, as reading the point fires it; then the
+        # derived point's own, for a plugin held on
+        # `onContributionPoint:<point>::<target>` until this contribution is
+        # read — and the derived point is the one whose plugins are read.
+        self._allowed_plugins(point, tenant_id)
         return self._contributions.get(
-            extension_point(point, target_id),
-            plugins=self._allowed_plugins(point, tenant_id),
+            derived, plugins=self._allowed_plugins(derived, tenant_id)
         )
 
     def contributions_for(self, plugin_name: str) -> PluginContributions:

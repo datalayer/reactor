@@ -27,6 +27,7 @@ from dataclasses import replace
 from typing import Any, Iterable, Sequence
 
 from reactor import PluginContributions, PluginManifest
+from reactor.hooks import hookimpl
 
 from reactor_mcp_server.points import PROMPTS, RESOURCES, TOOLS, TOOLSETS
 from reactor_mcp_server.tools import ToolExtension, ToolSpec, tool_spec_of
@@ -115,6 +116,17 @@ class McpExtension:
     def on_stop(self) -> None:
         """Called when the platform stops. Release resources here."""
 
+    # What the platform actually calls (`reactor.hooks`, through pluggy): the
+    # two above are the extension author's names, these deliver the calls.
+
+    @hookimpl
+    def on_reactor_start(self, tenant_id: str | None = None) -> None:
+        self.on_start()
+
+    @hookimpl
+    def on_reactor_stop(self, tenant_id: str | None = None) -> None:
+        self.on_stop()
+
     # --- Reactor plugin protocol --------------------------------------------
 
     def provide_contributions(self, contributions: PluginContributions) -> None:
@@ -133,11 +145,22 @@ class McpExtension:
         # nobody declared is never active — the tools would be contributed,
         # filtered out, and absent with nothing saying why.
         default_toolset = declared[0].name if declared else self.manifest().name
+        tools = list(self.tools())
+        if tools and not declared:
+            # Tools without a declared toolset would land in one nobody
+            # declared, which is never active: declare it, as this
+            # extension's own.
+            declared = [
+                Toolset(
+                    name=default_toolset,
+                    description=f"The tools of {default_toolset}",
+                )
+            ]
         for toolset in declared:
             contributions.contribute(
                 TOOLSETS, toolset, contribution_id=toolset.name
             )
-        for spec in self.tools():
+        for spec in tools:
             placed = spec if spec.toolset else replace(spec, toolset=default_toolset)
             contributions.contribute(TOOLS, placed, contribution_id=placed.name)
         for target, extension in self.tool_extensions():
@@ -156,7 +179,9 @@ def manifest_of(extension: McpExtension) -> PluginManifest:
     """
     manifest = extension.manifest()
     points = list(
-        dict.fromkeys([*manifest.contribution_points, TOOLS.id, TOOLSETS.id])
+        dict.fromkeys(
+            [*manifest.contribution_points, TOOLS.id, TOOLSETS.id, RESOURCES.id, PROMPTS.id]
+        )
     )
     return replace(manifest, contribution_points=points)
 

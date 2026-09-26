@@ -75,9 +75,15 @@ class ToolsetRouter:
         *,
         path: str = "/mcp",
         app_options: Optional[dict[str, Any]] = None,
+        tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
     ) -> None:
         self._host = host
         self._path = path
+        #: Which tenant a connection belongs to, read from its scope (a header,
+        #: a path, an authenticated principal). None: one tenant, everybody.
+        self._tenant_resolver = tenant_resolver
+        #: The host revision the applications were made from.
+        self._revision = host.revision
         # What the SDK's application is built with, beside the path: whether
         # sessions are issued, how large a request may be, what the transport
         # allows. They are the deployment's answers rather than this router's,
@@ -142,10 +148,12 @@ class ToolsetRouter:
         so the session never starts and the endpoint looks broken rather than
         misrouted.
         """
+        self._refresh()
         existing = self._apps.get(key)
         if existing is not None:
             return existing
         async with self._lock:
+            self._refresh()
             existing = self._apps.get(key)
             if existing is not None:
                 return existing
@@ -158,11 +166,23 @@ class ToolsetRouter:
             self._apps[key] = app
             return app
 
+    def _refresh(self) -> None:
+        """Forget the applications made from servers the host has since
+        rebuilt — an extension added, its cache dropped. The ones in use keep
+        serving the sessions they have; new connections get new ones."""
+        if self._revision != self._host.revision:
+            self._apps.clear()
+            self._revision = self._host.revision
+
+    def tenant_of(self, scope: Scope) -> Optional[str]:
+        return self._tenant_resolver(scope) if self._tenant_resolver else None
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":  # pragma: no cover - websockets are not served
             raise RuntimeError(f"{type(self).__name__} serves HTTP only")
         selection = selection_from_scope(scope)
-        built = self._host.build(selection)
+        tenant = self.tenant_of(scope)
+        built = self._host.build(selection, tenant_id=tenant)
         if built.unknown:
             # Named but not declared. Served anyway — a stale name in an
             # agent's configuration should not take the connection down — and
@@ -173,6 +193,8 @@ class ToolsetRouter:
                 ", ".join(sorted(built.unknown)),
             )
         key = activation_key(built.toolsets)
+        if tenant is not None:
+            key = f"{tenant}\x1f{key}"
         app = await self.app_for(key, built)
         await app(scope, receive, send)
 
@@ -184,6 +206,7 @@ def create_mcp_app(
     healthz: Optional[str] = "/healthz",
     toolsets_route: Optional[str] = "/toolsets",
     app_options: Optional[dict[str, Any]] = None,
+    tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -195,12 +218,15 @@ def create_mcp_app(
       activate, so a client can be *told* which name to put in its URL rather
       than being sent to read the deployment's source.
     """
-    router = ToolsetRouter(host, path=path, app_options=app_options)
+    router = ToolsetRouter(
+        host, path=path, app_options=app_options, tenant_resolver=tenant_resolver
+    )
 
     async def toolsets(request: Request) -> JSONResponse:
         selection = selection_from_scope(request.scope)
-        built = host.build(selection)
-        declared = host.declared_toolsets()
+        tenant = router.tenant_of(request.scope)
+        built = host.build(selection, tenant_id=tenant)
+        declared = host.declared_toolsets(tenant)
         return JSONResponse(
             {
                 "toolsets": [

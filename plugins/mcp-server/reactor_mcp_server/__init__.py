@@ -58,7 +58,12 @@ from reactor_mcp_server.toolsets import (
     unknown_names,
 )
 
-__version__ = "1.0.2"
+try:
+    from importlib.metadata import version as _distribution_version
+
+    __version__ = _distribution_version("reactor_mcp_server")
+except Exception:  # pragma: no cover - not installed as a distribution
+    __version__ = "1.0.3"
 
 __all__ = [
     "BuiltServer",

@@ -107,6 +107,10 @@ class ToolExtension:
                     "not callable; `wrap` takes a handler and returns a handler"
                 )
             changes["handler"] = handler
+            if self.description is None and not spec.description:
+                # The description was the handler's docstring; the wrapper
+                # rarely has one, and an unset field keeps the original.
+                changes["description"] = spec.documentation
         if self.description is not None:
             changes["description"] = self.description
         if self.title is not None:
