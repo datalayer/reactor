@@ -40,7 +40,7 @@
     "clean": "rm -rf lib"
   },
   "peerDependencies": {
-    "@datalayer/reactor": "^1.0.3",
+    "@datalayer/reactor": "^1.0.0",
     "react": ">=18"
   }
 }

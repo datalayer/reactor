@@ -70,8 +70,11 @@ environment exactly: renaming any of them means re-registering the publisher.
    # datalayer-reactor follows package.json by itself.
    ```
 
-   The plugins' `"@datalayer/reactor": "^X.Y.Z"` floor and the MCP server's
-   `datalayer_reactor>=X.Y.Z` floor move with it.
+   The MCP server's `datalayer_reactor>=X.Y.Z` floor moves with it (pip
+   installs the root package from the tree first). The plugins' floor on
+   `@datalayer/reactor` stays at a published version: the root package is
+   not an npm workspace member, so `npm install` resolves it from the
+   registry, where the new version does not exist yet.
 
 2. Merge, then tag the merge commit and push the tag:
 
