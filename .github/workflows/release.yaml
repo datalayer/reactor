@@ -123,7 +123,7 @@ jobs:
           python -m pip install -e .[dev]
           python -m pip install -e "apps/mcp-server[test]"
           # The example toolsets, so a stdio client can find them by entry point.
-          python -m pip install -e examples/toolsets
+          python -m pip install -e examples/mcp-toolsets
 
       - name: Build and test
         if: steps.plan.outputs.npm != '' || steps.plan.outputs.python != ''

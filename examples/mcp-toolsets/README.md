@@ -26,14 +26,14 @@ Installed, the two extensions are found by any host through their entry points
 — the generic `reactor-mcp-server` command here:
 
 ```bash
-pip install -e "examples/toolsets[server]"
+pip install -e "examples/mcp-toolsets[server]"
 reactor-mcp-server --port 4040
 ```
 
 Or, without installing anything, from code:
 
 ```bash
-python examples/toolsets/serve.py
+python examples/mcp-toolsets/serve.py
 ```
 
 Then ask with the URL:
@@ -70,6 +70,6 @@ A client that launches the server has no URL; the command line selects:
 ## Test it
 
 ```bash
-pip install -e "examples/toolsets[test]"
-pytest examples/toolsets/tests -v
+pip install -e "examples/mcp-toolsets[test]"
+pytest examples/mcp-toolsets/tests -v
 ```

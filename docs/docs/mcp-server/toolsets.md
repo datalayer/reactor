@@ -234,6 +234,6 @@ there is; reaching it is a new connection with a new URL.
 
 ## A worked example
 
-[`examples/toolsets`](https://github.com/datalayer/reactor/tree/main/examples/toolsets)
+[`examples/mcp-toolsets`](https://github.com/datalayer/reactor/tree/main/examples/mcp-toolsets)
 ships two toolsets in one wheel — `math`, on by default, and `geo`, opt-in and
 not woken until asked for. See [Example toolsets](/mcp-server/example-toolsets).

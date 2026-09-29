@@ -10,7 +10,7 @@ the command line does.
 
 Launch the tests:
 ```
-$ pytest examples/toolsets/tests -v
+$ pytest examples/mcp-toolsets/tests -v
 ```
 """
 
@@ -148,7 +148,7 @@ def installed() -> bool:
     return {"math", "geo"} <= {point.name for point in points}
 
 
-@pytest.mark.skipif(not installed(), reason="pip install -e examples/toolsets first")
+@pytest.mark.skipif(not installed(), reason="pip install -e examples/mcp-toolsets first")
 class TestOverStdio:
     async def test_the_command_line_picks_the_toolsets(self) -> None:
         params = StdioServerParameters(

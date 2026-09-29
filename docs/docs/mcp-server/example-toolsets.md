@@ -5,9 +5,9 @@ title: Example Toolsets
 
 # Two toolsets, start to served
 
-[`examples/toolsets`](https://github.com/datalayer/reactor/tree/main/examples/toolsets)
+[`examples/mcp-toolsets`](https://github.com/datalayer/reactor/tree/main/examples/mcp-toolsets)
 is one distribution carrying two extensions, each declaring one toolset. How
-to run it, and what each file holds, is on [its examples page](/examples/toolsets/).
+to run it, and what each file holds, is on [its examples page](/examples/mcp-toolsets/).
 
 | Toolset | Tools | Served |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ geo = "reactor_toolsets_example.geo:extension"
 ```
 
 ```bash
-pip install -e "examples/toolsets[server]"
+pip install -e "examples/mcp-toolsets[server]"
 reactor-mcp-server --port 4040
 ```
 

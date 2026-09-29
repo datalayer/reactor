@@ -1,12 +1,12 @@
 ---
 sidebar_position: 0
 title: MCP Toolsets
-slug: /examples/toolsets/
+slug: /examples/mcp-toolsets/
 ---
 
 # The toolsets example
 
-`examples/toolsets` — two MCP toolsets in one wheel, served by any
+`examples/mcp-toolsets` — two MCP toolsets in one wheel, served by any
 [`reactor_mcp_server`](/mcp-server/) host.
 
 An MCP extension is a reactor plugin whose contributions are tools. This
@@ -25,14 +25,14 @@ Installed, the two extensions are found through their entry points by the
 generic `reactor-mcp-server` command. Nothing names them:
 
 ```bash
-pip install -e "examples/toolsets[server]"
+pip install -e "examples/mcp-toolsets[server]"
 reactor-mcp-server --port 4040
 ```
 
 Or from code, with nothing installed but the server:
 
 ```bash
-python examples/toolsets/serve.py      # http://localhost:4040/mcp
+python examples/mcp-toolsets/serve.py      # http://localhost:4040/mcp
 ```
 
 Then choose with the URL an MCP client connects to:
@@ -98,8 +98,8 @@ class GeoExtension(McpExtension):
 ## Test it
 
 ```bash
-pip install -e "examples/toolsets[test]"
-pytest examples/toolsets/tests -v
+pip install -e "examples/mcp-toolsets[test]"
+pytest examples/mcp-toolsets/tests -v
 ```
 
 The stdio test runs only when the example is installed, since that is how the
