@@ -69,8 +69,8 @@ selects:
 
 | File | What it shows |
 | --- | --- |
-| `reactor_toolsets_example/math.py` | An `McpExtension` with one `Toolset` — title, description, instructions — and two `@tool` methods annotated as pure functions |
-| `reactor_toolsets_example/geo.py` | The same, opt-in: `default=False` keeps its tools off a bare `/mcp`, and `activation_events=[on_toolset("geo")]` keeps the extension asleep until a URL names it |
+| `reactor_mcp_toolsets_example/math.py` | An `McpExtension` with one `Toolset` — title, description, instructions — and two `@tool` methods annotated as pure functions |
+| `reactor_mcp_toolsets_example/geo.py` | The same, opt-in: `default=False` keeps its tools off a bare `/mcp`, and `activation_events=[on_toolset("geo")]` keeps the extension asleep until a URL names it |
 | `pyproject.toml` | Both extensions published on the `reactor.mcp.extensions` entry-point group — installing the wheel is publishing them |
 | `serve.py` | The host built in code: `build_host([...], toolsets_tool=True)` and `create_mcp_app` |
 | `tests/test_toolsets.py` | The toolsets as a client sees them — in process, over HTTP with a real MCP client, and over stdio through the entry points |

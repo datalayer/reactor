@@ -9,7 +9,7 @@ The other half of the example: a toolset nobody gets unless they ask for it
 manifest waits on ``onToolset:geo``. A client that never asks never reads
 these tool descriptions, and the extension never runs.
 
-@module reactor_toolsets_example.geo
+@module reactor_mcp_toolsets_example.geo
 """
 
 from __future__ import annotations

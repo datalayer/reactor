@@ -95,8 +95,8 @@ declaration, so a client can find the name to ask for.
 
 ```toml
 [project.entry-points."reactor.mcp.extensions"]
-math = "reactor_toolsets_example.math:extension"
-geo = "reactor_toolsets_example.geo:extension"
+math = "reactor_mcp_toolsets_example.math:extension"
+geo = "reactor_mcp_toolsets_example.geo:extension"
 ```
 
 ```bash

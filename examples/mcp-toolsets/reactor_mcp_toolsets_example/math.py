@@ -9,7 +9,7 @@ methods. It declares nothing about activation, so it is registered when the
 host starts and served to every client that does not leave it out
 (``/mcp?without=math``).
 
-@module reactor_toolsets_example.math
+@module reactor_mcp_toolsets_example.math
 """
 
 from __future__ import annotations

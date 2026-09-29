@@ -17,8 +17,8 @@ distribution:
 | `geo` | `get_capital_of_country`, `get_country_of_capital` | To a client that asks — `?geo` — and its extension is not woken until one does |
 
 Each is an `McpExtension`: a manifest, one `Toolset`, and tools written as
-methods with `@tool`. See [`reactor_toolsets_example/math.py`](./reactor_toolsets_example/math.py)
-and [`reactor_toolsets_example/geo.py`](./reactor_toolsets_example/geo.py).
+methods with `@tool`. See [`reactor_mcp_toolsets_example/math.py`](./reactor_mcp_toolsets_example/math.py)
+and [`reactor_mcp_toolsets_example/geo.py`](./reactor_mcp_toolsets_example/geo.py).
 
 ## Run it
 

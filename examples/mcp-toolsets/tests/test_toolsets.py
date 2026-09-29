@@ -35,7 +35,7 @@ from reactor_mcp_server import (
     parse_selection,
 )
 
-from reactor_toolsets_example import GeoExtension, MathExtension
+from reactor_mcp_toolsets_example import GeoExtension, MathExtension
 
 MATH = {"add", "multiply"}
 GEO = {"get_capital_of_country", "get_country_of_capital"}

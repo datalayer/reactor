@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import uvicorn  # noqa: E402
 from reactor_mcp_server import build_host, create_mcp_app  # noqa: E402
 
-from reactor_toolsets_example import GeoExtension, MathExtension  # noqa: E402
+from reactor_mcp_toolsets_example import GeoExtension, MathExtension  # noqa: E402
 
 host = build_host(
     [MathExtension(), GeoExtension()],
