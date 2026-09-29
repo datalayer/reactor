@@ -24,7 +24,7 @@ from reactor import PluginManifest
 from starlette.testclient import TestClient
 
 from reactor_mcp_server import (
-    LIST_TOOLSETS,
+    LIST_SERVER_TOOLSETS,
     McpExtension,
     Toolset,
     build_host,
@@ -99,13 +99,13 @@ class TestInstructions:
 
 class TestListToolsets:
     def test_off_unless_asked_for(self) -> None:
-        assert LIST_TOOLSETS not in a_host().build().tool_names
+        assert LIST_SERVER_TOOLSETS not in a_host().build().tool_names
 
     def test_it_answers_what_toolsets_says(self) -> None:
-        host = a_host(list_toolsets_tool=True)
+        host = a_host(toolsets_tool=True)
         built = host.build()
-        assert LIST_TOOLSETS in built.tool_names
-        answer = asyncio.run(built.server.call_tool(LIST_TOOLSETS, {}))
+        assert LIST_SERVER_TOOLSETS in built.tool_names
+        answer = asyncio.run(built.server.call_tool(LIST_SERVER_TOOLSETS, {}))
         body = answer.structured_content or json.loads(answer.content[0].text)
         by_name = {item["name"]: item for item in body["toolsets"]}
         assert by_name["odoo"]["active"] is False
@@ -146,3 +146,69 @@ class TestActiveFor:
 
     def test_without_takes_one_away(self) -> None:
         assert a_host().active_for(parse_selection("odoo&without=odoo")) == {"notebooks"}
+
+
+class Narrowing(McpExtension):
+    """Woken by `odoo`, it re-describes a tool of the default toolset."""
+
+    def __init__(self) -> None:
+        self.started = 0
+
+    def manifest(self) -> PluginManifest:
+        return PluginManifest(
+            name="narrowing", version="1.0.0", activation_events=[on_toolset("odoo")]
+        )
+
+    def toolsets(self):
+        return (Toolset(name="odoo", default=False),)
+
+    def tool_extensions(self):
+        from reactor_mcp_server import ToolExtension
+
+        return (("list_notebooks", ToolExtension(description="Narrowed.")),)
+
+    def on_start(self) -> None:
+        self.started += 1
+
+
+class TestWakingAnExtension:
+    def test_it_is_started_when_woken(self) -> None:
+        narrowing = Narrowing()
+        host = build_host([Notebooks(), Odoo(), narrowing], name="tests")
+        assert narrowing.started == 0
+        host.build(parse_selection("odoo"))
+        assert narrowing.started == 1
+
+    def test_no_server_built_before_it_is_served_after(self) -> None:
+        host = build_host([Notebooks(), Odoo(), Narrowing()], name="tests")
+        before = host.build()
+        revision = host.revision
+        host.build(parse_selection("odoo"))
+        after = host.build()
+        assert host.revision > revision
+        assert after.server is not before.server
+        [spec] = [spec for spec in after.tools if spec.name == "list_notebooks"]
+        assert spec.documentation == "Narrowed."
+
+    def test_asking_again_keeps_the_cache(self) -> None:
+        host = a_host()
+        host.build(parse_selection("odoo"))
+        revision = host.revision
+        host.build(parse_selection("odoo"))
+        assert host.revision == revision
+
+
+class TestTheToolNeverShadowsAnExtension:
+    def test_an_extension_s_tool_of_that_name_is_served(self) -> None:
+        class Own(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="own", version="1.0.0")
+
+            @tool(name=LIST_SERVER_TOOLSETS)
+            async def mine(self) -> str:
+                """The extension's own."""
+                return "mine"
+
+        host = build_host([Own()], name="tests", toolsets_tool=True)
+        [spec] = [s for s in host.build().tools if s.name == LIST_SERVER_TOOLSETS]
+        assert spec.documentation == "The extension's own."

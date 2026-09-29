@@ -51,3 +51,76 @@ def test_implementation_of_answers_the_live_object_or_none() -> None:
     platform.register_plugin(PluginManifest(name="p", version="1.0.0"), plugin)
     assert platform.implementation_of("p") is plugin
     assert platform.implementation_of("nobody") is None
+
+
+def test_a_plugin_woken_after_start_is_started_once() -> None:
+    """Woken by an event while the platform runs, it has missed `start()`."""
+    platform = PluginPlatform()
+    eager, waiting = Counting(), Counting()
+    platform.register_plugin(PluginManifest(name="eager", version="1.0.0"), eager)
+    platform.register_plugin(
+        PluginManifest(name="waiting", version="1.0.0", activation_events=["onToolset:geo"]),
+        waiting,
+    )
+    platform.start()
+    assert (eager.started, waiting.started) == (1, 0)
+    platform.fire_event("onToolset:geo")
+    assert (eager.started, waiting.started) == (1, 1)
+    platform.fire_event("onToolset:geo")
+    assert waiting.started == 1
+
+
+def test_a_plugin_registered_after_start_is_started() -> None:
+    platform = PluginPlatform()
+    platform.start()
+    late = Counting()
+    platform.register_plugin(PluginManifest(name="late", version="1.0.0"), late)
+    assert late.started == 1
+
+
+def test_a_plugin_woken_before_start_waits_for_it() -> None:
+    platform = PluginPlatform()
+    waiting = Counting()
+    platform.register_plugin(
+        PluginManifest(name="waiting", version="1.0.0", activation_events=["onToolset:geo"]),
+        waiting,
+    )
+    platform.fire_event("onToolset:geo")
+    assert waiting.started == 0
+    platform.start()
+    assert waiting.started == 1
+
+
+def test_a_plugin_stood_down_while_running_is_stopped() -> None:
+    """It will not be there for `stop()`: told now, while it can release."""
+    platform = PluginPlatform()
+    plugin = Counting()
+    platform.register_plugin(
+        PluginManifest(
+            name="p",
+            version="1.0.0",
+            activation_events=["onToolset:geo"],
+            deactivation_events=["onToolset:done"],
+        ),
+        plugin,
+    )
+    platform.start()
+    platform.fire_event("onToolset:geo")
+    platform.fire_event("onToolset:done")
+    assert (plugin.started, plugin.stopped) == (1, 1)
+    platform.stop()
+    assert plugin.stopped == 1
+
+
+def test_a_failing_start_costs_only_that_plugin() -> None:
+    class Failing(Counting):
+        @hookimpl
+        def on_reactor_start(self, tenant_id: str | None = None) -> None:
+            raise RuntimeError("no")
+
+    platform = PluginPlatform()
+    platform.start()
+    platform.register_plugin(PluginManifest(name="bad", version="1.0.0"), Failing())
+    good = Counting()
+    platform.register_plugin(PluginManifest(name="good", version="1.0.0"), good)
+    assert good.started == 1

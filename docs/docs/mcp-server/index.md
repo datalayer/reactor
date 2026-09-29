@@ -34,7 +34,7 @@ order. See [Extending a tool](/mcp-server/extending-a-tool).
 **The URL decides what is served.** Tools belong to named toolsets, and a
 client says which ones it wants in the URL it connects to. A toolset carries
 its own title, description and instructions, can be opt-in and not woken until
-asked for, and is listed at `/toolsets` and by the `list_toolsets` tool. See
+asked for, and is listed at `/toolsets` and by the `list_server_toolsets` tool. See
 [Toolsets](/mcp-server/toolsets).
 
 ```mermaid

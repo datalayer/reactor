@@ -40,16 +40,16 @@ Then ask with the URL:
 
 | URL | Tools |
 | --- | --- |
-| `http://localhost:4040/mcp` | `add`, `multiply`, `list_toolsets` |
+| `http://localhost:4040/mcp` | `add`, `multiply`, `list_server_toolsets` |
 | `http://localhost:4040/mcp?geo` | the above, and the two `geo` tools |
-| `http://localhost:4040/mcp?only=geo` | the `geo` tools, and `list_toolsets` |
-| `http://localhost:4040/mcp?without=math` | `list_toolsets` alone |
+| `http://localhost:4040/mcp?only=geo` | the `geo` tools, and `list_server_toolsets` |
+| `http://localhost:4040/mcp?without=math` | `list_server_toolsets` alone |
 
 ```bash
 curl -s "http://localhost:4040/toolsets?geo" | python -m json.tool
 ```
 
-`list_toolsets` is the same answer as a tool, for a model in a session to find
+`list_server_toolsets` is the same answer as a tool, for a model in a session to find
 out that `geo` exists and how to ask for it.
 
 ## Over stdio

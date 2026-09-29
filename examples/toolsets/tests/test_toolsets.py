@@ -29,7 +29,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from reactor_mcp_server import (
-    LIST_TOOLSETS,
+    LIST_SERVER_TOOLSETS,
     build_host,
     create_mcp_app,
     parse_selection,
@@ -96,7 +96,7 @@ def a_free_port() -> int:
 
 @pytest.fixture(scope="module")
 def served() -> str:
-    app = create_mcp_app(a_host(list_toolsets_tool=True), path="/mcp")
+    app = create_mcp_app(a_host(toolsets_tool=True), path="/mcp")
     port = a_free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
     thread = threading.Thread(target=server.run, daemon=True)
@@ -128,9 +128,9 @@ async def tool_names(session: ClientSession) -> set[str]:
 class TestOverHttp:
     async def test_the_url_picks_the_toolsets(self, served) -> None:
         async with over_http(f"{served}/mcp") as session:
-            assert await tool_names(session) == MATH | {LIST_TOOLSETS}
+            assert await tool_names(session) == MATH | {LIST_SERVER_TOOLSETS}
         async with over_http(f"{served}/mcp?geo") as session:
-            assert await tool_names(session) == MATH | GEO | {LIST_TOOLSETS}
+            assert await tool_names(session) == MATH | GEO | {LIST_SERVER_TOOLSETS}
 
     async def test_a_geo_call(self, served) -> None:
         async with over_http(f"{served}/mcp?only=geo") as session:
@@ -139,7 +139,7 @@ class TestOverHttp:
 
     async def test_a_session_can_find_out_about_geo(self, served) -> None:
         async with over_http(f"{served}/mcp") as session:
-            answer = await session.call_tool(LIST_TOOLSETS, {})
+            answer = await session.call_tool(LIST_SERVER_TOOLSETS, {})
         assert '"geo"' in answer.content[0].text
 
 
@@ -164,6 +164,6 @@ class TestOverStdio:
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                assert await tool_names(session) == GEO | {LIST_TOOLSETS}
+                assert await tool_names(session) == GEO | {LIST_SERVER_TOOLSETS}
                 answer = await session.call_tool("get_capital_of_country", {"country": "Italy"})
         assert "Rome" in answer.content[0].text

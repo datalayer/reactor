@@ -105,9 +105,9 @@ reactor-mcp-server --port 4040
 
 | URL | Tools |
 | --- | --- |
-| `/mcp` | `add`, `multiply`, `list_toolsets` |
+| `/mcp` | `add`, `multiply`, `list_server_toolsets` |
 | `/mcp?geo` | the above, and the two `geo` tools |
-| `/mcp?only=geo` | the `geo` tools, and `list_toolsets` |
+| `/mcp?only=geo` | the `geo` tools, and `list_server_toolsets` |
 
 ```mermaid
 sequenceDiagram
@@ -118,14 +118,14 @@ sequenceDiagram
 
   Client->>Router: POST /mcp
   Router->>Host: build(defaults)
-  Host-->>Client: add, multiply, list_toolsets
-  Client->>Router: tools/call list_toolsets
+  Host-->>Client: add, multiply, list_server_toolsets
+  Client->>Router: tools/call list_server_toolsets
   Router-->>Client: geo — "Geography", not active
   Client->>Router: POST /mcp?geo
   Router->>Host: build(geo)
   Host->>Geo: onToolset:geo — activate
   Geo-->>Host: two tools
-  Host-->>Client: add, multiply, get_capital_of_country, get_country_of_capital, list_toolsets
+  Host-->>Client: add, multiply, get_capital_of_country, get_country_of_capital, list_server_toolsets
 ```
 
 Over stdio the command line selects instead of a URL:

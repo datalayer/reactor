@@ -243,6 +243,11 @@ class PluginPlatform:
         self._pm.register(record.implementation, name=name)
         self._collect_contributions(name, record)
         self._collect_commands(name, record)
+        # Woken after `start()` — by an event, or registered or discovered
+        # late — it has missed the hook every plugin running at start got.
+        # Give it to this one, and to nobody else.
+        if self._started:
+            self._invoke_plugin_hook(name, "on_reactor_start", tenant_id=None)
         return True
 
     def deactivate_plugin(self, name: str) -> list[str]:
@@ -275,6 +280,10 @@ class PluginPlatform:
 
     def _retire(self, name: str, record: PluginRecord) -> None:
         """Drop one plugin's contributions and commands, and unregister it."""
+        # Stood down while the platform runs: it will not be there for
+        # `stop()`, so it is told now, while it can still release what it holds.
+        if self._started:
+            self._invoke_plugin_hook(name, "on_reactor_stop", tenant_id=None)
         self._contributions.dispose_plugin(name)
         self._commands.dispose_plugin(name)
         try:
@@ -893,32 +902,8 @@ class PluginPlatform:
         self._discovered[entry_name] = registered
         if extension.frontend is not None:
             self._frontend[extension.name] = extension.frontend
-        # A plugin discovered after `start()` has missed the hook every other
-        # plugin got. Give it to this one, and to nobody else — re-running the
-        # hook for the whole platform would start everything a second time.
-        if self._started and registered:
-            self._start_late(registered)
-
-    def _start_late(self, names: list[str]) -> None:
-        """Fire ``on_reactor_start`` for these plugins only.
-
-        pluggy calls every registered implementation of a hook, so the way to
-        notify a subset is to build a caller with the others removed.
-        """
-        already_running = [
-            record.implementation
-            for name, record in self._records.items()
-            if name not in names and record.implementation is not None
-        ]
-        try:
-            caller = self._pm.subset_hook_caller(
-                "on_reactor_start", remove_plugins=already_running
-            )
-            caller(tenant_id=None)
-        except Exception as error:  # noqa: BLE001
-            logger.warning(
-                "Late-registered plugins %s could not be started: %s", names, error
-            )
+        # A plugin discovered after `start()` is started as it activates
+        # (`activate_plugin`), so nothing here re-runs the hook for anybody.
 
     def _forget_extension(self, entry_name: str) -> list[str]:
         """Drop an extension that is no longer installed, and say what went.
@@ -1109,6 +1094,26 @@ class PluginPlatform:
             others = [candidate for candidate in registered if candidate is not implementation]
             caller = self._pm.subset_hook_caller(hook_name, remove_plugins=others)
             self._run_plugin_call(plugin_name, lambda: caller(**kwargs))
+
+    def _invoke_plugin_hook(self, plugin_name: str, hook_name: str, **kwargs: Any) -> None:
+        """Run one hook for one plugin only, under its sandbox.
+
+        pluggy calls every registered implementation of a hook, so the way to
+        notify one plugin is a caller with the others removed. A plugin whose
+        hook raises costs its own start or stop, never the caller's.
+        """
+        record = self._records[plugin_name]
+        implementation = record.implementation
+        if not record.enabled or implementation is None:
+            return
+        others = [
+            candidate for candidate in self._pm.get_plugins() if candidate is not implementation
+        ]
+        try:
+            caller = self._pm.subset_hook_caller(hook_name, remove_plugins=others)
+            self._run_plugin_call(plugin_name, lambda: caller(**kwargs))
+        except Exception as error:  # noqa: BLE001 - one plugin never breaks the rest
+            logger.warning("Plugin %s failed %s: %s", plugin_name, hook_name, error)
 
     def _run_plugin_call(self, plugin_name: str, call: Any) -> Any:
         record = self._records[plugin_name]

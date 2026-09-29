@@ -51,7 +51,7 @@ class Benchmarks(McpExtension):
 | --- | --- |
 | `name` | What a URL says. |
 | `title` | A human-readable name for a client's UI. Empty falls back to `name`. |
-| `description` | What `/toolsets` and `list_toolsets` tell a client. |
+| `description` | What `/toolsets` and `list_server_toolsets` tell a client. |
 | `instructions` | What a model should know to use these tools well — added to the server's instructions only in a session that has this toolset. |
 | `default` | On when the URL says nothing. `False` makes it opt-in. |
 | `always` | On whatever the URL says — so `only=` cannot produce an endpoint nobody can use. |
@@ -131,6 +131,11 @@ The host fires `onToolset:<name>` for every name a URL asked for *before* it
 reads the contributions, so a plugin held back until somebody wanted it is
 registered, has contributed, and is in the list that build returns.
 
+Woken while the host runs, it still gets `on_start` — once, when it wakes —
+and an extension stood down by a deactivation event gets `on_stop` then, not
+at shutdown when it is no longer there. The `reactor-mcp-server` command stops
+the host when it exits, so every running extension gets its `on_stop`.
+
 ## A name nobody declared
 
 Served anyway, and reported. A URL is written by a person configuring an
@@ -149,10 +154,10 @@ that no longer exists.
 
 `/toolsets` answers a client that can make an HTTP request before it connects.
 A model already in a session cannot, and a stdio client has no route to read.
-`list_toolsets` is the same answer, as a tool:
+`list_server_toolsets` is the same answer, as a tool:
 
 ```python
-host = build_host(extensions, name="my-server", list_toolsets_tool=True)
+host = build_host(extensions, name="my-server", toolsets_tool=True)
 ```
 
 ```json
@@ -162,14 +167,17 @@ host = build_host(extensions, name="my-server", list_toolsets_tool=True)
     {"name": "notebooks", "title": "Notebooks", "description": "…", "default": true, "always": false, "active": true}
   ],
   "active": ["notebooks"],
-  "tools": ["list_notebooks", "list_toolsets"],
+  "tools": ["list_notebooks", "list_server_toolsets"],
   "unknown": [],
   "how_to_select": "Reconnect with the toolset in the URL: ?name adds it, ?only=a,b asks for exactly those, ?without=name leaves one out."
 }
 ```
 
 It is read-only, idempotent and closed-world, and it is on every server the
-host builds whatever the selection. It is off by default in code, so a
+host builds whatever the selection. The name says *server* toolsets because a
+deployment may already have a `list_toolsets` of its own — Datalayer's lists
+the tools a Content source lends — and an extension offering a tool named
+`list_server_toolsets` is served instead of the host's, never shadowed. It is off by default in code, so a
 deployment's tool list does not grow a tool it did not choose; the
 `reactor-mcp-server` command turns it on.
 
@@ -221,7 +229,7 @@ MCP is a session: a client lists the tools when it opens one and works from
 that list. A server that changed its tools mid-session would have clients
 calling tools that are gone and never seeing the ones that are — so the
 selection is read from the URL, which is the one place a client can state what
-it wants before the session exists. `list_toolsets` tells a model what else
+it wants before the session exists. `list_server_toolsets` tells a model what else
 there is; reaching it is a new connection with a new URL.
 
 ## A worked example

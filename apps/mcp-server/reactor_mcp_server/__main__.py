@@ -80,10 +80,10 @@ def parser() -> argparse.ArgumentParser:
         help="A query key this deployment reads for something else; repeatable.",
     )
     parsed.add_argument(
-        "--list-toolsets-tool",
+        "--toolsets-tool",
         action=argparse.BooleanOptionalAction,
-        default=_flag("REACTOR_MCP_LIST_TOOLSETS_TOOL", True),
-        help="Put list_toolsets on every server (default: on).",
+        default=_flag("REACTOR_MCP_TOOLSETS_TOOL", True),
+        help="Put list_server_toolsets on every server (default: on).",
     )
     parsed.add_argument("--log-level", default=os.environ.get("REACTOR_MCP_LOG", "info"))
     return parsed
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> None:
     host = build_host(
         load_extensions(names or None),
         name=arguments.name,
-        list_toolsets_tool=arguments.list_toolsets_tool,
+        toolsets_tool=arguments.toolsets_tool,
     )
     selection = parse_selection(arguments.toolsets) if arguments.toolsets else None
 
@@ -111,7 +111,11 @@ def main(argv: list[str] | None = None) -> None:
             logging.getLogger(__name__).warning(
                 "Unknown toolsets: %s", ", ".join(sorted(built.unknown))
             )
-        built.server.run(transport="stdio")
+        try:
+            built.server.run(transport="stdio")
+        finally:
+            # The extensions' `on_stop`: what they opened, they close.
+            host.stop()
         return
 
     app = create_mcp_app(
@@ -123,7 +127,12 @@ def main(argv: list[str] | None = None) -> None:
 
     import uvicorn  # noqa: PLC0415 - only the serving path needs it
 
-    uvicorn.run(app, host=arguments.host, port=arguments.port, log_level=arguments.log_level)
+    try:
+        uvicorn.run(
+            app, host=arguments.host, port=arguments.port, log_level=arguments.log_level
+        )
+    finally:
+        host.stop()
 
 
 if __name__ == "__main__":

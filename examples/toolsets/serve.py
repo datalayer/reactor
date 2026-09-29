@@ -26,7 +26,7 @@ from reactor_toolsets_example import GeoExtension, MathExtension  # noqa: E402
 host = build_host(
     [MathExtension(), GeoExtension()],
     name="toolsets-example",
-    list_toolsets_tool=True,
+    toolsets_tool=True,
 )
 app = create_mcp_app(host, path="/mcp")
 

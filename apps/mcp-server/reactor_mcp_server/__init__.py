@@ -35,7 +35,7 @@ from reactor_mcp_server.points import (
     on_toolset,
 )
 from reactor_mcp_server.server import (
-    LIST_TOOLSETS,
+    LIST_SERVER_TOOLSETS,
     BuiltServer,
     McpHost,
     build_host,
@@ -69,7 +69,7 @@ except Exception:  # pragma: no cover - not installed as a distribution
 __all__ = [
     "BuiltServer",
     "ENTRY_POINT_GROUP",
-    "LIST_TOOLSETS",
+    "LIST_SERVER_TOOLSETS",
     "Handler",
     "McpExtension",
     "McpHost",

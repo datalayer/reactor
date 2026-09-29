@@ -80,12 +80,12 @@ class McpHost:
             name=name, instructions=instructions
         )
     )
-    #: Put `list_toolsets` on every built server: the answer `/toolsets`
+    #: Put `list_server_toolsets` on every built server: the answer `/toolsets`
     #: gives over HTTP, as a tool — for a model that should find out, in the
     #: conversation, which toolset to ask for, and for a stdio client that has
     #: no route to read. Off by default, so a deployment's tool list does not
     #: grow a tool it did not choose.
-    list_toolsets_tool: bool = False
+    toolsets_tool: bool = False
     #: One built server per (tenant, toolsets); a tenant sees its own.
     _built: dict[tuple[Optional[str], str], BuiltServer] = field(
         default_factory=dict, init=False
@@ -245,7 +245,7 @@ class McpHost:
         """What this host offers, and what a selection gets of it.
 
         One answer, served two ways: at ``/toolsets`` over HTTP, and by the
-        ``list_toolsets`` tool to a client already in a session.
+        ``list_server_toolsets`` tool to a client already in a session.
         """
         built = self.build(selection, tenant_id=tenant_id)
         return _description(
@@ -273,8 +273,16 @@ class McpHost:
         server is cached for that tenant: two tenants never share one.
         """
         selection = selection or Selection()
+        changed = False
         for name in selection.named | frozenset(selection.only or ()):
-            self.platform.fire_event(on_toolset(name))
+            fired = self.platform.fire_event(on_toolset(name))
+            changed = changed or bool(fired.get("activated") or fired.get("deactivated"))
+        if changed:
+            # A plugin woken or stood down changes what is offered — it may
+            # extend a tool of a toolset already built, or retire one — so no
+            # server built before it may be served again. The router follows
+            # `revision` and makes new applications for new connections.
+            self.forget_built()
 
         declared = self.declared_toolsets(tenant_id)
         active = active_toolsets(declared, selection)
@@ -291,9 +299,16 @@ class McpHost:
 
         specs = self.offered_tools(active, tenant_id)
         participating = self._participating(active, tenant_id)
-        if self.list_toolsets_tool:
-            names = (*(spec.name for spec in specs), LIST_TOOLSETS)
-            specs = [*specs, _list_toolsets_spec(self, active, names, tenant_id)]
+        if self.toolsets_tool:
+            if any(spec.name == LIST_SERVER_TOOLSETS for spec in specs):
+                # An extension offers a tool by that name: its tool is served,
+                # not shadowed by the host's.
+                logger.warning(
+                    "An extension offers %s; the host's is not added", LIST_SERVER_TOOLSETS
+                )
+            else:
+                names = (*(spec.name for spec in specs), LIST_SERVER_TOOLSETS)
+                specs = [*specs, _list_server_toolsets_spec(self, active, names, tenant_id)]
         server = self.server_factory(
             self.name, self.instructions_for(active, tenant_id) or None
         )
@@ -354,8 +369,8 @@ class McpHost:
         self.revision += 1
 
 
-#: The name of the tool `list_toolsets_tool` puts on a server.
-LIST_TOOLSETS = "list_toolsets"
+#: The name of the tool `toolsets_tool` puts on a server.
+LIST_SERVER_TOOLSETS = "list_server_toolsets"
 
 
 def _description(
@@ -383,7 +398,7 @@ def _description(
     }
 
 
-def _list_toolsets_spec(
+def _list_server_toolsets_spec(
     host: "McpHost",
     active: frozenset[str],
     tools: tuple[str, ...],
@@ -391,7 +406,7 @@ def _list_toolsets_spec(
 ) -> ToolSpec:
     from mcp.types import ToolAnnotations  # noqa: PLC0415
 
-    async def list_toolsets() -> dict[str, Any]:
+    async def list_server_toolsets() -> dict[str, Any]:
         """List the toolsets this server offers, and which ones this session has.
 
         A toolset that is not active is reached by reconnecting with its name
@@ -406,11 +421,11 @@ def _list_toolsets_spec(
         return answer
 
     return ToolSpec(
-        name=LIST_TOOLSETS,
-        handler=list_toolsets,
-        title="List Toolsets",
+        name=LIST_SERVER_TOOLSETS,
+        handler=list_server_toolsets,
+        title="List Server Toolsets",
         annotations=ToolAnnotations(
-            title="List Toolsets",
+            title="List Server Toolsets",
             read_only_hint=True,
             destructive_hint=False,
             idempotent_hint=True,
@@ -454,16 +469,16 @@ def build_host(
     name: str = "reactor-mcp-server",
     instructions: str = "",
     server_factory: Optional[Callable[[str, Optional[str]], MCPServer]] = None,
-    list_toolsets_tool: bool = False,
+    toolsets_tool: bool = False,
 ) -> McpHost:
     """A started host with these extensions on it.
 
     `server_factory` is how each selection's server is made — a deployment
-    serving a subclass of `MCPServer` names it here. `list_toolsets_tool`
-    puts `list_toolsets` on every server built.
+    serving a subclass of `MCPServer` names it here. `toolsets_tool`
+    puts `list_server_toolsets` on every server built.
     """
     host = McpHost(
-        name=name, instructions=instructions, list_toolsets_tool=list_toolsets_tool
+        name=name, instructions=instructions, toolsets_tool=toolsets_tool
     )
     if server_factory is not None:
         host.server_factory = server_factory

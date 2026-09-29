@@ -64,7 +64,7 @@ reactor-mcp-server --port 4040 --path /mcp
 | `--transport` / `REACTOR_MCP_TRANSPORT` | `streamable-http` | Or `stdio`, for a client that launches the server |
 | `--toolsets` / `REACTOR_MCP_TOOLSETS` | each toolset's own `default` | What a URL naming no toolset gets, in the URL's spelling: `earthdata`, `only=math,geo`. Over stdio, the whole selection |
 | `--ignore-query-key` | none | A query key the deployment reads for something else; repeatable |
-| `--list-toolsets-tool` / `REACTOR_MCP_LIST_TOOLSETS_TOOL` | on | Put `list_toolsets` on every server; `--no-list-toolsets-tool` leaves it off |
+| `--toolsets-tool` / `REACTOR_MCP_TOOLSETS_TOOL` | on | Put `list_server_toolsets` on every server; `--no-toolsets-tool` leaves it off |
 | `--host` / `REACTOR_MCP_HOST` | `0.0.0.0` | Interface to bind |
 | `--port` / `REACTOR_MCP_PORT` | `4040` | Port |
 | `--path` / `REACTOR_MCP_PATH` | `/mcp` | Where the protocol is served |
