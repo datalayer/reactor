@@ -32,7 +32,9 @@ re-describe a tool that *another* extension offered, by name and in a declared
 order. See [Extending a tool](/mcp-server/extending-a-tool).
 
 **The URL decides what is served.** Tools belong to named toolsets, and a
-client says which ones it wants in the URL it connects to. See
+client says which ones it wants in the URL it connects to. A toolset carries
+its own title, description and instructions, can be opt-in and not woken until
+asked for, and is listed at `/toolsets` and by the `list_toolsets` tool. See
 [Toolsets](/mcp-server/toolsets).
 
 ```mermaid
@@ -110,3 +112,4 @@ code at all runs the module instead — see [Serving](/mcp-server/serving).
 - [The host](/mcp-server/host) — building a server, and what a deployment decides.
 - [Serving](/mcp-server/serving) — over HTTP, with one endpoint and many servers.
 - [Writing an extension](/mcp-server/writing-an-extension) — start to published.
+- [Example toolsets](/mcp-server/example-toolsets) — `math` and `geo`, in one installable example.

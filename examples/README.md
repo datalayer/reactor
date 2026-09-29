@@ -55,3 +55,14 @@ cd examples/federation && npm install && npm run dev     # http://localhost:5180
 - `examples/extension-template/` — the layout with the names left blank, and a
   script that fills them: `python examples/extension-template/new-extension.py acme-charts ~/src/acme-charts`.
 
+## MCP toolsets
+
+`examples/toolsets/` — two toolsets for `reactor_mcp_server` in one wheel:
+`math` (`add`, `multiply`), on by default, and `geo`
+(`get_capital_of_country`, `get_country_of_capital`), served only to a client
+that asks for it with `/mcp?geo`.
+
+```bash
+pip install -e "examples/toolsets[server]"
+reactor-mcp-server --port 4040     # http://localhost:4040/mcp?geo
+```

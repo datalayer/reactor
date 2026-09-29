@@ -37,8 +37,8 @@ curl https://mcp.example.com/toolsets?only=spaces
 ```json
 {
   "toolsets": [
-    {"name": "spaces", "description": "…", "default": true, "always": false, "active": true},
-    {"name": "sandboxes", "description": "…", "default": true, "always": false, "active": false}
+    {"name": "spaces", "title": "Spaces", "description": "…", "default": true, "always": false, "active": true},
+    {"name": "sandboxes", "title": "Sandboxes", "description": "…", "default": true, "always": false, "active": false}
   ],
   "active": ["spaces"],
   "tools": ["find_notebook", "list_spaces", "…"],
@@ -61,11 +61,33 @@ reactor-mcp-server --port 4040 --path /mcp
 
 | Option | Default | What it is |
 | --- | --- | --- |
+| `--transport` / `REACTOR_MCP_TRANSPORT` | `streamable-http` | Or `stdio`, for a client that launches the server |
+| `--toolsets` / `REACTOR_MCP_TOOLSETS` | each toolset's own `default` | What a URL naming no toolset gets, in the URL's spelling: `earthdata`, `only=math,geo`. Over stdio, the whole selection |
+| `--ignore-query-key` | none | A query key the deployment reads for something else; repeatable |
+| `--list-toolsets-tool` / `REACTOR_MCP_LIST_TOOLSETS_TOOL` | on | Put `list_toolsets` on every server; `--no-list-toolsets-tool` leaves it off |
 | `--host` / `REACTOR_MCP_HOST` | `0.0.0.0` | Interface to bind |
 | `--port` / `REACTOR_MCP_PORT` | `4040` | Port |
 | `--path` / `REACTOR_MCP_PATH` | `/mcp` | Where the protocol is served |
 | `--name` / `REACTOR_MCP_NAME` | `reactor-mcp-server` | What the server calls itself |
 | `--extension` / `REACTOR_MCP_EXTENSIONS` | every installed one | Load only these, repeatable |
+
+### Over stdio
+
+A client that launches the server has no URL to put a toolset in, so the
+command line selects:
+
+```json
+{
+  "mcpServers": {
+    "earth": {
+      "command": "reactor-mcp-server",
+      "args": ["--transport", "stdio", "--extension", "earthdata", "--toolsets", "only=earthdata"]
+    }
+  }
+}
+```
+
+Logs go to stderr; stdout is the protocol.
 
 Naming the extensions is what makes a tool list reproducible: the surface a
 client sees is otherwise whatever happens to be installed beside the server,

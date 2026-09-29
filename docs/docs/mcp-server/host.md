@@ -81,6 +81,10 @@ def make_server(name, instructions):
 host = build_host(extensions, name="my-server", server_factory=make_server)
 ```
 
+The `instructions` it is given are the host's own followed by those of every
+active toolset (`host.instructions_for(active)`), so a server built for
+`?benchmarks` says how to use benchmarks and one built without it does not.
+
 A selection is served by the server built for it, so that subclass has to be
 what `build` makes rather than something wrapped around it afterwards. A built
 server made without the verifier would be an unauthenticated door beside an
@@ -114,6 +118,8 @@ Without building anything:
 host.declared_toolsets()        # every toolset, once each
 host.offered_tools()            # every tool, extensions applied
 host.offered_tools(["spaces"])  # only that toolset's
+host.active_for(selection)      # the toolsets a selection turns on
+host.describe(selection)        # what /toolsets and list_toolsets answer
 ```
 
 ## When an extension misbehaves

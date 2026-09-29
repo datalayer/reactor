@@ -23,7 +23,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Awaitable, Callable, MutableMapping, Optional
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    MutableMapping,
+    Optional,
+)
 
 import anyio
 from anyio.abc import TaskStatus
@@ -35,6 +43,7 @@ from starlette.routing import Mount, Route
 
 from reactor_mcp_server.server import McpHost
 from reactor_mcp_server.toolsets import (
+    Selection,
     activation_key,
     selection_from_scope,
 )
@@ -76,9 +85,17 @@ class ToolsetRouter:
         path: str = "/mcp",
         app_options: Optional[dict[str, Any]] = None,
         tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
+        default_selection: Optional[Selection] = None,
+        ignore_query_keys: Iterable[str] = (),
     ) -> None:
         self._host = host
         self._path = path
+        #: What a URL that names no toolset gets, when the deployment decides
+        #: rather than each toolset's own `default` — one process serving
+        #: `earthdata` to `/mcp` though the extension ships opt-in.
+        self._default_selection = default_selection
+        #: Query keys the deployment reads for something else, never names.
+        self._ignore_query_keys = frozenset(ignore_query_keys)
         #: Which tenant a connection belongs to, read from its scope (a header,
         #: a path, an authenticated principal). None: one tenant, everybody.
         self._tenant_resolver = tenant_resolver
@@ -98,6 +115,13 @@ class ToolsetRouter:
     @property
     def host(self) -> McpHost:
         return self._host
+
+    def selection_of(self, scope: Scope) -> Selection:
+        """The toolsets this request asks for, as this deployment reads it."""
+        selection = selection_from_scope(scope, ignore=self._ignore_query_keys)
+        if selection.is_empty and self._default_selection is not None:
+            return self._default_selection
+        return selection
 
     async def start(self) -> None:
         """Open the scope the applications' lifespans live in.
@@ -180,7 +204,7 @@ class ToolsetRouter:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":  # pragma: no cover - websockets are not served
             raise RuntimeError(f"{type(self).__name__} serves HTTP only")
-        selection = selection_from_scope(scope)
+        selection = self.selection_of(scope)
         tenant = self.tenant_of(scope)
         built = self._host.build(selection, tenant_id=tenant)
         if built.unknown:
@@ -207,6 +231,8 @@ def create_mcp_app(
     toolsets_route: Optional[str] = "/toolsets",
     app_options: Optional[dict[str, Any]] = None,
     tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
+    default_selection: Optional[Selection] = None,
+    ignore_query_keys: Iterable[str] = (),
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -217,32 +243,26 @@ def create_mcp_app(
     * ``/toolsets`` — what this deployment offers and what a URL would
       activate, so a client can be *told* which name to put in its URL rather
       than being sent to read the deployment's source.
+
+    `default_selection` is what a URL naming no toolset gets, in place of each
+    toolset's own `default`. `ignore_query_keys` are query keys this
+    deployment reads for something else, so they are never taken for names.
     """
     router = ToolsetRouter(
-        host, path=path, app_options=app_options, tenant_resolver=tenant_resolver
+        host,
+        path=path,
+        app_options=app_options,
+        tenant_resolver=tenant_resolver,
+        default_selection=default_selection,
+        ignore_query_keys=ignore_query_keys,
     )
 
     async def toolsets(request: Request) -> JSONResponse:
-        selection = selection_from_scope(request.scope)
-        tenant = router.tenant_of(request.scope)
-        built = host.build(selection, tenant_id=tenant)
-        declared = host.declared_toolsets(tenant)
         return JSONResponse(
-            {
-                "toolsets": [
-                    {
-                        "name": toolset.name,
-                        "description": toolset.description,
-                        "default": toolset.default,
-                        "always": toolset.always,
-                        "active": toolset.name in built.toolsets,
-                    }
-                    for toolset in sorted(declared, key=lambda item: item.name)
-                ],
-                "active": sorted(built.toolsets),
-                "tools": sorted(built.tool_names),
-                "unknown": sorted(built.unknown),
-            }
+            host.describe(
+                router.selection_of(request.scope),
+                tenant_id=router.tenant_of(request.scope),
+            )
         )
 
     async def health(request: Request) -> JSONResponse:

@@ -44,6 +44,12 @@ class Toolset:
 
     name: str
     description: str = ""
+    #: A human-readable name for a client's UI. Empty falls back to `name`.
+    title: str = ""
+    #: What a model should know to use this toolset's tools well, added to the
+    #: server's instructions only when the toolset is active — so a client
+    #: that did not ask for it does not pay for reading it.
+    instructions: str = ""
     #: On when the URL says nothing. An opt-in toolset sets this to `False`
     #: and is served only to a client that asks for it by name.
     default: bool = True
@@ -78,19 +84,24 @@ def _names(value: str) -> list[str]:
     return [part.strip() for part in value.replace(" ", ",").split(",") if part.strip()]
 
 
-def parse_selection(query: str | None) -> Selection:
+def parse_selection(query: str | None, ignore: Iterable[str] = ()) -> Selection:
     """Read a query string as a toolset selection.
 
     Unknown keys are toolset names, which is what makes `?benchmarks` work;
     a key with a value that is not one of the three reserved ones is read as
     a name too, so `?benchmarks=1` does what somebody who typed it meant.
+
+    `ignore` names keys the deployment reads for something else — a
+    ``scopes=`` its authorization server understands — which would otherwise
+    be read as toolset names nobody declared.
     """
+    ignored = frozenset(ignore)
     named: set[str] = set()
     only: set[str] | None = None
     without: set[str] = set()
     for key, value in parse_qsl(query or "", keep_blank_values=True):
         key = key.strip()
-        if not key:
+        if not key or key in ignored:
             continue
         if key == TOOLSETS_KEY:
             named.update(_names(value))
@@ -152,9 +163,11 @@ def activation_key(active: Iterable[str]) -> str:
     return ",".join(sorted(set(active)))
 
 
-def selection_from_scope(scope: Mapping[str, object]) -> Selection:
+def selection_from_scope(
+    scope: Mapping[str, object], ignore: Iterable[str] = ()
+) -> Selection:
     """The selection an ASGI scope's query string carries."""
     raw = scope.get("query_string") or b""
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "replace")
-    return parse_selection(str(raw))
+    return parse_selection(str(raw), ignore=ignore)
