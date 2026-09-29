@@ -1,6 +1,7 @@
 ---
-sidebar_position: 1
+sidebar_position: 0
 title: CLI
+slug: /examples/cli/
 ---
 
 # The CLI example

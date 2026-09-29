@@ -1,6 +1,7 @@
 ---
-sidebar_position: 3
+sidebar_position: 0
 title: Frontend
+slug: /examples/frontend/
 ---
 
 # The frontend example

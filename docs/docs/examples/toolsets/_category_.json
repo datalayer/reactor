@@ -1,0 +1,8 @@
+{
+  "label": "MCP Toolsets",
+  "position": 9,
+  "link": {
+    "type": "doc",
+    "id": "examples/toolsets/index"
+  }
+}

@@ -7,7 +7,7 @@ title: Example Toolsets
 
 [`examples/toolsets`](https://github.com/datalayer/reactor/tree/main/examples/toolsets)
 is one distribution carrying two extensions, each declaring one toolset. How
-to run it, and what each file holds, is on [its examples page](/examples/toolsets).
+to run it, and what each file holds, is on [its examples page](/examples/toolsets/).
 
 | Toolset | Tools | Served |
 | --- | --- | --- |

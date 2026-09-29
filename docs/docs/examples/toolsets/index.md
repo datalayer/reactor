@@ -1,6 +1,7 @@
 ---
-sidebar_position: 8
+sidebar_position: 0
 title: MCP Toolsets
+slug: /examples/toolsets/
 ---
 
 # The toolsets example
