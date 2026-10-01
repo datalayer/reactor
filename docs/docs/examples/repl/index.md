@@ -1,13 +1,14 @@
 ---
-sidebar_position: 2
+sidebar_position: 0
 title: REPL
+slug: /examples/repl/
 ---
 
 # The REPL example
 
 `examples/repl` — an interactive session whose commands come from plugins.
 
-The sibling of the [CLI example](/examples/cli): same platform, same plugin
+The sibling of the [CLI example](/examples/cli/): same platform, same plugin
 shape, different surface. The host ships `/help` and `/exit` and answers a
 plain line by echoing it uppercased — standing in for whatever a real host
 answers with. The plugin contributes `/time`, with an alias (`/clock`), an

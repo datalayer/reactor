@@ -80,6 +80,12 @@ class McpHost:
             name=name, instructions=instructions
         )
     )
+    #: Put `list_server_toolsets` on every built server: the answer `/toolsets`
+    #: gives over HTTP, as a tool — for a model that should find out, in the
+    #: conversation, which toolset to ask for, and for a stdio client that has
+    #: no route to read. Off by default, so a deployment's tool list does not
+    #: grow a tool it did not choose.
+    toolsets_tool: bool = False
     #: One built server per (tenant, toolsets); a tenant sees its own.
     _built: dict[tuple[Optional[str], str], BuiltServer] = field(
         default_factory=dict, init=False
@@ -198,6 +204,57 @@ class McpHost:
                 )
         return resolved
 
+    # --- Which toolsets -------------------------------------------------------
+
+    def active_for(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> frozenset[str]:
+        """The toolsets a selection turns on, without building a server.
+
+        For whatever sits beside the MCP application and has to know what a
+        request is about to get — a middleware that fetches credentials only
+        for a request that selects the toolset needing them. Asking whether a
+        name was *in the URL* is not the same question: ``?only=odoo`` never
+        names it the way ``?odoo`` does, a default toolset is on without being
+        named, and ``without=`` takes one away.
+        """
+        return active_toolsets(self.declared_toolsets(tenant_id), selection or Selection())
+
+    def instructions_for(
+        self, active: Iterable[str], tenant_id: Optional[str] = None
+    ) -> str:
+        """The host's instructions, and those of every active toolset.
+
+        A toolset's instructions reach a client only when it is active, so a
+        client that did not ask for a toolset does not read how to use it.
+        """
+        wanted = set(active)
+        parts = [self.instructions] if self.instructions else []
+        for toolset in sorted(self.declared_toolsets(tenant_id), key=lambda item: item.name):
+            if toolset.name in wanted and toolset.instructions:
+                parts.append(f"## {toolset.title or toolset.name}\n\n{toolset.instructions}")
+        return "\n\n".join(parts)
+
+    def describe(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """What this host offers, and what a selection gets of it.
+
+        One answer, served two ways: at ``/toolsets`` over HTTP, and by the
+        ``list_server_toolsets`` tool to a client already in a session.
+        """
+        built = self.build(selection, tenant_id=tenant_id)
+        return _description(
+            self.declared_toolsets(tenant_id),
+            built.toolsets,
+            built.tool_names,
+            built.unknown,
+        )
+
     # --- Building ------------------------------------------------------------
 
     def build(
@@ -216,8 +273,16 @@ class McpHost:
         server is cached for that tenant: two tenants never share one.
         """
         selection = selection or Selection()
+        changed = False
         for name in selection.named | frozenset(selection.only or ()):
-            self.platform.fire_event(on_toolset(name))
+            fired = self.platform.fire_event(on_toolset(name))
+            changed = changed or bool(fired.get("activated") or fired.get("deactivated"))
+        if changed:
+            # A plugin woken or stood down changes what is offered — it may
+            # extend a tool of a toolset already built, or retire one — so no
+            # server built before it may be served again. The router follows
+            # `revision` and makes new applications for new connections.
+            self.forget_built()
 
         declared = self.declared_toolsets(tenant_id)
         active = active_toolsets(declared, selection)
@@ -234,7 +299,19 @@ class McpHost:
 
         specs = self.offered_tools(active, tenant_id)
         participating = self._participating(active, tenant_id)
-        server = self.server_factory(self.name, self.instructions or None)
+        if self.toolsets_tool:
+            if any(spec.name == LIST_SERVER_TOOLSETS for spec in specs):
+                # An extension offers a tool by that name: its tool is served,
+                # not shadowed by the host's.
+                logger.warning(
+                    "An extension offers %s; the host's is not added", LIST_SERVER_TOOLSETS
+                )
+            else:
+                names = (*(spec.name for spec in specs), LIST_SERVER_TOOLSETS)
+                specs = [*specs, _list_server_toolsets_spec(self, active, names, tenant_id)]
+        server = self.server_factory(
+            self.name, self.instructions_for(active, tenant_id) or None
+        )
         put_on_server(server, specs)
         # Resources, prompts and `on_server` belong to the selection the way
         # tools do: an extension whose toolset is not active — or that was
@@ -292,6 +369,71 @@ class McpHost:
         self.revision += 1
 
 
+#: The name of the tool `toolsets_tool` puts on a server.
+LIST_SERVER_TOOLSETS = "list_server_toolsets"
+
+
+def _description(
+    declared: Iterable[Toolset],
+    active: Iterable[str],
+    tools: Iterable[str],
+    unknown: Iterable[str] = (),
+) -> dict[str, Any]:
+    on = set(active)
+    return {
+        "toolsets": [
+            {
+                "name": toolset.name,
+                "title": toolset.title or toolset.name,
+                "description": toolset.description,
+                "default": toolset.default,
+                "always": toolset.always,
+                "active": toolset.name in on,
+            }
+            for toolset in sorted(declared, key=lambda item: item.name)
+        ],
+        "active": sorted(on),
+        "tools": sorted(tools),
+        "unknown": sorted(unknown),
+    }
+
+
+def _list_server_toolsets_spec(
+    host: "McpHost",
+    active: frozenset[str],
+    tools: tuple[str, ...],
+    tenant_id: Optional[str],
+) -> ToolSpec:
+    from mcp.types import ToolAnnotations  # noqa: PLC0415
+
+    async def list_server_toolsets() -> dict[str, Any]:
+        """List the toolsets this server offers, and which ones this session has.
+
+        A toolset that is not active is reached by reconnecting with its name
+        in the server URL: `?name` adds it to the defaults, `?only=a,b` asks
+        for exactly those, `?without=name` leaves a default one out.
+        """
+        answer = _description(host.declared_toolsets(tenant_id), active, tools)
+        answer["how_to_select"] = (
+            "Reconnect with the toolset in the URL: ?name adds it, "
+            "?only=a,b asks for exactly those, ?without=name leaves one out."
+        )
+        return answer
+
+    return ToolSpec(
+        name=LIST_SERVER_TOOLSETS,
+        handler=list_server_toolsets,
+        title="List Server Toolsets",
+        annotations=ToolAnnotations(
+            title="List Server Toolsets",
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
+        ),
+    )
+
+
 def put_on_server(server: MCPServer, specs: Iterable[ToolSpec]) -> MCPServer:
     """Put tools on a server, the way the host does.
 
@@ -327,13 +469,17 @@ def build_host(
     name: str = "reactor-mcp-server",
     instructions: str = "",
     server_factory: Optional[Callable[[str, Optional[str]], MCPServer]] = None,
+    toolsets_tool: bool = False,
 ) -> McpHost:
     """A started host with these extensions on it.
 
     `server_factory` is how each selection's server is made — a deployment
-    serving a subclass of `MCPServer` names it here.
+    serving a subclass of `MCPServer` names it here. `toolsets_tool`
+    puts `list_server_toolsets` on every server built.
     """
-    host = McpHost(name=name, instructions=instructions)
+    host = McpHost(
+        name=name, instructions=instructions, toolsets_tool=toolsets_tool
+    )
     if server_factory is not None:
         host.server_factory = server_factory
     host.add_all(extensions)

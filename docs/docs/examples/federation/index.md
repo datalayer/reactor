@@ -1,6 +1,7 @@
 ---
-sidebar_position: 7
+sidebar_position: 0
 title: Federation
+slug: /examples/federation/
 ---
 
 # The federation example

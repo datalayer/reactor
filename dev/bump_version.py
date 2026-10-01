@@ -46,8 +46,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "package.json"
 
 PLUGINS = ("commands", "graph", "manager", "shell")
-MCP_PYPROJECT = ROOT / "plugins" / "mcp-server" / "pyproject.toml"
-MCP_INIT = ROOT / "plugins" / "mcp-server" / "reactor_mcp_server" / "__init__.py"
+MCP_PYPROJECT = ROOT / "apps" / "mcp-server" / "pyproject.toml"
+MCP_INIT = ROOT / "apps" / "mcp-server" / "reactor_mcp_server" / "__init__.py"
 
 PARTS = ("major", "minor", "patch")
 

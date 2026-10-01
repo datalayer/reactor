@@ -1,0 +1,8 @@
+{
+  "label": "Frontend",
+  "position": 3,
+  "link": {
+    "type": "doc",
+    "id": "examples/frontend/index"
+  }
+}

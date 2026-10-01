@@ -29,7 +29,7 @@ PyPI (GitHub environment `pypi`):
 | Package              | Path                 | Version from                          |
 | -------------------- | -------------------- | ------------------------------------- |
 | `datalayer-reactor`  | `.`                  | `package.json` (hatch-nodejs-version) |
-| `reactor-mcp-server` | `plugins/mcp-server` | `pyproject.toml`                      |
+| `reactor-mcp-server` | `apps/mcp-server`    | `pyproject.toml`                      |
 
 The examples under `examples/` and the docs are private and never published.
 

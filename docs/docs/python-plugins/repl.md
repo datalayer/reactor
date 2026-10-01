@@ -100,6 +100,6 @@ a web palette even when the two implementations differ.
 
 ## Try it
 
-The [REPL example](/examples/repl) is the whole story in two files: a host
+The [REPL example](/examples/repl/) is the whole story in two files: a host
 with `/help` and `/exit`, and a plugin contributing `/time` with a shortcut
 and completable arguments.

@@ -14,10 +14,11 @@ same two packages the rest of this documentation describes.
 | [CMS](/examples/cms/) | both | Two Python packages — free and paid — filling the same three contribution points, on shadcn/ui. The clearest statement of package → extension → plugin → contribution. **[Runs on this page.](/examples/cms/demo)** |
 | [Music store](/examples/music/) | both | The full model: slots, a contribution point, an extension, a lazy plugin, and a checkbox per plugin on both tiers. **[Runs on this page.](/examples/music/demo)** |
 | [Astro CMS](/examples/cms-astro/) | both | A SQLite-backed multi-user and multi-site CMS with Astro live collections, Primer, Lexical, Python-packaged extensions and optional x402 paid routes. |
-| [Frontend](/examples/frontend) | TypeScript | The smallest thing that is still a platform: two plugins and a slot. |
-| [Frontend + backend](/examples/frontend-backend) | both | The same, with a FastAPI backend and a gated slot. |
-| [CLI](/examples/cli) | Python | A command-line host extended by a plugin, with no browser anywhere. |
-| [Federation](/examples/federation) | TypeScript | Plugins fetched from a URL: one that works, one that fails on purpose, and one installed by pasting a link. |
+| [Frontend](/examples/frontend/) | TypeScript | The smallest thing that is still a platform: two plugins and a slot. |
+| [Frontend + backend](/examples/frontend-backend/) | both | The same, with a FastAPI backend and a gated slot. |
+| [CLI](/examples/cli/) | Python | A command-line host extended by a plugin, with no browser anywhere. |
+| [Federation](/examples/federation/) | TypeScript | Plugins fetched from a URL: one that works, one that fails on purpose, and one installed by pasting a link. |
+| [MCP toolsets](/examples/mcp-toolsets/) | Python | Two MCP toolsets in one wheel — `math`, on by default, and `geo`, served only to a client that asks with `?geo`. |
 | [Extension](/python-packaged-extensions/) | both | One `pip install` shipping a Python plugin and its UI — and appearing in a server that was already running. |
 
 Start with the [music store demo](/examples/music/demo) if you want to see the

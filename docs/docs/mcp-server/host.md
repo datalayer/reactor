@@ -61,7 +61,10 @@ Servers are cached per selection, keyed on the *set* of active toolsets: `?a&b`
 and `?b&a` are one server, and so are `?a` and `?toolsets=a`. Building one
 means walking every contribution and wrapping every handler, so two clients
 asking for the same toolsets share the result. `forget_built()` drops the
-cache — after enabling or disabling a plugin.
+cache — after enabling or disabling a plugin. `build` drops it itself when the
+URL it reads wakes or stands down an extension: what is offered has changed,
+so no server built before may be served again, and the router makes new
+applications for new connections while the old ones finish their sessions.
 
 ## What a deployment decides
 
@@ -80,6 +83,10 @@ def make_server(name, instructions):
 
 host = build_host(extensions, name="my-server", server_factory=make_server)
 ```
+
+The `instructions` it is given are the host's own followed by those of every
+active toolset (`host.instructions_for(active)`), so a server built for
+`?benchmarks` says how to use benchmarks and one built without it does not.
 
 A selection is served by the server built for it, so that subclass has to be
 what `build` makes rather than something wrapped around it afterwards. A built
@@ -114,6 +121,8 @@ Without building anything:
 host.declared_toolsets()        # every toolset, once each
 host.offered_tools()            # every tool, extensions applied
 host.offered_tools(["spaces"])  # only that toolset's
+host.active_for(selection)      # the toolsets a selection turns on
+host.describe(selection)        # what /toolsets and list_server_toolsets answer
 ```
 
 ## When an extension misbehaves

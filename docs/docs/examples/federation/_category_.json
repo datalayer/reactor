@@ -1,0 +1,8 @@
+{
+  "label": "Federation",
+  "position": 8,
+  "link": {
+    "type": "doc",
+    "id": "examples/federation/index"
+  }
+}
