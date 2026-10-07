@@ -14,7 +14,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@module-federation/rsbuild-plugin": "^0.20.0",
+    "@module-federation/rsbuild-plugin": "^2.9.0",
     "@rsbuild/core": "^2.2.1",
     "@rsbuild/plugin-react": "^1.4.6",
     "@types/react": "19.2.18",
