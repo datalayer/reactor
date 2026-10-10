@@ -95,9 +95,9 @@ class PluginPlatform:
         self._fired_points: set[str] = set()
         #: Discovered extensions' frontend halves, by extension name.
         self._frontend: dict[str, FrontendExtension] = {}
-        #: Which plugins each discovered extension brought, so an uninstall
-        #: can take exactly those away again.
-        self._discovered: dict[str, list[str]] = {}
+        #: Which extension each discovered entry point brought, by entry-point
+        #: name, so an uninstall can take exactly that one away again.
+        self._discovered: dict[str, str] = {}
         #: Entry points that failed to load, and the error they failed with.
         #:
         #: Kept for log de-duplication, *not* to stop retrying. An extension
@@ -558,6 +558,15 @@ class PluginPlatform:
         record = self._records.get(name)
         return record.implementation if record is not None else None
 
+    def has_plugin(self, name: str) -> bool:
+        """Whether a plugin of that name is registered, active or not.
+
+        For a host that replaces a plugin it registered earlier — an
+        application reloaded, a configuration changed — and must unregister the
+        old one first: registering a name twice is not a replacement.
+        """
+        return name in self._records
+
     def list_plugins(self) -> list[dict[str, Any]]:
         """Every plugin's manifest, plus the state the manifest cannot carry.
 
@@ -859,7 +868,8 @@ class PluginPlatform:
                 continue
             try:
                 extension = entry_point.load()()
-                self._register_extension_object(entry_name, extension)
+                self.register_extension_object(extension)
+                self._discovered[entry_name] = extension.name
                 added.append(extension.name)
                 self._failed.pop(entry_name, None)
             except Exception as error:  # noqa: BLE001
@@ -894,36 +904,67 @@ class PluginPlatform:
 
         return {"added": added, "removed": removed}
 
-    def _register_extension_object(
-        self, entry_name: str, extension: ReactorExtension
-    ) -> None:
-        """Register both halves of one discovered extension."""
+    def register_extension_object(self, extension: ReactorExtension) -> list[str]:
+        """Register both halves of one extension: its plugins, and its frontend.
+
+        What discovery does with what an entry point resolves to, for a host
+        that holds the object itself — an extension built in the process, a
+        test, an application composing a capability it ships with. Installing
+        a distribution is one way to publish an extension; handing the object
+        over is the other, and the platform answers the same about both: the
+        plugins listed and switched as any, the frontend in
+        :meth:`frontend_extensions` and served at ``/reactor-extensions``.
+
+        A plugin registered after :meth:`start` is started as it activates
+        (`activate_plugin`), so nothing here re-runs the hook for anybody.
+
+        Returns the plugin names registered, in declaration order.
+
+        :raises ValueError: if an extension of that name is registered already.
+            Two deliveries of one name would leave nobody able to say which
+            one an uninstall takes away.
+        """
+        if extension.name in self._extensions:
+            raise ValueError(f"Extension {extension.name} is registered already")
         registered = self.register_extension(extension.manifest, extension.plugins)
-        self._discovered[entry_name] = registered
         if extension.frontend is not None:
             self._frontend[extension.name] = extension.frontend
-        # A plugin discovered after `start()` is started as it activates
-        # (`activate_plugin`), so nothing here re-runs the hook for anybody.
+        return registered
 
-    def _forget_extension(self, entry_name: str) -> list[str]:
-        """Drop an extension that is no longer installed, and say what went.
+    def unregister_extension(self, name: str) -> list[str]:
+        """Take an extension away: every plugin it delivered, and its frontend.
 
-        The Python modules it imported stay imported — one process cannot
+        The inverse of :meth:`register_extension_object` — and of an install
+        :meth:`rescan_extensions` found, which is how an uninstall goes. The
+        Python modules it imported stay imported — one process cannot
         unimport, and pretending otherwise would be worse than saying so. What
         does go is everything the platform was answering *about* it: its
-        plugins, its contributions, its place in the extension list, and its
-        frontend.
+        plugins, their contributions and commands, its place in the extension
+        list, and its frontend.
+
+        Returns the plugin names unregistered.
+
+        :raises KeyError: if no extension of that name is registered.
         """
-        names = self._discovered.pop(entry_name, [])
-        gone: list[str] = []
-        for plugin_name in names:
-            if plugin_name in self._records:
-                extension_name = self._records[plugin_name].manifest.extension
-                self.unregister_plugin(plugin_name)
-                gone.append(plugin_name)
-                self._extensions.pop(extension_name, None)
-                self._frontend.pop(extension_name, None)
+        if name not in self._extensions:
+            raise KeyError(f"Unknown extension {name}")
+        gone = self._discovered_plugins_of(name)
+        for plugin_name in gone:
+            self.unregister_plugin(plugin_name)
+        self._extensions.pop(name, None)
+        self._frontend.pop(name, None)
+        for entry_name, extension_name in list(self._discovered.items()):
+            if extension_name == name:
+                del self._discovered[entry_name]
+        self._bump()
         return gone
+
+    def _forget_extension(self, entry_name: str) -> list[str]:
+        """Drop an extension whose entry point is no longer installed."""
+        name = self._discovered.pop(entry_name, None)
+        if name is None or name not in self._extensions:
+            return []
+        return self.unregister_extension(name)
 
     def frontend_extensions(
         self, base_url: str = "/reactor-extensions"
@@ -1006,6 +1047,19 @@ class PluginPlatform:
                 plugin_routes = self._run_plugin_call(plugin_name, provider)
                 routes.extend(plugin_routes or [])
         return routes
+
+    def describe_routes(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
+        """Every route enabled plugins provide, as JSON: without their endpoints.
+
+        A route descriptor may carry the callable that answers it
+        (``"endpoint"``), for a host that mounts what plugins provide — see
+        :func:`reactor.host.include_plugin_routes`. Described over HTTP, it is
+        the route alone: a callable is not something a gateway can read.
+        """
+        return [
+            {key: value for key, value in route.items() if key != "endpoint"}
+            for route in self.collect_routes(tenant_id)
+        ]
 
     def collect_agent_tools(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
         """Every agent-tool bundle enabled plugins provide, with the plugin named.

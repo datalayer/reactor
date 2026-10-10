@@ -78,8 +78,8 @@ def tier(name: str, label: str, prefix: str) -> ReactorExtension:
 
 def test_a_paid_tier_is_indistinguishable_from_a_free_one() -> None:
     platform = PluginPlatform(extension_group=TEST_GROUP)
-    platform._register_extension_object("cms", tier("Core", "Core", "core"))  # noqa: SLF001
-    platform._register_extension_object("cms-pro", tier("Pro", "Pro", "pro"))  # noqa: SLF001
+    platform.register_extension_object(tier("Core", "Core", "core"))
+    platform.register_extension_object(tier("Pro", "Pro", "pro"))
 
     # Every point holds one contribution from each tier. Not "the free one and
     # then the paid one" — the registry has no such concept.
@@ -102,10 +102,10 @@ def test_a_paid_tier_is_indistinguishable_from_a_free_one() -> None:
 
 def test_uninstalling_the_paid_tier_leaves_the_free_one_whole() -> None:
     platform = PluginPlatform(extension_group=TEST_GROUP)
-    platform._register_extension_object("cms", tier("Core", "Core", "core"))  # noqa: SLF001
-    platform._register_extension_object("cms-pro", tier("Pro", "Pro", "pro"))  # noqa: SLF001
+    platform.register_extension_object(tier("Core", "Core", "core"))
+    platform.register_extension_object(tier("Pro", "Pro", "pro"))
 
-    platform._forget_extension("cms-pro")  # noqa: SLF001
+    platform.unregister_extension("Pro")
 
     for point in (EDITOR_TOOLBAR, CONTENT_TYPES, PUBLISH_LIFECYCLE):
         plugins = {entry.plugin for entry in platform.get_contributions(point)}
@@ -123,7 +123,7 @@ def test_disabling_one_plugin_leaves_its_siblings_running() -> None:
     and being delivered together is not a dependency.
     """
     platform = PluginPlatform(extension_group=TEST_GROUP)
-    platform._register_extension_object("cms", tier("Core", "Core", "core"))  # noqa: SLF001
+    platform.register_extension_object(tier("Core", "Core", "core"))
 
     platform.disable_plugin("core.types")
 

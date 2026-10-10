@@ -21,7 +21,14 @@ class ReactorHookSpecs:
 
     @hookspec
     def provide_routes(self) -> list[dict]:
-        """Return route descriptors consumed by API or gateway layers."""
+        """Return route descriptors consumed by API or gateway layers.
+
+        Each is ``{"path", "method", "plugin"}``, and may carry the callable
+        that answers it as ``"endpoint"`` — a FastAPI endpoint — for a host
+        that serves what its plugins provide
+        (:func:`reactor.host.include_plugin_routes`). Described over HTTP, a
+        route never carries its endpoint (`PluginPlatform.describe_routes`).
+        """
 
     @hookspec
     def feature_flags(self, tenant_id: str) -> dict[str, bool]:

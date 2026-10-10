@@ -13,23 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+from .extensions import EXTENSION_CONTENT_TYPES
 from .reactor import PluginPlatform
-
-#: Content types for what a frontend extension is allowed to serve.
-#:
-#: An allowlist rather than a guess: this route hands files out of an installed
-#: distribution, and the set of things a browser should execute from there is
-#: small and knowable.
-_CONTENT_TYPES = {
-    ".js": "text/javascript",
-    ".mjs": "text/javascript",
-    ".json": "application/json",
-    ".css": "text/css",
-    ".map": "application/json",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".woff2": "font/woff2",
-}
 
 
 class PluginTogglePayload(BaseModel):
@@ -226,7 +211,7 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
             # attempt should not be able to tell a file that is refused from
             # one that is not there.
             raise HTTPException(status_code=404, detail="Not found")
-        media_type = _CONTENT_TYPES.get(resolved.suffix.lower())
+        media_type = EXTENSION_CONTENT_TYPES.get(resolved.suffix.lower())
         if media_type is None:
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(resolved, media_type=media_type)
@@ -293,7 +278,7 @@ def create_reactor_app(reactor: PluginPlatform | None = None) -> FastAPI:
 
     @app.get("/tenants/{tenant_id}/routes")
     def tenant_routes(tenant_id: str) -> list[dict]:
-        return runtime.collect_routes(tenant_id=tenant_id)
+        return runtime.describe_routes(tenant_id=tenant_id)
 
     @app.get("/marketplace")
     def marketplace() -> list[dict]:

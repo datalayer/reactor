@@ -3,6 +3,7 @@
 # Datalayer License
 
 from .extensions import (
+    EXTENSION_CONTENT_TYPES,
     EXTENSION_ENTRY_POINT_GROUP,
     SHARE_DIRECTORY,
     SHARE_ROOT,
@@ -21,6 +22,7 @@ from .contributions import (
     define_contribution_point,
 )
 from .commands import Command, CommandRegistry, PluginCommands
+from .hooks import hookimpl
 from .slash import (
     CommandArgSpec,
     CommandCollisionError,
@@ -44,6 +46,7 @@ from .host import (
     create_base_app,
     create_reactor_host,
     find_ui,
+    include_plugin_routes,
     mount_reactor_ui,
     run_reactor_host,
     serve,
@@ -54,6 +57,7 @@ __all__ = [
     "Command",
     "CommandRegistry",
     "PluginCommands",
+    "hookimpl",
     "Contribution",
     "ContributionPoint",
     "ContributionRegistry",
@@ -73,10 +77,12 @@ __all__ = [
     "create_reactor_app",
     "create_base_app",
     "create_reactor_host",
+    "include_plugin_routes",
     "mount_reactor_ui",
     "run_reactor_host",
     "find_ui",
     "serve",
+    "EXTENSION_CONTENT_TYPES",
     "EXTENSION_ENTRY_POINT_GROUP",
     "SHARE_DIRECTORY",
     "SHARE_ROOT",
