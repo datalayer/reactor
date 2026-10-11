@@ -1,0 +1,8 @@
+{
+  "label": "UI Channel",
+  "position": 10,
+  "link": {
+    "type": "doc",
+    "id": "examples/ui-channel/index"
+  }
+}

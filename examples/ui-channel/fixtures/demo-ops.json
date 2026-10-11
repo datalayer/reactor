@@ -1,0 +1,126 @@
+[
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": null,
+    "op": "meta",
+    "body": {
+      "title": "Approvals"
+    }
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": "laptop",
+    "op": "show",
+    "body": {
+      "type": "application/vnd.reactor-example.approval+json",
+      "version": 1,
+      "id": "laptop",
+      "text": "Laptop: 1890.00 EUR for ada (pending)",
+      "data": {
+        "title": "Laptop",
+        "amount_eur": 1890.0,
+        "requester": "ada",
+        "status": "pending",
+        "reviewer_note": "Above the 1500 EUR team budget",
+        "history": []
+      },
+      "actions": [
+        {
+          "name": "approvals.decide",
+          "label": "Decide",
+          "token": "QPr-lt56GDar7YN4Geb9JXsnYzKR_nqbN4dlEMS4jPk"
+        }
+      ]
+    }
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": "train",
+    "op": "show",
+    "body": {
+      "type": "application/vnd.reactor-example.approval+json",
+      "version": 1,
+      "id": "train",
+      "text": "Train to Ghent: 64.50 EUR for grace (pending)",
+      "data": {
+        "title": "Train to Ghent",
+        "amount_eur": 64.5,
+        "requester": "grace",
+        "status": "pending",
+        "reviewer_note": "",
+        "history": []
+      },
+      "actions": [
+        {
+          "name": "approvals.decide",
+          "label": "Decide",
+          "token": "tUzNsk5yAruF47aKGkKlX1lSB2LT5SiKUyhGeyJqC4s"
+        }
+      ]
+    }
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": "laptop",
+    "op": "patch",
+    "body": [
+      {
+        "path": "/data/status",
+        "op": "replace",
+        "value": "approved"
+      },
+      {
+        "path": "/text",
+        "op": "replace",
+        "value": "Laptop: 1890.00 EUR for ada (approved)"
+      },
+      {
+        "path": "/actions",
+        "op": "replace",
+        "value": []
+      }
+    ]
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": "laptop",
+    "op": "append",
+    "body": {
+      "path": "/data/history",
+      "value": "approved by grace: Fine, it replaces the 2019 one"
+    }
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": null,
+    "op": "state",
+    "body": [
+      {
+        "path": "/last_decision",
+        "op": "add",
+        "value": {
+          "id": "laptop",
+          "status": "approved"
+        }
+      }
+    ]
+  },
+  {
+    "v": 1,
+    "scope": "demo",
+    "id": null,
+    "op": "window",
+    "body": {
+      "name": "notify",
+      "args": {
+        "message": "Laptop approved"
+      }
+    }
+  }
+]

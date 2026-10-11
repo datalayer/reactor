@@ -18,6 +18,7 @@ same two packages the rest of this documentation describes.
 | [Frontend + backend](/examples/frontend-backend/) | both | The same, with a FastAPI backend and a gated slot. |
 | [CLI](/examples/cli/) | Python | A command-line host extended by a plugin, with no browser anywhere. |
 | [Federation](/examples/federation/) | TypeScript | Plugins fetched from a URL: one that works, one that fails on purpose, and one installed by pasting a link. |
+| [UI channel](/examples/ui-channel/) | both | An approval card from a Python host to a React page and back: a typed display with page-only fields, a renderer contributed by a plugin, and a press checked by token and veto. |
 | [MCP toolsets](/examples/mcp-toolsets/) | Python | Two MCP toolsets in one wheel — `math`, on by default, and `geo`, served only to a client that asks with `?geo`. |
 | [Extension](/python-packaged-extensions/) | both | One `pip install` shipping a Python plugin and its UI — and appearing in a server that was already running. |
 

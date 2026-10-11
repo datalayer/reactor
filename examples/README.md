@@ -55,6 +55,18 @@ cd examples/federation && npm install && npm run dev     # http://localhost:5180
 - `examples/extension-template/` — the layout with the names left blank, and a
   script that fills them: `python examples/extension-template/new-extension.py acme-charts ~/src/acme-charts`.
 
+## UI channel
+
+`examples/ui-channel/` — the `reactor.ui` loop: a FastAPI host shows an
+approval card (a `@display_type` display with page-only fields), a React page
+draws it with a renderer a plugin contributed, and the press comes back with
+the token the server minted, past a plugin's veto.
+
+```bash
+uvicorn --app-dir examples/ui-channel ui_channel_example.server:app --port 8791
+cd examples/ui-channel && npm install && npm run dev     # http://localhost:5181
+```
+
 ## MCP toolsets
 
 `examples/mcp-toolsets/` — two toolsets for `reactor_mcp_server` in one wheel:

@@ -48,6 +48,8 @@ export default defineConfig({
       // The plugins in this repo ship as their own packages, and their rules
       // are worth the same coverage as the core's.
       'plugins/*/__tests__/**/*.test.{ts,tsx}',
+      // The reactor.ui example replays the session its Python half records.
+      'examples/ui-channel/src/**/*.test.{ts,tsx}',
     ],
     environmentMatchGlobs: [['src/react/**', 'jsdom']],
     setupFiles: ['./tests/vitest.setup.ts'],
