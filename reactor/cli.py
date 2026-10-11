@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -76,6 +77,13 @@ extensions_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(extensions_app)
+
+ui_app = typer.Typer(
+    name="ui",
+    help="The wire between a host and the page that draws it (reactor.ui).",
+    no_args_is_help=True,
+)
+app.add_typer(ui_app)
 
 
 #: Where a `reactor serve` listens unless told otherwise.
@@ -276,6 +284,20 @@ def extensions_list() -> None:
         typer.echo(f"{mark} {label}  ({extension['name']})")
         if plugins:
             typer.echo(f"    plugins: {plugins}")
+
+
+@ui_app.command("schema")
+def ui_schema(
+    out: Optional[Path] = typer.Option(None, "--out", help="Write it here instead of printing it."),
+) -> None:
+    """The reactor.ui wire as JSON Schema — what the TypeScript types follow."""
+    from .ui.schema import render_schema, write_schema
+
+    if out is None:
+        typer.echo(render_schema(), nl=False)
+        return
+    write_schema(out)
+    typer.echo(f"Wrote {out}")
 
 
 @commands_app.command("list")

@@ -28,6 +28,11 @@ dependencies = [
 repl = [
   "prompt_toolkit>=3.0.0"
 ]
+# `reactor.ui.agui`: ops as AG-UI events. The rest of `reactor.ui` needs
+# nothing beyond pydantic.
+agui = [
+  "ag-ui-protocol>=0.1.10"
+]
 dev = [
   "pytest>=8.3.0",
   # `reactor commands` is async under the hood, and its tests await the

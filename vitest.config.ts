@@ -25,6 +25,14 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@datalayer\/reactor\/ui\/react$/,
+        replacement: fileURLToPath(new URL('./src/react/ui/index.ts', import.meta.url)),
+      },
+      {
+        find: /^@datalayer\/reactor\/ui$/,
+        replacement: fileURLToPath(new URL('./src/ui/index.ts', import.meta.url)),
+      },
+      {
         find: /^@datalayer\/reactor\/react$/,
         replacement: fileURLToPath(new URL('./src/react/index.ts', import.meta.url)),
       },

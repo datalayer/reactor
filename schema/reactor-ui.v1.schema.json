@@ -1,0 +1,624 @@
+{
+  "$defs": {
+    "ActionOffer": {
+      "additionalProperties": false,
+      "description": "Something a display lets the page press.\n\n``token`` is minted by the server for this display, this session and this\naction (:meth:`reactor.ui.actions.ActionRegistry.offer`): only what was\noffered can be pressed.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "token"
+      ],
+      "title": "ActionOffer",
+      "type": "object"
+    },
+    "AppendBody": {
+      "additionalProperties": false,
+      "description": "What an ``append`` pushes, and onto which array of the display.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "AppendBody",
+      "type": "object"
+    },
+    "AppendOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/AppendBody"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "append",
+          "default": "append",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "body"
+      ],
+      "title": "AppendOp",
+      "type": "object"
+    },
+    "AskOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/DisplayWire"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "op": {
+          "const": "ask",
+          "default": "ask",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "title": "AskOp",
+      "type": "object"
+    },
+    "DisplayWire": {
+      "additionalProperties": false,
+      "description": "A display as it travels: the shape a renderer receives.",
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/ActionOffer"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "text"
+      ],
+      "title": "DisplayWire",
+      "type": "object"
+    },
+    "FileRef": {
+      "additionalProperties": false,
+      "description": "A file by reference: uploaded, or offered for download.\n\nFiles never ride inside JSON. ``ref`` is the host's handle on the bytes;\n``url`` is where the page may fetch them, signed and short-lived when it is\nthere at all.",
+      "properties": {
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "media_type"
+      ],
+      "title": "FileRef",
+      "type": "object"
+    },
+    "MetaOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "additionalProperties": true,
+          "title": "Body",
+          "type": "object"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "op": {
+          "const": "meta",
+          "default": "meta",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "title": "MetaOp",
+      "type": "object"
+    },
+    "PatchOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "items": {
+            "$ref": "#/$defs/PatchOperation"
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "patch",
+          "default": "patch",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "id",
+        "body"
+      ],
+      "title": "PatchOp",
+      "type": "object"
+    },
+    "PatchOperation": {
+      "additionalProperties": false,
+      "description": "One RFC 6902 operation.",
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "op": {
+          "enum": [
+            "add",
+            "remove",
+            "replace",
+            "move",
+            "copy",
+            "test"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "title": "PatchOperation",
+      "type": "object"
+    },
+    "RemoveOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "default": null,
+          "title": "Body",
+          "type": "null"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "op": {
+          "const": "remove",
+          "default": "remove",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "id"
+      ],
+      "title": "RemoveOp",
+      "type": "object"
+    },
+    "ShowOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/DisplayWire"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "op": {
+          "const": "show",
+          "default": "show",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "title": "ShowOp",
+      "type": "object"
+    },
+    "StateOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "items": {
+            "$ref": "#/$defs/PatchOperation"
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "op": {
+          "const": "state",
+          "default": "state",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "title": "StateOp",
+      "type": "object"
+    },
+    "UiAction": {
+      "additionalProperties": false,
+      "description": "The page pressing something a display offered.\n\n``idempotency_id`` is the page's own id for the press: a retry carries the\nsame one and gets the first answer instead of a second run.",
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "display_id": {
+          "title": "Display Id",
+          "type": "string"
+        },
+        "idempotency_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Id"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "display_id",
+        "token"
+      ],
+      "title": "UiAction",
+      "type": "object"
+    },
+    "UiOp": {
+      "discriminator": {
+        "mapping": {
+          "append": "#/$defs/AppendOp",
+          "ask": "#/$defs/AskOp",
+          "meta": "#/$defs/MetaOp",
+          "patch": "#/$defs/PatchOp",
+          "remove": "#/$defs/RemoveOp",
+          "show": "#/$defs/ShowOp",
+          "state": "#/$defs/StateOp",
+          "window": "#/$defs/WindowOp"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ShowOp"
+        },
+        {
+          "$ref": "#/$defs/PatchOp"
+        },
+        {
+          "$ref": "#/$defs/AppendOp"
+        },
+        {
+          "$ref": "#/$defs/RemoveOp"
+        },
+        {
+          "$ref": "#/$defs/StateOp"
+        },
+        {
+          "$ref": "#/$defs/AskOp"
+        },
+        {
+          "$ref": "#/$defs/WindowOp"
+        },
+        {
+          "$ref": "#/$defs/MetaOp"
+        }
+      ]
+    },
+    "WindowBody": {
+      "additionalProperties": false,
+      "description": "A message for the host window: a name, and its arguments.",
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "title": "Args",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "WindowBody",
+      "type": "object"
+    },
+    "WindowOp": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/WindowBody"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "op": {
+          "const": "window",
+          "default": "window",
+          "title": "Op",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "title": "WindowOp",
+      "type": "object"
+    }
+  },
+  "$id": "https://reactor.datalayer.tech/schema/reactor-ui.v1.schema.json",
+  "$ref": "#/$defs/UiOp",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "One op of the envelope a host emits to the page. UiAction is what the page sends back.",
+  "title": "Reactor UI wire, v1"
+}
