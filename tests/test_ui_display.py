@@ -35,6 +35,11 @@ class Weather(Display):
         return f"{self.city}: {self.celsius} °C"
 
 
+
+def _patch(event):  # type: ignore[no-untyped-def]
+    """An AG-UI delta's patch as JSON: ag-ui-protocol 1.x types the operations, 0.1 keeps dicts."""
+    return event.model_dump(mode="json", by_alias=True, exclude_none=True)["patch"]
+
 def test_the_wire_carries_the_fields_as_data_and_the_text() -> None:
     wire = Weather(id="w1", city="Brussels", celsius=12.5, note="bring a coat").wire()
     assert wire.type == "application/vnd.tests.weather+json"
@@ -135,8 +140,8 @@ def test_the_channel_keeps_ops_and_agui_encodes_them() -> None:
     show, patch, append, state, meta = (encode_agui(op) for op in channel.ops)
     assert show.type == "ACTIVITY_SNAPSHOT" and show.message_id == "w3"
     assert show.content["display"]["text"] == "Mons: 11.0 °C"
-    assert patch.patch == [{"op": "replace", "path": "/display/text", "value": "Mons: 12 °C"}]
-    assert append.patch == [{"op": "add", "path": "/display/data/hours/-", "value": 12}]
+    assert _patch(patch) == [{"op": "replace", "path": "/display/text", "value": "Mons: 12 °C"}]
+    assert _patch(append) == [{"op": "add", "path": "/display/data/hours/-", "value": 12}]
     assert state.type == "STATE_DELTA" and state.delta == [{"op": "add", "path": "/unit", "value": "C"}]
     assert meta.type == "CUSTOM" and meta.name == "reactor.ui" and meta.value["body"] == {"title": "Forecast"}
 
@@ -218,7 +223,7 @@ def test_agui_rebases_from_for_move_and_copy() -> None:
             {"op": "copy", "from": "/data/b", "path": "/data/c"},
         ],
     )
-    assert encode_agui(channel.ops[0]).patch == [
+    assert _patch(encode_agui(channel.ops[0])) == [
         {"op": "move", "from": "/display/data/a", "path": "/display/data/b"},
         {"op": "copy", "from": "/display/data/b", "path": "/display/data/c"},
     ]
