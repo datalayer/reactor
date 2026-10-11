@@ -142,7 +142,10 @@ def test_the_channel_keeps_ops_and_agui_encodes_them() -> None:
     assert show.content["display"]["text"] == "Mons: 11.0 °C"
     assert _patch(patch) == [{"op": "replace", "path": "/display/text", "value": "Mons: 12 °C"}]
     assert _patch(append) == [{"op": "add", "path": "/display/data/hours/-", "value": 12}]
-    assert state.type == "STATE_DELTA" and state.delta == [{"op": "add", "path": "/unit", "value": "C"}]
+    assert state.type == "STATE_DELTA"
+    assert state.model_dump(mode="json", by_alias=True, exclude_none=True)["delta"] == [
+        {"op": "add", "path": "/unit", "value": "C"}
+    ]
     assert meta.type == "CUSTOM" and meta.name == "reactor.ui" and meta.value["body"] == {"title": "Forecast"}
 
 
