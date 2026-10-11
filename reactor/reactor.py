@@ -1098,6 +1098,8 @@ class PluginPlatform:
         Read fresh on each call, like :meth:`collect_agent_tools`: what a
         disabled plugin declared is not there. A plugin that fails to declare
         is left out with a warning; one bad plugin does not hide the others.
+        Each plugin declares into a registry of its own, merged only once it
+        succeeded: a plugin that fails halfway leaves none of its types behind.
         """
         from .ui.display import DisplayRegistry
 
@@ -1106,8 +1108,10 @@ class PluginPlatform:
             provider = getattr(self._records[plugin_name].implementation, "provide_display_types", None)
             if not callable(provider):
                 continue
+            provided = DisplayRegistry()
             try:
-                self._run_plugin_call(plugin_name, lambda: provider(registry))
+                self._run_plugin_call(plugin_name, lambda: provider(provided))
+                registry.merge(provided)
             except Exception as error:  # noqa: BLE001
                 logger.warning("Plugin %s failed to provide display types: %s", plugin_name, error)
         return registry

@@ -147,3 +147,101 @@ def test_an_op_of_the_wrong_shape_is_refused() -> None:
         channel.emit({"v": 1, "op": "show", "scope": "s", "body": {"type": "x/y"}})
     with pytest.raises(ValueError):
         channel.emit({"v": 2, "op": "remove", "scope": "s", "id": "a"})
+
+
+@display_type("application/vnd.tests.forecast+json", version=1)
+class Forecast(Display):
+    days: int
+
+    def text(self) -> str:
+        return f"{self.days} days"
+
+
+class HalfwayPlugin:
+    """Registers one type, then fails."""
+
+    def provide_display_types(self, registry: DisplayRegistry) -> None:
+        registry.register(Forecast)
+        raise RuntimeError("halfway")
+
+
+class OtherForecastPlugin:
+    def provide_display_types(self, registry: DisplayRegistry) -> None:
+        registry.register(OtherForecast)
+
+
+class OtherForecast(Display):
+    display_type = Forecast.display_type
+
+    days: int
+
+    def text(self) -> str:
+        return "other"
+
+
+def test_a_provider_that_fails_leaves_nothing_behind() -> None:
+    platform = PluginPlatform()
+    platform.register_plugin(PluginManifest(name="a-halfway", version="1.0.0"), HalfwayPlugin())
+    platform.register_plugin(PluginManifest(name="b-other", version="1.0.0"), OtherForecastPlugin())
+    registry = platform.display_types()
+    assert registry.get(Forecast.display_type) is OtherForecast
+
+
+def test_a_provider_whose_types_conflict_adds_none_of_them() -> None:
+    class Both:
+        def provide_display_types(self, registry: DisplayRegistry) -> None:
+            registry.register(Weather)
+            registry.register(OtherForecast)
+
+    platform = PluginPlatform()
+    platform.register_plugin(PluginManifest(name="a-forecast", version="1.0.0"), _Provides(Forecast))
+    platform.register_plugin(PluginManifest(name="b-both", version="1.0.0"), Both())
+    assert platform.display_types().types() == [(Forecast.display_type, 1)]
+
+
+class _Provides:
+    def __init__(self, cls: type[Display]) -> None:
+        self.cls = cls
+
+    def provide_display_types(self, registry: DisplayRegistry) -> None:
+        registry.register(self.cls)
+
+
+def test_agui_rebases_from_for_move_and_copy() -> None:
+    channel = MemoryUiChannel()
+    ui.patch(
+        channel,
+        "s1",
+        "w3",
+        [
+            {"op": "move", "from": "/data/a", "path": "/data/b"},
+            {"op": "copy", "from": "/data/b", "path": "/data/c"},
+        ],
+    )
+    assert encode_agui(channel.ops[0]).patch == [
+        {"op": "move", "from": "/display/data/a", "path": "/display/data/b"},
+        {"op": "copy", "from": "/display/data/b", "path": "/display/data/c"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {"op": "add", "path": "/a"},
+        {"op": "replace", "path": "/a"},
+        {"op": "test", "path": "/a"},
+        {"op": "move", "path": "/a"},
+        {"op": "copy", "path": "/a"},
+        {"op": "remove", "path": "/a", "value": 1},
+        {"op": "remove", "path": "/a", "from": "/b"},
+    ],
+)
+def test_a_patch_operation_needs_exactly_its_fields(operation: dict) -> None:
+    with pytest.raises(ValueError):
+        ui.patch(MemoryUiChannel(), "s1", "w3", [operation])
+
+
+def test_a_null_value_is_a_value() -> None:
+    channel = MemoryUiChannel()
+    ui.patch(channel, "s1", "w3", [{"op": "add", "path": "/a", "value": None}, {"op": "remove", "path": "/b"}])
+    assert channel.dump()[0]["body"] == [{"op": "add", "path": "/a", "value": None}, {"op": "remove", "path": "/b"}]

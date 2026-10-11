@@ -17,7 +17,8 @@ vetoes it too. Refusals fail closed.
 
 The failures carry the HTTP status a route answers with: an unknown action
 or a payload that does not validate is ``422``; a bad token or a veto is
-``403``. Nothing unknown is turned into something else — an action nobody
+``403``; a press with an idempotency id arriving while every remembered press
+still runs is ``429``. Nothing unknown is turned into something else — an action nobody
 registered is never a chat message.
 
 ::
@@ -75,6 +76,12 @@ class UiActionTokenInvalid(UiActionError):
     status_code = 403
 
 
+class UiActionBusy(UiActionError):
+    """Every remembered press is still running: no room for another."""
+
+    status_code = 429
+
+
 class UiActionRefused(UiActionError):
     """A plugin's ``authorize_ui_action`` said no."""
 
@@ -108,7 +115,10 @@ class ActionRegistry:
 
     ``secret`` keys the tokens; a host keeps it as it keeps any signing key.
     ``platform``, when given, is asked :meth:`PluginPlatform.authorize_ui_action`
-    on every press. ``remember`` bounds how many idempotency ids are kept.
+    on every press. ``remember`` bounds how many idempotency ids are kept: only
+    settled presses are forgotten to make room, and a press arriving while all
+    of them still run is refused (:class:`UiActionBusy`) rather than letting a
+    retry of a running one run it twice.
     """
 
     def __init__(
@@ -120,6 +130,8 @@ class ActionRegistry:
     ) -> None:
         if len(secret) < 16:
             raise ValueError("An action secret needs at least 16 bytes")
+        if remember < 1:
+            raise ValueError("remember must be at least 1")
         self._secret = secret
         self._platform = platform
         self._actions: dict[str, RegisteredAction] = {}
@@ -164,7 +176,7 @@ class ActionRegistry:
     def mint(self, session: str, display_id: str, action: str) -> str:
         """The token that lets this session press this action on this display."""
         self.get(action)
-        message = "\0".join(("reactor.ui/v1", session, display_id, action)).encode()
+        message = _frame("reactor.ui/v1", session, display_id, action)
         digest = hmac.new(self._secret, message, hashlib.sha256).digest()
         return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
@@ -211,10 +223,11 @@ class ActionRegistry:
         pending = self._done.get(key)
         if pending is not None:
             return await asyncio.shield(pending)
+        self._forget_settled(self._remember - 1)
+        if len(self._done) >= self._remember:
+            raise UiActionBusy(f"{len(self._done)} presses are still running: try again once one has answered")
         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._done[key] = future
-        while len(self._done) > self._remember:
-            self._done.popitem(last=False)
         try:
             result = await _call(action.handler, payload, context)
         except BaseException as error:
@@ -224,7 +237,24 @@ class ActionRegistry:
             future.exception()
             raise
         future.set_result(result)
+        self._forget_settled(self._remember)
         return result
+
+    def _forget_settled(self, keep: int) -> None:
+        """Forget the oldest settled presses until at most ``keep`` are remembered.
+
+        A press still running is never forgotten: a retry of it must join it.
+        """
+        for key in [key for key, future in self._done.items() if future.done()]:
+            if len(self._done) <= keep:
+                return
+            del self._done[key]
+
+
+def _frame(*parts: str) -> bytes:
+    """Each part as its 8-byte big-endian length, then its bytes: one tuple, one message."""
+    encoded = [part.encode() for part in parts]
+    return b"".join(len(part).to_bytes(8, "big") + part for part in encoded)
 
 
 async def _call(handler: UiActionHandler, payload: Any, context: UiActionContext) -> Any:
@@ -238,6 +268,7 @@ __all__ = [
     "ActionRegistry",
     "RegisteredAction",
     "UiActionContext",
+    "UiActionBusy",
     "UiActionError",
     "UiActionHandler",
     "UiActionPayloadInvalid",

@@ -69,15 +69,58 @@ class _Wire(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class PatchOperation(_Wire):
-    """One RFC 6902 operation."""
-
+class _PatchWire(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    op: Literal["add", "remove", "replace", "move", "copy", "test"]
     path: str
-    value: Any = None
-    from_: str | None = Field(default=None, alias="from")
+
+
+class PatchAdd(_PatchWire):
+    """RFC 6902 ``add``. ``value`` must be there; ``null`` is a value."""
+
+    op: Literal["add"]
+    value: Any
+
+
+class PatchRemove(_PatchWire):
+    """RFC 6902 ``remove``: the path, nothing else."""
+
+    op: Literal["remove"]
+
+
+class PatchReplace(_PatchWire):
+    """RFC 6902 ``replace``. ``value`` must be there; ``null`` is a value."""
+
+    op: Literal["replace"]
+    value: Any
+
+
+class PatchMove(_PatchWire):
+    """RFC 6902 ``move``, from ``from`` to ``path``."""
+
+    op: Literal["move"]
+    from_: str = Field(alias="from")
+
+
+class PatchCopy(_PatchWire):
+    """RFC 6902 ``copy``, from ``from`` to ``path``."""
+
+    op: Literal["copy"]
+    from_: str = Field(alias="from")
+
+
+class PatchTest(_PatchWire):
+    """RFC 6902 ``test``. ``value`` must be there; ``null`` is a value."""
+
+    op: Literal["test"]
+    value: Any
+
+
+#: One RFC 6902 operation, told apart by ``op``, each with the members it needs.
+PatchOperation = Annotated[
+    Union[PatchAdd, PatchRemove, PatchReplace, PatchMove, PatchCopy, PatchTest],
+    Field(discriminator="op"),
+]
 
 
 class ActionOffer(_Wire):
@@ -288,8 +331,14 @@ __all__ = [
     "DisplayWire",
     "FileRef",
     "MetaOp",
+    "PatchAdd",
+    "PatchCopy",
+    "PatchMove",
     "PatchOp",
     "PatchOperation",
+    "PatchRemove",
+    "PatchReplace",
+    "PatchTest",
     "RemoveOp",
     "ShowOp",
     "StateOp",

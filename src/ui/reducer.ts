@@ -51,7 +51,20 @@ function parsePointer(pointer: string): string[] {
   return pointer
     .slice(1)
     .split('/')
-    .map((token) => token.replace(/~1/g, '/').replace(/~0/g, '~'));
+    .map((token) => token.replace(/~1/g, '/').replace(/~0/g, '~'))
+    .map((token) => {
+      if (FORBIDDEN_TOKENS.has(token)) {
+        throw new Error(`${pointer}: '${token}' is never a path token`);
+      }
+      return token;
+    });
+}
+
+/** Tokens that lead into a prototype rather than into the document. */
+const FORBIDDEN_TOKENS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function hasOwn(node: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(node, key);
 }
 
 type Container = Record<string, unknown> | unknown[];
@@ -61,7 +74,7 @@ function walk(document: unknown, tokens: string[], pointer: string): Container {
   for (const token of tokens) {
     if (Array.isArray(node)) {
       node = node[arrayIndex(node, token, pointer, false)];
-    } else if (typeof node === 'object' && node !== null && token in node) {
+    } else if (typeof node === 'object' && node !== null && hasOwn(node, token)) {
       node = (node as Record<string, unknown>)[token];
     } else {
       throw new Error(`No value at ${pointer}`);
@@ -97,7 +110,7 @@ function read(document: unknown, pointer: string): unknown {
   if (Array.isArray(parent)) {
     return parent[arrayIndex(parent, last, pointer, false)];
   }
-  if (!(last in parent)) {
+  if (!hasOwn(parent, last)) {
     throw new Error(`No value at ${pointer}`);
   }
   return parent[last];
@@ -128,7 +141,7 @@ function removeAt(document: unknown, pointer: string): unknown {
   if (Array.isArray(parent)) {
     parent.splice(arrayIndex(parent, last, pointer, false), 1);
   } else {
-    if (!(last in parent)) {
+    if (!hasOwn(parent, last)) {
       throw new Error(`No value at ${pointer}`);
     }
     delete parent[last];
@@ -146,7 +159,7 @@ function replaceAt(document: unknown, pointer: string, value: unknown): unknown 
   if (Array.isArray(parent)) {
     parent[arrayIndex(parent, last, pointer, false)] = value;
   } else {
-    if (!(last in parent)) {
+    if (!hasOwn(parent, last)) {
       throw new Error(`No value at ${pointer}`);
     }
     parent[last] = value;
@@ -154,8 +167,25 @@ function replaceAt(document: unknown, pointer: string, value: unknown): unknown 
   return document;
 }
 
+/** JSON equality: arrays in order, objects by their set of keys, whatever their order. */
 function equal(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) {
+    return true;
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => equal(item, b[index]))
+    );
+  }
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) {
+    return false;
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length && keys.every((key) => hasOwn(right, key) && equal(left[key], right[key]))
+  );
 }
 
 /** RFC 6902 on a copy: the document handed in is never changed. */
@@ -193,7 +223,7 @@ export function applyPatch<T>(document: T, operations: readonly PatchOperation[]
   return result as T;
 }
 
-function requireFrom(operation: PatchOperation): string {
+function requireFrom(operation: { op: string; path: string; from?: unknown }): string {
   if (typeof operation.from !== 'string') {
     throw new Error(`'${operation.op}' at ${operation.path} needs 'from'`);
   }

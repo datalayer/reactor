@@ -168,7 +168,8 @@ function textOf(result: unknown): string {
     return result;
   }
   try {
-    return JSON.stringify(result);
+    // A function or a symbol has no JSON: `stringify` answers undefined.
+    return JSON.stringify(result) ?? String(result);
   } catch {
     return String(result);
   }

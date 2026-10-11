@@ -105,6 +105,18 @@ describe('resolveToolResult', () => {
     expect(resolveToolResult(reactor, { toolName: 'resign_in' })).toBeUndefined();
   });
 
+  it('reads a result JSON cannot write as a string, never undefined', () => {
+    const reactor = buildReactorFromPlugins([bindingPlugin('@tests/exact', { tool: 'render_card', type: TYPE })]);
+    reactor.start();
+    const result = function unserializable() {
+      return 1;
+    };
+    const text = resolveToolResult(reactor, { toolName: 'render_card', result })?.text;
+    expect(typeof text).toBe('string');
+    expect(text).toBe(String(result));
+    expect(resolveToolResult(reactor, { toolName: 'render_card', result: Symbol('s') })?.text).toBe('Symbol(s)');
+  });
+
   it('leaves an unbound tool to the host', () => {
     const reactor = buildReactorFromPlugins([bindingPlugin('@tests/bind', { tool: 'render_card', type: TYPE })]);
     reactor.start();

@@ -263,12 +263,119 @@
       "title": "MetaOp",
       "type": "object"
     },
+    "PatchAdd": {
+      "additionalProperties": false,
+      "description": "RFC 6902 ``add``. ``value`` must be there; ``null`` is a value.",
+      "properties": {
+        "op": {
+          "const": "add",
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "value"
+      ],
+      "title": "PatchAdd",
+      "type": "object"
+    },
+    "PatchCopy": {
+      "additionalProperties": false,
+      "description": "RFC 6902 ``copy``, from ``from`` to ``path``.",
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "op": {
+          "const": "copy",
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "from"
+      ],
+      "title": "PatchCopy",
+      "type": "object"
+    },
+    "PatchMove": {
+      "additionalProperties": false,
+      "description": "RFC 6902 ``move``, from ``from`` to ``path``.",
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "op": {
+          "const": "move",
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "from"
+      ],
+      "title": "PatchMove",
+      "type": "object"
+    },
     "PatchOp": {
       "additionalProperties": false,
       "properties": {
         "body": {
           "items": {
-            "$ref": "#/$defs/PatchOperation"
+            "discriminator": {
+              "mapping": {
+                "add": "#/$defs/PatchAdd",
+                "copy": "#/$defs/PatchCopy",
+                "move": "#/$defs/PatchMove",
+                "remove": "#/$defs/PatchRemove",
+                "replace": "#/$defs/PatchReplace",
+                "test": "#/$defs/PatchTest"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PatchAdd"
+              },
+              {
+                "$ref": "#/$defs/PatchRemove"
+              },
+              {
+                "$ref": "#/$defs/PatchReplace"
+              },
+              {
+                "$ref": "#/$defs/PatchMove"
+              },
+              {
+                "$ref": "#/$defs/PatchCopy"
+              },
+              {
+                "$ref": "#/$defs/PatchTest"
+              }
+            ]
           },
           "title": "Body",
           "type": "array"
@@ -302,31 +409,33 @@
       "title": "PatchOp",
       "type": "object"
     },
-    "PatchOperation": {
+    "PatchRemove": {
       "additionalProperties": false,
-      "description": "One RFC 6902 operation.",
+      "description": "RFC 6902 ``remove``: the path, nothing else.",
       "properties": {
-        "from": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "From"
-        },
         "op": {
-          "enum": [
-            "add",
-            "remove",
-            "replace",
-            "move",
-            "copy",
-            "test"
-          ],
+          "const": "remove",
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "op"
+      ],
+      "title": "PatchRemove",
+      "type": "object"
+    },
+    "PatchReplace": {
+      "additionalProperties": false,
+      "description": "RFC 6902 ``replace``. ``value`` must be there; ``null`` is a value.",
+      "properties": {
+        "op": {
+          "const": "replace",
           "title": "Op",
           "type": "string"
         },
@@ -335,15 +444,40 @@
           "type": "string"
         },
         "value": {
-          "default": null,
           "title": "Value"
         }
       },
       "required": [
+        "path",
         "op",
-        "path"
+        "value"
       ],
-      "title": "PatchOperation",
+      "title": "PatchReplace",
+      "type": "object"
+    },
+    "PatchTest": {
+      "additionalProperties": false,
+      "description": "RFC 6902 ``test``. ``value`` must be there; ``null`` is a value.",
+      "properties": {
+        "op": {
+          "const": "test",
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "path",
+        "op",
+        "value"
+      ],
+      "title": "PatchTest",
       "type": "object"
     },
     "RemoveOp": {
@@ -429,7 +563,37 @@
       "properties": {
         "body": {
           "items": {
-            "$ref": "#/$defs/PatchOperation"
+            "discriminator": {
+              "mapping": {
+                "add": "#/$defs/PatchAdd",
+                "copy": "#/$defs/PatchCopy",
+                "move": "#/$defs/PatchMove",
+                "remove": "#/$defs/PatchRemove",
+                "replace": "#/$defs/PatchReplace",
+                "test": "#/$defs/PatchTest"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PatchAdd"
+              },
+              {
+                "$ref": "#/$defs/PatchRemove"
+              },
+              {
+                "$ref": "#/$defs/PatchReplace"
+              },
+              {
+                "$ref": "#/$defs/PatchMove"
+              },
+              {
+                "$ref": "#/$defs/PatchCopy"
+              },
+              {
+                "$ref": "#/$defs/PatchTest"
+              }
+            ]
           },
           "title": "Body",
           "type": "array"

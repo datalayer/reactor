@@ -7,7 +7,7 @@
 - ``show`` → ``ACTIVITY_SNAPSHOT``: the activity is the display, keyed by its
   id, with ``content = {"scope", "display"}``.
 - ``patch`` and ``append`` → ``ACTIVITY_DELTA`` against that content (paths
-  under ``/display``; an append is an ``add`` at ``<path>/-``).
+  and ``from`` under ``/display``; an append is an ``add`` at ``<path>/-``).
 - ``state`` → ``STATE_DELTA``.
 - Everything else → ``CUSTOM`` named ``reactor.ui``, the op whole.
 
@@ -36,6 +36,14 @@ def _ag_ui() -> Any:
     return core
 
 
+def _under_display(operation: dict[str, Any]) -> dict[str, Any]:
+    """An operation on a display as one on the activity: ``path`` and ``from`` under ``/display``."""
+    rebased = {**operation, "path": "/display" + operation["path"]}
+    if "from" in operation:
+        rebased["from"] = "/display" + operation["from"]
+    return rebased
+
+
 def encode_agui(op: UiOp | dict[str, Any]) -> Any:
     """One op as one AG-UI event."""
     core = _ag_ui()
@@ -51,10 +59,7 @@ def encode_agui(op: UiOp | dict[str, Any]) -> Any:
         return core.ActivityDeltaEvent(
             message_id=op.id,
             activity_type=AGUI_NAME,
-            patch=[
-                {**operation.model_dump(mode="json", by_alias=True, exclude_unset=True), "path": "/display" + operation.path}
-                for operation in op.body
-            ],
+            patch=[_under_display(operation.model_dump(mode="json", by_alias=True)) for operation in op.body],
         )
     if isinstance(op, AppendOp):
         return core.ActivityDeltaEvent(
@@ -64,7 +69,7 @@ def encode_agui(op: UiOp | dict[str, Any]) -> Any:
         )
     if isinstance(op, StateOp):
         return core.StateDeltaEvent(
-            delta=[operation.model_dump(mode="json", by_alias=True, exclude_unset=True) for operation in op.body]
+            delta=[operation.model_dump(mode="json", by_alias=True) for operation in op.body]
         )
     return core.CustomEvent(name=AGUI_NAME, value=op.model_dump(mode="json", by_alias=True))
 

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -16,6 +18,7 @@ from reactor import PluginManifest, PluginPlatform
 from reactor.ui import (
     ActionRegistry,
     UiAction,
+    UiActionBusy,
     UiActionError,
     UiActionPayloadInvalid,
     UiActionRefused,
@@ -176,3 +179,64 @@ def test_two_plugins_cannot_register_one_name_and_unregistering_takes_theirs() -
         actions.register("weather.refresh", Refresh, lambda p, c: None, plugin="other")
     actions.unregister_plugin("weather")
     assert actions.names() == []
+
+
+def test_a_token_binds_exactly_one_tuple() -> None:
+    actions, _ = make()
+    # NUL-joined, these two tuples were the same message and so the same token.
+    assert actions.mint("a\0b", "c", "weather.refresh") != actions.mint("a", "b\0c", "weather.refresh")
+    assert actions.mint("s", "d\0weather.refresh", "weather.refresh") != actions.mint(
+        "s\0d", "weather.refresh", "weather.refresh"
+    )
+
+
+def _gated() -> tuple[ActionRegistry, list[str], asyncio.Event]:
+    """Two remembered presses; a press for ``Slow`` waits for the gate."""
+    calls: list[str] = []
+    gate = asyncio.Event()
+
+    async def refresh(payload: Refresh, context) -> str:
+        calls.append(payload.city)
+        if payload.city == "Slow":
+            await gate.wait()
+        return payload.city
+
+    actions = ActionRegistry(SECRET, remember=2)
+    actions.register("weather.refresh", Refresh, refresh, plugin="weather")
+    return actions, calls, gate
+
+
+def press_for(actions: ActionRegistry, city: str, key: str) -> UiAction:
+    return press(actions, idempotency_id=key).model_copy(update={"payload": {"city": city}})
+
+
+async def test_a_pending_press_is_never_evicted() -> None:
+    actions, calls, gate = _gated()
+    first = asyncio.create_task(actions.dispatch("ada", "s1", press_for(actions, "Slow", "k1")))
+    await asyncio.sleep(0)
+    assert await actions.dispatch("ada", "s1", press_for(actions, "Ghent", "k2")) == "Ghent"
+    # k1 still runs: the third press makes room by dropping the settled k2, never k1.
+    assert await actions.dispatch("ada", "s1", press_for(actions, "Mons", "k3")) == "Mons"
+    retry = asyncio.create_task(actions.dispatch("ada", "s1", press_for(actions, "Slow", "k1")))
+    await asyncio.sleep(0)
+    gate.set()
+    assert await asyncio.gather(first, retry) == ["Slow", "Slow"]
+    assert calls == ["Slow", "Ghent", "Mons"]
+
+
+async def test_at_capacity_with_every_press_pending_a_new_one_is_refused() -> None:
+    actions, calls, gate = _gated()
+    pending = [
+        asyncio.create_task(actions.dispatch("ada", "s1", press_for(actions, "Slow", key))) for key in ("k1", "k2")
+    ]
+    await asyncio.sleep(0)
+    with pytest.raises(UiActionBusy) as refused:
+        await actions.dispatch("ada", "s1", press_for(actions, "Ghent", "k3"))
+    assert refused.value.status_code == 429
+    retry = asyncio.create_task(actions.dispatch("ada", "s1", press_for(actions, "Slow", "k1")))
+    await asyncio.sleep(0)
+    gate.set()
+    assert await asyncio.gather(*pending, retry) == ["Slow"] * 3
+    assert calls == ["Slow", "Slow"]
+    # Settled, the room is there again.
+    assert await actions.dispatch("ada", "s1", press_for(actions, "Ghent", "k3")) == "Ghent"

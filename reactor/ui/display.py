@@ -129,6 +129,14 @@ class DisplayRegistry:
         self._classes[key] = cls
         return cls
 
+    def merge(self, other: "DisplayRegistry") -> None:
+        """Take every class of another registry, or none: one conflict refuses them all."""
+        for key, cls in other._classes.items():
+            taken = self._classes.get(key)
+            if taken is not None and taken is not cls:
+                raise ValueError(f"{key[0]} v{key[1]} is already {taken.__module__}.{taken.__qualname__}")
+        self._classes.update(other._classes)
+
     def get(self, display_type: str, version: int | None = None) -> type[Display] | None:
         """The class of a type: this version, or the latest when none is asked."""
         if version is not None:

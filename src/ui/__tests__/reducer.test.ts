@@ -80,4 +80,32 @@ describe('applyPatch (RFC 6902)', () => {
     expect(() => applyPatch({ a: 1 }, [{ op: 'replace', path: '/b', value: 2 }])).toThrow(/No value/);
     expect(() => applyPatch({ a: [] }, [{ op: 'remove', path: '/a/0' }])).toThrow(/out of bounds/);
   });
+
+  it('tests objects by structure, not by key order', () => {
+    const doc = { a: { x: 1, y: [1, { p: null, q: 'r' }] } };
+    expect(applyPatch(doc, [{ op: 'test', path: '/a', value: { y: [1, { q: 'r', p: null }], x: 1 } }])).toEqual(doc);
+    expect(() => applyPatch(doc, [{ op: 'test', path: '/a', value: { x: 1 } }])).toThrow(/test failed/);
+    expect(() => applyPatch(doc, [{ op: 'test', path: '/a/y', value: [{ p: null, q: 'r' }, 1] }])).toThrow(
+      /test failed/,
+    );
+    expect(() => applyPatch({ a: [] }, [{ op: 'test', path: '/a', value: {} }])).toThrow(/test failed/);
+  });
+
+  it('never walks into a prototype', () => {
+    try {
+      expect(() => applyPatch({}, [{ op: 'add', path: '/__proto__/polluted', value: true }])).toThrow(/__proto__/);
+      expect(() => applyPatch({}, [{ op: 'add', path: '/constructor/prototype/polluted', value: true }])).toThrow(
+        /constructor/,
+      );
+      expect(() => applyPatch({ a: {} }, [{ op: 'replace', path: '/a/__proto__', value: { polluted: true } }])).toThrow(
+        /__proto__/,
+      );
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+      // An inherited key is no value: only own properties are walked.
+      expect(() => applyPatch({}, [{ op: 'remove', path: '/toString' }])).toThrow(/No value/);
+      expect(() => applyPatch({}, [{ op: 'add', path: '/hasOwnProperty/x', value: 1 }])).toThrow(/No value/);
+    } finally {
+      delete (Object.prototype as Record<string, unknown>).polluted;
+    }
+  });
 });

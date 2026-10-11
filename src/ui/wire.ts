@@ -27,13 +27,21 @@ export const UI_WIRE_VERSION = 1;
 /** The key a tool result's `_meta` carries a display under. */
 export const DISPLAY_META_KEY = 'reactor.ui/display';
 
-/** One RFC 6902 operation. */
-export type PatchOperation = {
-  op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
-  path: string;
-  value?: unknown;
-  from?: string | null;
-};
+/** RFC 6902 `add`. `value` must be there; `null` is a value. */
+export type PatchAdd = { op: 'add'; path: string; value: unknown };
+/** RFC 6902 `remove`: the path, nothing else. */
+export type PatchRemove = { op: 'remove'; path: string };
+/** RFC 6902 `replace`. `value` must be there; `null` is a value. */
+export type PatchReplace = { op: 'replace'; path: string; value: unknown };
+/** RFC 6902 `move`, from `from` to `path`. */
+export type PatchMove = { op: 'move'; path: string; from: string };
+/** RFC 6902 `copy`, from `from` to `path`. */
+export type PatchCopy = { op: 'copy'; path: string; from: string };
+/** RFC 6902 `test`. `value` must be there; `null` is a value. */
+export type PatchTest = { op: 'test'; path: string; value: unknown };
+
+/** One RFC 6902 operation, told apart by `op`, each with the members it needs. */
+export type PatchOperation = PatchAdd | PatchRemove | PatchReplace | PatchMove | PatchCopy | PatchTest;
 
 /** Something a display lets the page press, with the token the server minted. */
 export type ActionOffer = {
@@ -120,8 +128,13 @@ export const UI_WIRE_FIELDS = {
   DisplayWire: ['type', 'version', 'id', 'text', 'data', 'actions'] satisfies Fields<Display>,
   FileRef: ['ref', 'name', 'media_type', 'size', 'url'] satisfies Fields<FileRef>,
   MetaOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<MetaOp>,
+  PatchAdd: ['op', 'path', 'value'] satisfies Fields<PatchAdd>,
+  PatchCopy: ['op', 'path', 'from'] satisfies Fields<PatchCopy>,
+  PatchMove: ['op', 'path', 'from'] satisfies Fields<PatchMove>,
   PatchOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<PatchOp>,
-  PatchOperation: ['op', 'path', 'value', 'from'] satisfies Fields<PatchOperation>,
+  PatchRemove: ['op', 'path'] satisfies Fields<PatchRemove>,
+  PatchReplace: ['op', 'path', 'value'] satisfies Fields<PatchReplace>,
+  PatchTest: ['op', 'path', 'value'] satisfies Fields<PatchTest>,
   RemoveOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<RemoveOp>,
   ShowOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<ShowOp>,
   StateOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<StateOp>,
@@ -146,25 +159,75 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isOptional(value: unknown, check: (value: unknown) => boolean): boolean {
+  return value === undefined || value === null || check(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isActionOffer(value: unknown): value is ActionOffer {
+  return isRecord(value) && isString(value.name) && isString(value.token) && isOptional(value.label, isString);
+}
+
 /** Whether a value has the shape of a display. */
 export function isDisplay(value: unknown): value is Display {
   return (
     isRecord(value) &&
-    typeof value.type === 'string' &&
-    typeof value.id === 'string' &&
-    typeof value.text === 'string' &&
-    (value.version === undefined || typeof value.version === 'number') &&
+    isString(value.type) &&
+    isString(value.id) &&
+    isString(value.text) &&
+    (value.version === undefined || Number.isInteger(value.version)) &&
     (value.data === undefined || isRecord(value.data)) &&
-    (value.actions === undefined || Array.isArray(value.actions))
+    (value.actions === undefined || (Array.isArray(value.actions) && value.actions.every(isActionOffer)))
   );
 }
 
-/** Whether a value is an op of this wire version. */
+/** Whether a value is one RFC 6902 operation with the members its `op` needs. */
+export function isPatchOperation(value: unknown): value is PatchOperation {
+  if (!isRecord(value) || !isString(value.path)) {
+    return false;
+  }
+  switch (value.op) {
+    case 'add':
+    case 'replace':
+    case 'test':
+      return 'value' in value;
+    case 'remove':
+      return true;
+    case 'move':
+    case 'copy':
+      return isString(value.from);
+    default:
+      return false;
+  }
+}
+
+function isPatch(value: unknown): value is PatchOperation[] {
+  return Array.isArray(value) && value.every(isPatchOperation);
+}
+
+/** What each op requires of its `id` and `body`, as `reactor.ui.wire` declares it. */
+const OP_SHAPES: Record<UiOpName, (op: Record<string, unknown>) => boolean> = {
+  show: (op) => isDisplay(op.body),
+  ask: (op) => isDisplay(op.body),
+  patch: (op) => isString(op.id) && isPatch(op.body),
+  append: (op) => isString(op.id) && isRecord(op.body) && isString(op.body.path),
+  remove: (op) => isString(op.id) && (op.body === undefined || op.body === null),
+  state: (op) => isPatch(op.body),
+  window: (op) => isRecord(op.body) && isString(op.body.name) && (op.body.args === undefined || isRecord(op.body.args)),
+  meta: (op) => isRecord(op.body),
+};
+
+/** Whether a value is an op of this wire version, with the `id` and `body` its op needs. */
 export function isUiOp(value: unknown): value is UiOp {
   return (
     isRecord(value) &&
     value.v === UI_WIRE_VERSION &&
-    typeof value.scope === 'string' &&
-    UI_OP_NAMES.includes(value.op as UiOpName)
+    isString(value.scope) &&
+    isOptional(value.id, isString) &&
+    UI_OP_NAMES.includes(value.op as UiOpName) &&
+    OP_SHAPES[value.op as UiOpName](value)
   );
 }

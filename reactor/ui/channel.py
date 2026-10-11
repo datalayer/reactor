@@ -34,6 +34,7 @@ from .wire import (
 )
 
 _OP = TypeAdapter(UiOp)
+_PATCH: TypeAdapter[Any] = TypeAdapter(PatchOperation)
 
 
 def parse_op(value: UiOp | dict[str, Any]) -> UiOp:
@@ -77,7 +78,7 @@ def ask(channel: UiChannel, scope: str, display: Display) -> None:
 
 def patch(channel: UiChannel, scope: str, display_id: str, operations: list[PatchOperation | dict[str, Any]]) -> None:
     channel.emit(
-        PatchOp(scope=scope, id=display_id, body=[PatchOperation.model_validate(o) for o in operations])
+        PatchOp(scope=scope, id=display_id, body=[_PATCH.validate_python(o) for o in operations])
     )
 
 
@@ -90,7 +91,7 @@ def remove(channel: UiChannel, scope: str, display_id: str) -> None:
 
 
 def state(channel: UiChannel, scope: str, operations: list[PatchOperation | dict[str, Any]]) -> None:
-    channel.emit(StateOp(scope=scope, body=[PatchOperation.model_validate(o) for o in operations]))
+    channel.emit(StateOp(scope=scope, body=[_PATCH.validate_python(o) for o in operations]))
 
 
 def window(channel: UiChannel, scope: str, name: str, **args: Any) -> None:
