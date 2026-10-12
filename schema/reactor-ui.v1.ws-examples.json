@@ -1,0 +1,137 @@
+{
+  "description": "Two connections of one page to scope s1 over reactor.ui.ws: written by tests/test_ui_ws.py, replayed by src/ui/__tests__/ws.test.ts.",
+  "connections": [
+    [
+      {
+        "up": {
+          "t": "hello",
+          "v": 1,
+          "token": "ada",
+          "scope": "s1",
+          "since": null
+        }
+      },
+      {
+        "down": {
+          "t": "welcome",
+          "v": 1,
+          "scope": "s1",
+          "seq": 2
+        }
+      },
+      {
+        "down": {
+          "t": "op",
+          "seq": 1,
+          "op": {
+            "v": 1,
+            "scope": "s1",
+            "id": "card-1",
+            "op": "show",
+            "body": {
+              "type": "application/vnd.example.card+json",
+              "version": 1,
+              "id": "card-1",
+              "text": "A card",
+              "data": {
+                "status": "open"
+              },
+              "actions": []
+            }
+          }
+        }
+      },
+      {
+        "down": {
+          "t": "op",
+          "seq": 2,
+          "op": {
+            "v": 1,
+            "scope": "s1",
+            "id": null,
+            "op": "meta",
+            "body": {
+              "title": "Q3"
+            }
+          }
+        }
+      },
+      {
+        "up": {
+          "t": "action",
+          "ref": "id-2",
+          "action": {
+            "action": "close",
+            "display_id": "card-1",
+            "token": "t0k",
+            "payload": {},
+            "idempotency_id": "id-1"
+          }
+        }
+      },
+      {
+        "down": {
+          "t": "op",
+          "seq": 3,
+          "op": {
+            "v": 1,
+            "scope": "s1",
+            "id": "card-1",
+            "op": "patch",
+            "body": [
+              {
+                "path": "/data/status",
+                "op": "replace",
+                "value": "closed"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "down": {
+          "t": "result",
+          "ref": "id-2",
+          "ok": true,
+          "status": 200,
+          "detail": null,
+          "value": {
+            "closed": "card-1"
+          }
+        }
+      }
+    ],
+    [
+      {
+        "up": {
+          "t": "hello",
+          "v": 1,
+          "token": "ada",
+          "scope": "s1",
+          "since": 3
+        }
+      },
+      {
+        "down": {
+          "t": "welcome",
+          "v": 1,
+          "scope": "s1",
+          "seq": 4
+        }
+      },
+      {
+        "down": {
+          "t": "op",
+          "seq": 4,
+          "op": {
+            "v": 1,
+            "scope": "s1",
+            "id": "card-1",
+            "op": "remove",
+            "body": null
+          }
+        }
+      }
+    ]
+  ]
+}

@@ -69,3 +69,4 @@ plugin packages on one platform.
 | group plugins, and defer their construction | [Extensions and events](/python-plugins/extensions-and-events) |
 | scope plugins per tenant, or publish them | [Tenants and marketplace](/python-plugins/tenants-and-marketplace) |
 | tell the frontend what you need from it | [Cross-tier Dependencies](/cross-tier-dependencies/) |
+| show the page typed displays, and take presses back | [UI channel](/ui-channel/) |

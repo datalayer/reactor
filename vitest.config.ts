@@ -25,6 +25,18 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^@datalayer\/reactor\/ui\/react$/,
+        replacement: fileURLToPath(new URL('./src/react/ui/index.ts', import.meta.url)),
+      },
+      {
+        find: /^@datalayer\/reactor\/ui\/ws$/,
+        replacement: fileURLToPath(new URL('./src/ui/ws.ts', import.meta.url)),
+      },
+      {
+        find: /^@datalayer\/reactor\/ui$/,
+        replacement: fileURLToPath(new URL('./src/ui/index.ts', import.meta.url)),
+      },
+      {
         find: /^@datalayer\/reactor\/react$/,
         replacement: fileURLToPath(new URL('./src/react/index.ts', import.meta.url)),
       },
@@ -40,6 +52,8 @@ export default defineConfig({
       // The plugins in this repo ship as their own packages, and their rules
       // are worth the same coverage as the core's.
       'plugins/*/__tests__/**/*.test.{ts,tsx}',
+      // The reactor.ui example replays the session its Python half records.
+      'examples/ui-channel/src/**/*.test.{ts,tsx}',
     ],
     environmentMatchGlobs: [['src/react/**', 'jsdom']],
     setupFiles: ['./tests/vitest.setup.ts'],

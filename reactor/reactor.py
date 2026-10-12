@@ -1092,6 +1092,52 @@ class PluginPlatform:
                 )
         return bundles
 
+    def display_types(self, tenant_id: str | None = None) -> Any:
+        """The display types enabled plugins provide, as one registry.
+
+        Read fresh on each call, like :meth:`collect_agent_tools`: what a
+        disabled plugin declared is not there. A plugin that fails to declare
+        is left out with a warning; one bad plugin does not hide the others.
+        Each plugin declares into a registry of its own, merged only once it
+        succeeded: a plugin that fails halfway leaves none of its types behind.
+        """
+        from .ui.display import DisplayRegistry
+
+        registry = DisplayRegistry()
+        for plugin_name in sorted(self._enabled_plugin_names(tenant_id)):
+            provider = getattr(self._records[plugin_name].implementation, "provide_display_types", None)
+            if not callable(provider):
+                continue
+            provided = DisplayRegistry()
+            try:
+                self._run_plugin_call(plugin_name, lambda: provider(provided))
+                registry.merge(provided)
+            except Exception as error:  # noqa: BLE001
+                logger.warning("Plugin %s failed to provide display types: %s", plugin_name, error)
+        return registry
+
+    def authorize_ui_action(self, principal: Any, session: str, action: Any) -> bool:
+        """Whether every enabled plugin lets this press run.
+
+        Any ``False`` vetoes, and so does a hook that raises: unlike a plugin
+        failing to contribute, a plugin failing to *decide* must not read as
+        consent.
+        """
+        for plugin_name in sorted(self._enabled_plugin_names(None)):
+            hook = getattr(self._records[plugin_name].implementation, "authorize_ui_action", None)
+            if not callable(hook):
+                continue
+            try:
+                verdict = self._run_plugin_call(
+                    plugin_name, lambda: hook(principal=principal, session=session, action=action)
+                )
+            except Exception as error:  # noqa: BLE001
+                logger.warning("Plugin %s failed authorize_ui_action, vetoing: %s", plugin_name, error)
+                return False
+            if verdict is False:
+                return False
+        return True
+
     def feature_flags(self, tenant_id: str) -> dict[str, bool]:
         flags: dict[str, bool] = {}
         active = set(self.resolve_tenant_plugins(tenant_id))

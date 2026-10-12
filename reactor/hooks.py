@@ -86,3 +86,24 @@ class ReactorHookSpecs:
         framework-agnostic: it hands the object over, the plugin knows what
         it is.
         """
+
+    @hookspec
+    def provide_display_types(self, registry: Any) -> None:
+        """Register the plugin's display types into the host's registry.
+
+        The host passes a :class:`~reactor.ui.display.DisplayRegistry` and the
+        plugin calls ``registry.register(MyDisplay)`` for each
+        ``@display_type`` class it ships, so a host can turn a wire display
+        back into its class and publish every type's schema
+        (:meth:`PluginPlatform.display_types`).
+        """
+
+    @hookspec
+    def authorize_ui_action(self, principal: Any, session: str, action: Any) -> bool | None:
+        """Say whether a press on the page may run.
+
+        Asked for every :class:`~reactor.ui.wire.UiAction` whose token checked
+        out (:class:`~reactor.ui.actions.ActionRegistry`). ``False`` vetoes it;
+        ``True`` or ``None`` has no objection. Any plugin's ``False`` wins, and
+        a plugin whose hook raises vetoes too: a refusal fails closed.
+        """
