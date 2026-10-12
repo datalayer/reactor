@@ -8,12 +8,12 @@ for it.
 | Side | File | What it shows |
 | --- | --- | --- |
 | Python | `ui_channel_example/approval.py` | `@display_type` `Approval` with a page-only note and history, a `SecretStr` that never leaves the server, the `Decide` payload, and a plugin with `provide_display_types` and `authorize_ui_action` (a requester cannot decide their own request) |
-| Python | `ui_channel_example/desk.py` | The host without HTTP: `ActionRegistry` (register, offer, dispatch), a `MemoryUiChannel`, and the ops a decision emits (`patch`, `append`, `state`, `window`) |
-| Python | `ui_channel_example/server.py` | The desk over FastAPI, with `UiActionError` mapped to its `status_code` |
+| Python | `ui_channel_example/desk.py` | The host without HTTP: `ActionRegistry` (register, offer, dispatch), a `UiHub` the ops go to (numbered and kept per session), and the ops a decision emits (`patch`, `append`, `state`, `window`) |
+| Python | `ui_channel_example/server.py` | The desk over FastAPI, and the ui channel's WebSocket (`UiSocket` on `/ui`): ops down, presses up, each answered with the registry's status |
 | Python | `ui_channel_example/scripted.py` | One scripted session, recorded to `fixtures/demo-ops.json` |
 | TypeScript | `src/approvalPlugin.ts` | The renderer (lazy) and a `ToolBindings` entry, as Reactor contributions |
 | TypeScript | `src/ApprovalCard.tsx` | The renderer: draws the fields, presses `approvals.decide` through `act` |
-| TypeScript | `src/App.tsx` | `useUiChannel`, `ReactorDisplay`, the press with the offered token, a bound tool result, a display no plugin draws, and what a model is told |
+| TypeScript | `src/App.tsx` | `useUiSocket`, `ReactorDisplay`, the press with the offered token up the socket, a bound tool result, a display no plugin draws, and what a model is told |
 
 ## Run it
 
@@ -42,7 +42,7 @@ npx vitest run examples/ui-channel/src
 ```
 
 The Python test drives the round trip — display, wire, model view, token,
-dispatch, and the HTTP statuses — and checks `fixtures/demo-ops.json` is still
+dispatch, and the statuses a press is answered with over the socket — and checks `fixtures/demo-ops.json` is still
 what the desk emits. The TypeScript tests resolve the renderer and the tool
 binding, replay that file through the reducer, and press Approve on a rendered
 card. Both run in CI with the rest of the suite.

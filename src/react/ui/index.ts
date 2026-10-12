@@ -13,3 +13,4 @@
 
 export * from './ReactorDisplay';
 export * from './useUiChannel';
+export * from './useUiSocket';

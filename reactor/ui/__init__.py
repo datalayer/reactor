@@ -10,6 +10,7 @@
 - :mod:`~reactor.ui.channel` — ``UiChannel`` and the op helpers.
 - :mod:`~reactor.ui.agui` — ops as AG-UI events (needs ``ag-ui-protocol``).
 - :mod:`~reactor.ui.schema` — the wire as JSON Schema.
+- :mod:`~reactor.ui.ws` — the channel over one WebSocket: ``UiHub``, ``UiSocket``.
 
 The TypeScript half is ``@datalayer/reactor/ui`` (renderer registry, tool
 bindings, the reducer) and ``@datalayer/reactor/ui/react`` (``ReactorDisplay``).
@@ -38,14 +39,18 @@ from .display import (
 )
 from .wire import (
     UI_WIRE_VERSION,
+    ActionFrame,
     ActionOffer,
     AppendBody,
     AppendOp,
     AskOp,
     Display,
     DisplayWire,
+    DownFrame,
     FileRef,
+    HelloFrame,
     MetaOp,
+    OpFrame,
     PatchAdd,
     PatchCopy,
     PatchMove,
@@ -54,11 +59,17 @@ from .wire import (
     PatchRemove,
     PatchReplace,
     PatchTest,
+    PingFrame,
+    PongFrame,
     RemoveOp,
+    ResultFrame,
     ShowOp,
+    StateFrame,
     StateOp,
     UiAction,
     UiOp,
+    UpFrame,
+    WelcomeFrame,
     WindowBody,
     WindowOp,
 )
@@ -70,6 +81,7 @@ __all__ = [
     "DISPLAY_META_KEY",
     "DISPLAY_TYPES",
     "UI_WIRE_VERSION",
+    "ActionFrame",
     "ActionOffer",
     "ActionRegistry",
     "AppendBody",
@@ -79,9 +91,12 @@ __all__ = [
     "Display",
     "DisplayRegistry",
     "DisplayWire",
+    "DownFrame",
     "FileRef",
+    "HelloFrame",
     "MemoryUiChannel",
     "MetaOp",
+    "OpFrame",
     "PatchAdd",
     "PatchCopy",
     "PatchMove",
@@ -90,9 +105,13 @@ __all__ = [
     "PatchRemove",
     "PatchReplace",
     "PatchTest",
+    "PingFrame",
+    "PongFrame",
     "RegisteredAction",
     "RemoveOp",
+    "ResultFrame",
     "ShowOp",
+    "StateFrame",
     "StateOp",
     "UiAction",
     "UiActionBusy",
@@ -104,6 +123,8 @@ __all__ = [
     "UiChannel",
     "UiOp",
     "UnknownUiAction",
+    "UpFrame",
+    "WelcomeFrame",
     "WindowBody",
     "WindowOp",
     "audience",

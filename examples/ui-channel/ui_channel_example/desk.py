@@ -6,8 +6,9 @@
 
 An :class:`ApprovalDesk` owns a plugin platform with the approval plugin on
 it, an :class:`~reactor.ui.ActionRegistry` that mints and checks the tokens,
-and a :class:`~reactor.ui.MemoryUiChannel` the ops go to. ``server.py`` puts
-HTTP in front of it; the tests drive it directly.
+and a :class:`~reactor.ui.ws.UiHub` the ops go to — numbered and kept per
+session, for the page's WebSocket. ``server.py`` mounts the socket in front
+of it; the tests drive it directly.
 """
 
 from __future__ import annotations
@@ -17,13 +18,13 @@ from typing import Any
 from reactor import PluginManifest, PluginPlatform
 from reactor.ui import (
     ActionRegistry,
-    MemoryUiChannel,
     UiAction,
     UiActionContext,
     UiActionError,
     model_view,
 )
 from reactor.ui import channel as ui
+from reactor.ui.ws import UiHub
 
 from .approval import DECIDE, Approval, ApprovalPlugin, Decide
 
@@ -43,7 +44,7 @@ class ApprovalDesk:
         )
         self.actions = ActionRegistry(secret, platform=self.platform)
         self.actions.register(DECIDE, Decide, self._decide, plugin="approvals")
-        self.channel = MemoryUiChannel()
+        self.channel = UiHub()
         self._approvals: dict[str, tuple[str, Approval]] = {}
         #: What a model is told about each decision, in order.
         self.told: list[dict[str, Any]] = []
@@ -61,20 +62,19 @@ class ApprovalDesk:
         ui.show(self.channel, session, approval)
         return approval
 
-    async def press(self, principal: str, session: str, body: dict[str, Any]) -> Any:
+    async def press(self, principal: str, session: str, body: dict[str, Any] | UiAction) -> Any:
         """What the page sent, checked and run: the token, the veto, the payload."""
-        return await self.actions.dispatch(principal, session, UiAction.model_validate(body))
+        action = body if isinstance(body, UiAction) else UiAction.model_validate(body)
+        return await self.actions.dispatch(principal, session, action)
 
     def ops(self, session: str) -> list[dict[str, Any]]:
         """The session's ops as JSON, as the page receives them."""
-        return [op for op in self.channel.dump() if op["scope"] == session]
+        return [frame.model_dump(mode="json", by_alias=True)["op"] for frame in self.channel.ops(session)]
 
     def model_view(self, session: str) -> dict[str, Any]:
         """Everything a model is told about a session: its approvals, and the decisions."""
         return {
-            "approvals": [
-                approval.model_view() for scope, approval in self._approvals.values() if scope == session
-            ],
+            "approvals": [approval.model_view() for scope, approval in self._approvals.values() if scope == session],
             "decisions": [told for told in self.told if told["session"] == session],
         }
 
@@ -103,9 +103,20 @@ class ApprovalDesk:
         ui.state(
             self.channel,
             session,
-            [{"op": "add", "path": "/last_decision", "value": {"id": approval.id, "status": approval.status}}],
+            [
+                {
+                    "op": "add",
+                    "path": "/last_decision",
+                    "value": {"id": approval.id, "status": approval.status},
+                }
+            ],
         )
-        ui.window(self.channel, session, "notify", message=f"{approval.title} {approval.status}")
+        ui.window(
+            self.channel,
+            session,
+            "notify",
+            message=f"{approval.title} {approval.status}",
+        )
 
         # The comment is page-only: the model learns what was decided, not what was typed.
         self.told.append(

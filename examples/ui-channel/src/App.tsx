@@ -5,16 +5,17 @@
  */
 
 /**
- * The page: ops in through `useUiChannel`, displays out through
- * `ReactorDisplay`, presses back to the server with the offered token.
+ * The page: ops in over the ui channel's WebSocket (`useUiSocket`), displays
+ * out through `ReactorDisplay`, presses back up the socket with the offered
+ * token, each answered with the registry's status.
  */
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { buildReactorFromPlugins } from '../../../src';
 import { useReactor } from '../../../src/react';
 import { orderedDisplays, resolveToolResult, type Display, type UiAct } from '../../../src/ui';
-import { ReactorDisplay, useUiChannel } from '../../../src/react/ui';
-import { SESSION, readModelView, readOps, requestApproval, sendAction } from './api';
+import { ReactorDisplay, useUiSocket } from '../../../src/react/ui';
+import { SESSION, SOCKET, readModelView, requestApproval } from './api';
 import { ApprovalsPlugin } from './approvalPlugin';
 
 const PEOPLE = ['grace', 'ada'];
@@ -34,46 +35,24 @@ const UNCLAIMED: Display = {
 };
 
 export function App() {
+  const [principal, setPrincipal] = useState(PEOPLE[0]);
+  // One connection per person: their name is the credential the hello carries.
+  return <Desk key={principal} principal={principal} setPrincipal={setPrincipal} />;
+}
+
+function Desk({ principal, setPrincipal }: { principal: string; setPrincipal: (person: string) => void }) {
   const reactor = useMemo(() => buildReactorFromPlugins([ApprovalsPlugin]), []);
   useReactor(reactor);
 
   const [notice, setNotice] = useState<string>();
   const [error, setError] = useState<string>();
-  const [principal, setPrincipal] = useState(PEOPLE[0]);
   const [told, setTold] = useState<unknown>();
-  const { model, emit } = useUiChannel({
+  const { model, status, reason, act } = useUiSocket({
+    url: SOCKET,
     scope: SESSION,
+    token: () => principal,
     onWindow: (op) => setNotice(String(op.body.args?.message ?? op.body.name)),
   });
-
-  // Poll the server. A host on a websocket or an AG-UI stream calls `emit`
-  // from its message handler instead. The cursor outlives a remount, so no
-  // op is applied twice (an `append` would append twice).
-  const after = useRef(0);
-  useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      try {
-        const page = await readOps(after.current);
-        if (stopped) {
-          return;
-        }
-        emit(page.ops);
-        after.current = page.next;
-      } catch (failure) {
-        setError(String(failure));
-      }
-      if (!stopped) {
-        timer = setTimeout(tick, 1000);
-      }
-    };
-    void tick();
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [emit]);
 
   useEffect(() => {
     readModelView().then(setTold, () => undefined);
@@ -90,7 +69,11 @@ export function App() {
       }
       try {
         setError(undefined);
-        return await sendAction(principal, { ...action, display_id: display.id, token: offer.token });
+        const result = await act({ ...action, display_id: display.id, token: offer.token });
+        if (!result.ok) {
+          setError(`${result.status}: ${result.detail ?? ''}`);
+        }
+        return result.value;
       } catch (failure) {
         setError(String(failure));
       }
@@ -138,6 +121,10 @@ export function App() {
           ))}
         </select>{' '}
         — a requester deciding their own request is vetoed (403).
+      </p>
+      <p>
+        Socket: {status}
+        {reason ? ` (${reason})` : ''}
       </p>
       {notice ? <p role="status">Window: {notice}</p> : null}
       {error ? <p role="alert" style={{ color: '#cf222e' }}>{error}</p> : null}

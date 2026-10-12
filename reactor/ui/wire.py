@@ -246,6 +246,105 @@ class UiAction(_Wire):
     idempotency_id: str | None = None
 
 
+# --- the socket's frames (REACTOR_UI RU-W) -------------------------------------------
+#
+# One WebSocket per conversation carries the ops down and the page's presses
+# up (:mod:`reactor.ui.ws`). Every frame is one JSON object told apart by
+# ``t``; a frame that is not one of these is refused, and the connection
+# closed with the reason.
+
+
+class HelloFrame(_Wire):
+    """Up, first and only once: who connects, to which scope, from where.
+
+    ``token`` is the credential the host's ``authenticate`` checks — sent in
+    the first frame, never in the URL. ``since`` is the last sequence number
+    the page applied: the ops after it are sent again (a resume); none, and
+    every op the host still keeps for the scope is sent.
+    """
+
+    t: Literal["hello"]
+    v: Literal[1] = UI_WIRE_VERSION
+    token: str
+    scope: str
+    since: int | None = Field(default=None, ge=0)
+
+
+class ActionFrame(_Wire):
+    """Up: a press of something a display offered. ``ref`` names its result."""
+
+    t: Literal["action"]
+    ref: str = Field(min_length=1, max_length=128)
+    action: UiAction
+
+
+class StateFrame(_Wire):
+    """Up: RFC 6902 operations against the scope's shared state, from the page."""
+
+    t: Literal["state"]
+    ref: str = Field(min_length=1, max_length=128)
+    body: list[PatchOperation]
+
+
+class PingFrame(_Wire):
+    """Either way: are you there? Answered by a pong."""
+
+    t: Literal["ping"]
+
+
+class PongFrame(_Wire):
+    """Either way: the answer to a ping."""
+
+    t: Literal["pong"]
+
+
+class WelcomeFrame(_Wire):
+    """Down, first: the hello accepted. ``seq`` is the scope's last sequence
+    number now; the ops replayed for the hello follow, then the live ones."""
+
+    t: Literal["welcome"]
+    v: Literal[1] = UI_WIRE_VERSION
+    scope: str
+    seq: int = Field(ge=0)
+
+
+class OpFrame(_Wire):
+    """Down: one op, numbered. Within a scope the numbers go up by one, with
+    no gap: a page that sees a gap reconnects with ``since``."""
+
+    t: Literal["op"]
+    seq: int = Field(ge=1)
+    op: UiOp
+
+
+class ResultFrame(_Wire):
+    """Down: what came of an action or a state frame, by its ``ref``.
+
+    ``status`` is the HTTP status a route would have answered: 200, or the
+    refusal's (403 not offered or vetoed, 422 unknown or malformed, 429 busy).
+    """
+
+    t: Literal["result"]
+    ref: str
+    ok: bool
+    status: int
+    detail: str | None = None
+    value: Any = None
+
+
+#: What the page sends.
+UpFrame = Annotated[
+    Union[HelloFrame, ActionFrame, StateFrame, PingFrame, PongFrame],
+    Field(discriminator="t"),
+]
+
+#: What the host sends.
+DownFrame = Annotated[
+    Union[WelcomeFrame, OpFrame, ResultFrame, PingFrame, PongFrame],
+    Field(discriminator="t"),
+]
+
+
 class Display(BaseModel):
     """A typed display: subclass it, declare fields, say what it reads as.
 
@@ -314,16 +413,23 @@ class Display(BaseModel):
         """This class's display back from its wire form."""
         received = wire if isinstance(wire, DisplayWire) else DisplayWire.model_validate(wire)
         if received.type != cls.display_type or received.version != cls.display_version:
-            raise ValueError(
-                f"{received.type} v{received.version} is not "
-                f"{cls.display_type} v{cls.display_version}"
-            )
+            raise ValueError(f"{received.type} v{received.version} is not {cls.display_type} v{cls.display_version}")
         return cls.model_validate({**received.data, "id": received.id, "actions": received.actions})
 
 
 __all__ = [
     "UI_WIRE_VERSION",
+    "ActionFrame",
     "ActionOffer",
+    "DownFrame",
+    "HelloFrame",
+    "OpFrame",
+    "PingFrame",
+    "PongFrame",
+    "ResultFrame",
+    "StateFrame",
+    "UpFrame",
+    "WelcomeFrame",
     "AppendBody",
     "AppendOp",
     "AskOp",

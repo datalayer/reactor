@@ -21,7 +21,15 @@ from typing import Any
 from pydantic import TypeAdapter
 from pydantic.json_schema import models_json_schema
 
-from .wire import UI_WIRE_VERSION, DisplayWire, FileRef, UiAction, UiOp
+from .wire import (
+    UI_WIRE_VERSION,
+    DisplayWire,
+    DownFrame,
+    FileRef,
+    UiAction,
+    UiOp,
+    UpFrame,
+)
 
 SCHEMA_ID = f"https://reactor.datalayer.tech/schema/reactor-ui.v{UI_WIRE_VERSION}.schema.json"
 
@@ -32,11 +40,20 @@ _REF = "#/$defs/{model}"
 
 
 def ui_wire_schema() -> dict[str, Any]:
-    """The whole wire: every op, the display, the action, the file reference."""
+    """The whole wire: every op, the display, the action, the file reference,
+    and the socket's frames each way (``UpFrame``, ``DownFrame``)."""
     op = TypeAdapter(UiOp).json_schema(ref_template=_REF)
     defs: dict[str, Any] = dict(op.pop("$defs", {}))
+    for name, frames in (("UpFrame", UpFrame), ("DownFrame", DownFrame)):
+        frame = TypeAdapter(frames).json_schema(ref_template=_REF)
+        defs.update(frame.pop("$defs", {}))
+        defs[name] = frame
     _, models = models_json_schema(
-        [(DisplayWire, "validation"), (UiAction, "validation"), (FileRef, "validation")],
+        [
+            (DisplayWire, "validation"),
+            (UiAction, "validation"),
+            (FileRef, "validation"),
+        ],
         ref_template=_REF,
     )
     defs.update(models.get("$defs", {}))
@@ -45,8 +62,7 @@ def ui_wire_schema() -> dict[str, Any]:
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": SCHEMA_ID,
         "title": f"Reactor UI wire, v{UI_WIRE_VERSION}",
-        "description": "One op of the envelope a host emits to the page. "
-        "UiAction is what the page sends back.",
+        "description": "One op of the envelope a host emits to the page. UiAction is what the page sends back.",
         "$ref": "#/$defs/UiOp",
         "$defs": dict(sorted(defs.items())),
     }
@@ -63,4 +79,10 @@ def write_schema(path: Path) -> Path:
     return path
 
 
-__all__ = ["SCHEMA_ID", "SCHEMA_PATH", "render_schema", "ui_wire_schema", "write_schema"]
+__all__ = [
+    "SCHEMA_ID",
+    "SCHEMA_PATH",
+    "render_schema",
+    "ui_wire_schema",
+    "write_schema",
+]

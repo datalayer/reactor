@@ -73,12 +73,22 @@ def test_the_display_comes_back_from_its_wire_form() -> None:
 async def test_a_press_runs_once_and_the_page_hears_of_it() -> None:
     desk = ApprovalDesk(SECRET)
     approval = desk.request("s1", laptop())
-    body = {**press_body(approval, comment="replaces the old one"), "idempotency_id": "p1"}
+    body = {
+        **press_body(approval, comment="replaces the old one"),
+        "idempotency_id": "p1",
+    }
     assert await desk.press("grace", "s1", body) == {"status": "approved"}
     # A retry of the same press gets the first answer; the handler does not run again.
     assert await desk.press("grace", "s1", body) == {"status": "approved"}
     assert approval.history == ["approved by grace: replaces the old one"]
-    assert [op["op"] for op in desk.ops("s1")] == ["meta", "show", "patch", "append", "state", "window"]
+    assert [op["op"] for op in desk.ops("s1")] == [
+        "meta",
+        "show",
+        "patch",
+        "append",
+        "state",
+        "window",
+    ]
     # The model learns the decision; the comment typed with it stays on the page.
     (told,) = desk.model_view("s1")["decisions"]
     assert told["decision"] == {"approve": True}
@@ -121,27 +131,59 @@ def test_the_recorded_session_is_what_the_desk_emits() -> None:
         parse_op(op)
 
 
-def test_over_http() -> None:
+def test_over_http_and_the_socket() -> None:
     client = TestClient(create_app(ApprovalDesk(SECRET)))
     shown = client.post(
         f"/sessions/{SESSION}/approvals",
         json={"title": "Laptop", "amount_eur": 1890, "requester": "ada"},
     ).json()
-    body = {"action": DECIDE, "display_id": shown["id"], "token": shown["actions"][0]["token"], "payload": {"approve": False}}
+    press = {
+        "action": DECIDE,
+        "display_id": shown["id"],
+        "token": shown["actions"][0]["token"],
+        "payload": {"approve": False},
+    }
 
-    refused = client.post(f"/sessions/{SESSION}/actions", json=body, headers={"X-Principal": "ada"})
-    assert (refused.status_code, refused.json()["error"]) == (403, "UiActionRefused")
-    forged = client.post(f"/sessions/{SESSION}/actions", json={**body, "token": "forged"})
-    assert (forged.status_code, forged.json()["error"]) == (403, "UiActionTokenInvalid")
-    unknown = client.post(f"/sessions/{SESSION}/actions", json={**body, "action": "approvals.nope"})
-    assert unknown.status_code == 422
+    def say(ws, ref: str, action: dict) -> dict:
+        ws.send_text(json.dumps({"t": "action", "ref": ref, "action": action}))
+        while (frame := ws.receive_json())["t"] != "result":
+            pass
+        return frame
 
-    decided = client.post(f"/sessions/{SESSION}/actions", json=body, headers={"X-Principal": "grace"})
-    assert decided.json() == {"status": "rejected"}
-    late = client.post(f"/sessions/{SESSION}/actions", json=body)
-    assert late.status_code == 409
+    # Somebody nobody knows is refused at the hello.
+    with client.websocket_connect("/ui") as ws:
+        ws.send_text(json.dumps({"t": "hello", "token": "mallory", "scope": SESSION}))
+        with pytest.raises(Exception):
+            ws.receive_json()
 
-    page = client.get(f"/sessions/{SESSION}/ops", params={"after": 2}).json()
-    assert [op["op"] for op in page["ops"]] == ["patch", "append", "state", "window"]
-    assert page["next"] == 6
+    with client.websocket_connect("/ui") as ada:
+        ada.send_text(json.dumps({"t": "hello", "token": "ada", "scope": SESSION}))
+        assert ada.receive_json() == {
+            "t": "welcome",
+            "v": 1,
+            "scope": SESSION,
+            "seq": 2,
+        }
+        assert [ada.receive_json()["op"]["op"] for _ in range(2)] == ["meta", "show"]
+        refused = say(ada, "r1", press)
+        assert (refused["ok"], refused["status"]) == (False, 403)
+        forged = say(ada, "r2", {**press, "token": "forged"})
+        assert forged["status"] == 403
+        unknown = say(ada, "r3", {**press, "action": "approvals.nope"})
+        assert unknown["status"] == 422
+
+    with client.websocket_connect("/ui") as grace:
+        grace.send_text(json.dumps({"t": "hello", "token": "grace", "scope": SESSION, "since": 2}))
+        assert grace.receive_json()["seq"] == 2
+        decided = say(grace, "r4", press)
+        assert (decided["ok"], decided["value"]) == (True, {"status": "rejected"})
+        late = say(grace, "r5", press)
+        assert late["status"] == 409
+
+    assert [op["op"] for op in client.app.state.desk.ops(SESSION)][2:] == [
+        "patch",
+        "append",
+        "state",
+        "window",
+    ]
     assert "application/vnd.reactor-example.approval+json@1" in client.get("/display-types").json()

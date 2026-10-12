@@ -2,18 +2,16 @@
 #
 # Datalayer License
 
-"""The desk over HTTP, for the page in ``src/``.
+"""The desk over HTTP and one WebSocket, for the page in ``src/``.
 
+- ``WS /ui`` — the ui channel (``reactor.ui.ws``): the page says hello with
+  its credential and a session, receives the session's ops numbered, and
+  sends its presses up, each answered with the registry's status. Here the
+  credential is the person's name, ``grace`` or ``ada``; a real host checks
+  its own.
 - ``POST /sessions/{session}/approvals`` — request an approval: a ``show`` op.
-- ``GET /sessions/{session}/ops?after=n`` — the ops from the n-th on. The page
-  polls; a host on a websocket or an AG-UI stream sends the same ops.
-- ``POST /sessions/{session}/actions`` — a press. ``X-Principal`` says who
-  pressed (a real host takes it from its own authentication).
 - ``GET /sessions/{session}/model`` — what a model is told about the session.
 - ``GET /display-types`` — every display type's JSON Schema.
-
-The reactor ships no route for actions: the host maps ``UiActionError`` to
-its ``status_code`` in its own exception handler, as here.
 
 ::
 
@@ -26,18 +24,27 @@ import os
 import secrets
 from typing import Any
 
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from reactor.ui import UiActionError
+from reactor.ui import UiAction
+from reactor.ui.ws import UiSocket
 
 from .approval import Approval
 from .desk import ApprovalDesk
 
 #: Where the page's dev server runs.
 PAGE_ORIGIN = "http://localhost:5181"
+
+#: Who may connect: the credential is the name, in this example only.
+PEOPLE = ("grace", "ada")
+
+
+def authenticate(token: str, scope: str) -> str:
+    if token not in PEOPLE:
+        raise PermissionError(f"{token!r} is nobody here")
+    return token
 
 
 class ApprovalRequest(BaseModel):
@@ -59,28 +66,16 @@ def create_app(desk: ApprovalDesk | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.exception_handler(UiActionError)
-    async def refused(_: Request, error: UiActionError) -> JSONResponse:
-        return JSONResponse(
-            status_code=error.status_code,
-            content={"error": type(error).__name__, "detail": str(error)},
-        )
+    async def on_action(principal: str, session: str, action: UiAction) -> object:
+        return await desk.press(principal, session, action)
+
+    socket = UiSocket(desk.channel, authenticate=authenticate, on_action=on_action)
+    app.add_api_websocket_route("/ui", socket.endpoint)
 
     @app.post("/sessions/{session}/approvals")
     def request_approval(session: str, body: ApprovalRequest) -> dict[str, Any]:
         approval = desk.request(session, Approval(**body.model_dump()))
         return approval.wire().model_dump(mode="json")
-
-    @app.get("/sessions/{session}/ops")
-    def ops(session: str, after: int = 0) -> dict[str, Any]:
-        everything = desk.ops(session)
-        return {"ops": everything[after:], "next": len(everything)}
-
-    @app.post("/sessions/{session}/actions")
-    async def press(
-        session: str, body: dict[str, Any], x_principal: str = Header(default="grace")
-    ) -> Any:
-        return await desk.press(x_principal, session, body)
 
     @app.get("/sessions/{session}/model")
     def model(session: str) -> dict[str, Any]:

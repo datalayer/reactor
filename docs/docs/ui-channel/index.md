@@ -19,7 +19,8 @@ between a Python host and the page, with a half on each tier:
 | --- | --- | --- |
 | Python | `reactor.ui` | the envelope and its ops, typed displays with audiences, typed actions with minted tokens, the AG-UI encoder, the JSON Schema |
 | TypeScript | `@datalayer/reactor/ui` | the wire types and guards, the renderer registry and tool bindings, a pure reducer |
-| React | `@datalayer/reactor/ui/react` | `<ReactorDisplay>`, `defineRenderer`, `useUiChannel` |
+| TypeScript | `@datalayer/reactor/ui/ws` | `UiSocket`, the page's end of the ui channel's WebSocket |
+| React | `@datalayer/reactor/ui/react` | `<ReactorDisplay>`, `defineRenderer`, `useUiChannel`, `useUiSocket` |
 
 The Python half needs nothing beyond pydantic (the AG-UI encoder is an
 optional extra); the TypeScript half has no React in it.
@@ -112,6 +113,9 @@ weather.model_view()  # what a model is told: the text, city, celsius
   and the errors a route answers with.
 - [AG-UI](/ui-channel/agui) — the ops as AG-UI events, for a page that already reads an
   AG-UI stream.
+- [WebSocket](/ui-channel/websocket) — one connection per conversation: ops down
+  numbered, presses and page state up, hello, resume, heartbeats, backpressure,
+  refusal (`reactor.ui.ws`, `UiSocket`, `useUiSocket`).
 - [Schema and types](/ui-channel/schema) — the JSON Schema, and how the TypeScript types
   are kept in step.
 - [Security](/ui-channel/security) — what never reaches a model, and what the page may

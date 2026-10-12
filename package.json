@@ -32,6 +32,10 @@
       "types": "./lib/ui/index.d.ts",
       "import": "./lib/ui/index.js"
     },
+    "./ui/ws": {
+      "types": "./lib/ui/ws.d.ts",
+      "import": "./lib/ui/ws.js"
+    },
     "./ui/react": {
       "types": "./lib/react/ui/index.d.ts",
       "import": "./lib/react/ui/index.js"

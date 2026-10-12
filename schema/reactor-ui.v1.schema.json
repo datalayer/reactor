@@ -1,5 +1,32 @@
 {
   "$defs": {
+    "ActionFrame": {
+      "additionalProperties": false,
+      "description": "Up: a press of something a display offered. ``ref`` names its result.",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/UiAction"
+        },
+        "ref": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        },
+        "t": {
+          "const": "action",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "ref",
+        "action"
+      ],
+      "title": "ActionFrame",
+      "type": "object"
+    },
     "ActionOffer": {
       "additionalProperties": false,
       "description": "Something a display lets the page press.\n\n``token`` is minted by the server for this display, this session and this\naction (:meth:`reactor.ui.actions.ActionRegistry.offer`): only what was\noffered can be pressed.",
@@ -170,6 +197,35 @@
       "title": "DisplayWire",
       "type": "object"
     },
+    "DownFrame": {
+      "discriminator": {
+        "mapping": {
+          "op": "#/$defs/OpFrame",
+          "ping": "#/$defs/PingFrame",
+          "pong": "#/$defs/PongFrame",
+          "result": "#/$defs/ResultFrame",
+          "welcome": "#/$defs/WelcomeFrame"
+        },
+        "propertyName": "t"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/WelcomeFrame"
+        },
+        {
+          "$ref": "#/$defs/OpFrame"
+        },
+        {
+          "$ref": "#/$defs/ResultFrame"
+        },
+        {
+          "$ref": "#/$defs/PingFrame"
+        },
+        {
+          "$ref": "#/$defs/PongFrame"
+        }
+      ]
+    },
     "FileRef": {
       "additionalProperties": false,
       "description": "A file by reference: uploaded, or offered for download.\n\nFiles never ride inside JSON. ``ref`` is the host's handle on the bytes;\n``url`` is where the page may fetch them, signed and short-lived when it is\nthere at all.",
@@ -219,6 +275,51 @@
       "title": "FileRef",
       "type": "object"
     },
+    "HelloFrame": {
+      "additionalProperties": false,
+      "description": "Up, first and only once: who connects, to which scope, from where.\n\n``token`` is the credential the host's ``authenticate`` checks \u2014 sent in\nthe first frame, never in the URL. ``since`` is the last sequence number\nthe page applied: the ops after it are sent again (a resume); none, and\nevery op the host still keeps for the scope is sent.",
+      "properties": {
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "t": {
+          "const": "hello",
+          "title": "T",
+          "type": "string"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "token",
+        "scope"
+      ],
+      "title": "HelloFrame",
+      "type": "object"
+    },
     "MetaOp": {
       "additionalProperties": false,
       "properties": {
@@ -261,6 +362,71 @@
         "body"
       ],
       "title": "MetaOp",
+      "type": "object"
+    },
+    "OpFrame": {
+      "additionalProperties": false,
+      "description": "Down: one op, numbered. Within a scope the numbers go up by one, with\nno gap: a page that sees a gap reconnects with ``since``.",
+      "properties": {
+        "op": {
+          "discriminator": {
+            "mapping": {
+              "append": "#/$defs/AppendOp",
+              "ask": "#/$defs/AskOp",
+              "meta": "#/$defs/MetaOp",
+              "patch": "#/$defs/PatchOp",
+              "remove": "#/$defs/RemoveOp",
+              "show": "#/$defs/ShowOp",
+              "state": "#/$defs/StateOp",
+              "window": "#/$defs/WindowOp"
+            },
+            "propertyName": "op"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ShowOp"
+            },
+            {
+              "$ref": "#/$defs/PatchOp"
+            },
+            {
+              "$ref": "#/$defs/AppendOp"
+            },
+            {
+              "$ref": "#/$defs/RemoveOp"
+            },
+            {
+              "$ref": "#/$defs/StateOp"
+            },
+            {
+              "$ref": "#/$defs/AskOp"
+            },
+            {
+              "$ref": "#/$defs/WindowOp"
+            },
+            {
+              "$ref": "#/$defs/MetaOp"
+            }
+          ],
+          "title": "Op"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "t": {
+          "const": "op",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
+      "title": "OpFrame",
       "type": "object"
     },
     "PatchAdd": {
@@ -480,6 +646,38 @@
       "title": "PatchTest",
       "type": "object"
     },
+    "PingFrame": {
+      "additionalProperties": false,
+      "description": "Either way: are you there? Answered by a pong.",
+      "properties": {
+        "t": {
+          "const": "ping",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "PingFrame",
+      "type": "object"
+    },
+    "PongFrame": {
+      "additionalProperties": false,
+      "description": "Either way: the answer to a ping.",
+      "properties": {
+        "t": {
+          "const": "pong",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "title": "PongFrame",
+      "type": "object"
+    },
     "RemoveOp": {
       "additionalProperties": false,
       "properties": {
@@ -514,6 +712,53 @@
         "id"
       ],
       "title": "RemoveOp",
+      "type": "object"
+    },
+    "ResultFrame": {
+      "additionalProperties": false,
+      "description": "Down: what came of an action or a state frame, by its ``ref``.\n\n``status`` is the HTTP status a route would have answered: 200, or the\nrefusal's (403 not offered or vetoed, 422 unknown or malformed, 429 busy).",
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "integer"
+        },
+        "t": {
+          "const": "result",
+          "title": "T",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "t",
+        "ref",
+        "ok",
+        "status"
+      ],
+      "title": "ResultFrame",
       "type": "object"
     },
     "ShowOp": {
@@ -556,6 +801,67 @@
         "body"
       ],
       "title": "ShowOp",
+      "type": "object"
+    },
+    "StateFrame": {
+      "additionalProperties": false,
+      "description": "Up: RFC 6902 operations against the scope's shared state, from the page.",
+      "properties": {
+        "body": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add": "#/$defs/PatchAdd",
+                "copy": "#/$defs/PatchCopy",
+                "move": "#/$defs/PatchMove",
+                "remove": "#/$defs/PatchRemove",
+                "replace": "#/$defs/PatchReplace",
+                "test": "#/$defs/PatchTest"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PatchAdd"
+              },
+              {
+                "$ref": "#/$defs/PatchRemove"
+              },
+              {
+                "$ref": "#/$defs/PatchReplace"
+              },
+              {
+                "$ref": "#/$defs/PatchMove"
+              },
+              {
+                "$ref": "#/$defs/PatchCopy"
+              },
+              {
+                "$ref": "#/$defs/PatchTest"
+              }
+            ]
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "ref": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        },
+        "t": {
+          "const": "state",
+          "title": "T",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "ref",
+        "body"
+      ],
+      "title": "StateFrame",
       "type": "object"
     },
     "StateOp": {
@@ -716,6 +1022,68 @@
           "$ref": "#/$defs/MetaOp"
         }
       ]
+    },
+    "UpFrame": {
+      "discriminator": {
+        "mapping": {
+          "action": "#/$defs/ActionFrame",
+          "hello": "#/$defs/HelloFrame",
+          "ping": "#/$defs/PingFrame",
+          "pong": "#/$defs/PongFrame",
+          "state": "#/$defs/StateFrame"
+        },
+        "propertyName": "t"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HelloFrame"
+        },
+        {
+          "$ref": "#/$defs/ActionFrame"
+        },
+        {
+          "$ref": "#/$defs/StateFrame"
+        },
+        {
+          "$ref": "#/$defs/PingFrame"
+        },
+        {
+          "$ref": "#/$defs/PongFrame"
+        }
+      ]
+    },
+    "WelcomeFrame": {
+      "additionalProperties": false,
+      "description": "Down, first: the hello accepted. ``seq`` is the scope's last sequence\nnumber now; the ops replayed for the hello follow, then the live ones.",
+      "properties": {
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 0,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "t": {
+          "const": "welcome",
+          "title": "T",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "t",
+        "scope",
+        "seq"
+      ],
+      "title": "WelcomeFrame",
+      "type": "object"
     },
     "WindowBody": {
       "additionalProperties": false,

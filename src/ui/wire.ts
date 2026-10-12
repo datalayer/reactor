@@ -106,6 +106,40 @@ export type UiAction = {
   idempotency_id?: string | null;
 };
 
+/*
+ * The socket's frames (REACTOR_UI RU-W): one WebSocket per conversation,
+ * ops down numbered, presses and page state up, each told apart by `t`.
+ */
+
+/** Up, first and only once: the credential (never in the URL), the scope, the last op applied. */
+export type HelloFrame = { t: 'hello'; v?: 1; token: string; scope: string; since?: number | null };
+/** Up: a press of something a display offered; `ref` names its result. */
+export type ActionFrame = { t: 'action'; ref: string; action: UiAction };
+/** Up: RFC 6902 operations against the scope's shared state. */
+export type StateFrame = { t: 'state'; ref: string; body: PatchOperation[] };
+/** Either way: are you there? */
+export type PingFrame = { t: 'ping' };
+/** Either way: the answer to a ping. */
+export type PongFrame = { t: 'pong' };
+/** Down, first: the hello accepted; `seq` is the scope's last op now. */
+export type WelcomeFrame = { t: 'welcome'; v?: 1; scope: string; seq: number };
+/** Down: one op, numbered one more than the last of its scope. */
+export type OpFrame = { t: 'op'; seq: number; op: UiOp };
+/** Down: what came of an action or a state frame, by its `ref`, with the HTTP status a route would answer. */
+export type ResultFrame = {
+  t: 'result';
+  ref: string;
+  ok: boolean;
+  status: number;
+  detail?: string | null;
+  value?: unknown;
+};
+
+/** What the page sends. */
+export type UpFrame = HelloFrame | ActionFrame | StateFrame | PingFrame | PongFrame;
+/** What the host sends. */
+export type DownFrame = WelcomeFrame | OpFrame | ResultFrame | PingFrame | PongFrame;
+
 /** How a host lets a renderer press an action a display offered. */
 export type UiAct = (
   action: Omit<UiAction, 'token' | 'display_id'> & { display_id?: string; token?: string },
@@ -121,13 +155,16 @@ type Fields<T> = readonly (keyof T)[];
  * schema's properties.
  */
 export const UI_WIRE_FIELDS = {
+  ActionFrame: ['t', 'ref', 'action'] satisfies Fields<ActionFrame>,
   ActionOffer: ['name', 'label', 'token'] satisfies Fields<ActionOffer>,
   AppendBody: ['path', 'value'] satisfies Fields<AppendBody>,
   AppendOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<AppendOp>,
   AskOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<AskOp>,
   DisplayWire: ['type', 'version', 'id', 'text', 'data', 'actions'] satisfies Fields<Display>,
   FileRef: ['ref', 'name', 'media_type', 'size', 'url'] satisfies Fields<FileRef>,
+  HelloFrame: ['t', 'v', 'token', 'scope', 'since'] satisfies Fields<HelloFrame>,
   MetaOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<MetaOp>,
+  OpFrame: ['t', 'seq', 'op'] satisfies Fields<OpFrame>,
   PatchAdd: ['op', 'path', 'value'] satisfies Fields<PatchAdd>,
   PatchCopy: ['op', 'path', 'from'] satisfies Fields<PatchCopy>,
   PatchMove: ['op', 'path', 'from'] satisfies Fields<PatchMove>,
@@ -135,10 +172,15 @@ export const UI_WIRE_FIELDS = {
   PatchRemove: ['op', 'path'] satisfies Fields<PatchRemove>,
   PatchReplace: ['op', 'path', 'value'] satisfies Fields<PatchReplace>,
   PatchTest: ['op', 'path', 'value'] satisfies Fields<PatchTest>,
+  PingFrame: ['t'] satisfies Fields<PingFrame>,
+  PongFrame: ['t'] satisfies Fields<PongFrame>,
   RemoveOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<RemoveOp>,
+  ResultFrame: ['t', 'ref', 'ok', 'status', 'detail', 'value'] satisfies Fields<ResultFrame>,
   ShowOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<ShowOp>,
+  StateFrame: ['t', 'ref', 'body'] satisfies Fields<StateFrame>,
   StateOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<StateOp>,
   UiAction: ['action', 'display_id', 'token', 'payload', 'idempotency_id'] satisfies Fields<UiAction>,
+  WelcomeFrame: ['t', 'v', 'scope', 'seq'] satisfies Fields<WelcomeFrame>,
   WindowBody: ['name', 'args'] satisfies Fields<WindowBody>,
   WindowOp: ['v', 'op', 'scope', 'id', 'body'] satisfies Fields<WindowOp>,
 } as const;
@@ -230,4 +272,45 @@ export function isUiOp(value: unknown): value is UiOp {
     UI_OP_NAMES.includes(value.op as UiOpName) &&
     OP_SHAPES[value.op as UiOpName](value)
   );
+}
+
+function isSeq(value: unknown, least: number): value is number {
+  return Number.isInteger(value) && (value as number) >= least;
+}
+
+/** Exactly these keys, the required ones among them: a frame says nothing else. */
+function hasKeys(value: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []): boolean {
+  const keys = Object.keys(value);
+  return required.every((key) => key in value) && keys.every((key) => required.includes(key) || optional.includes(key));
+}
+
+/** Whether a value is a frame the host sends, with nothing it does not declare. */
+export function isDownFrame(value: unknown): value is DownFrame {
+  if (!isRecord(value)) {
+    return false;
+  }
+  switch (value.t) {
+    case 'welcome':
+      return (
+        hasKeys(value, ['t', 'scope', 'seq'], ['v']) &&
+        (value.v === undefined || value.v === UI_WIRE_VERSION) &&
+        isString(value.scope) &&
+        isSeq(value.seq, 0)
+      );
+    case 'op':
+      return hasKeys(value, ['t', 'seq', 'op']) && isSeq(value.seq, 1) && isUiOp(value.op);
+    case 'result':
+      return (
+        hasKeys(value, ['t', 'ref', 'ok', 'status'], ['detail', 'value']) &&
+        isString(value.ref) &&
+        typeof value.ok === 'boolean' &&
+        Number.isInteger(value.status) &&
+        isOptional(value.detail, isString)
+      );
+    case 'ping':
+    case 'pong':
+      return hasKeys(value, ['t']);
+    default:
+      return false;
+  }
 }

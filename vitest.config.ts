@@ -29,6 +29,10 @@ export default defineConfig({
         replacement: fileURLToPath(new URL('./src/react/ui/index.ts', import.meta.url)),
       },
       {
+        find: /^@datalayer\/reactor\/ui\/ws$/,
+        replacement: fileURLToPath(new URL('./src/ui/ws.ts', import.meta.url)),
+      },
+      {
         find: /^@datalayer\/reactor\/ui$/,
         replacement: fileURLToPath(new URL('./src/ui/index.ts', import.meta.url)),
       },
