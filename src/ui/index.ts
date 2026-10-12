@@ -16,3 +16,4 @@ export * from './wire';
 export * from './renderers';
 export * from './reducer';
 export * from './agui';
+export * from './files';

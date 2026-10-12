@@ -57,6 +57,8 @@ export default function ApprovalCard({ display, act, context }: RendererProps) {
 - `act` — presses an action the display offered; absent where nothing can be
   pressed. The renderer names the action and the payload; the host adds the
   display id and the token it was offered (see [Actions](/ui-channel/actions)).
+- `upload` — uploads a file the person chose and answers its ref, to press
+  with; absent where nothing can be uploaded (see [Files](/ui-channel/files)).
 - `context` — whatever the host hands its renderers; a chat passes the tool
   call.
 

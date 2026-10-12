@@ -17,6 +17,7 @@
 
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { pickRenderer, Renderers, type RendererContribution } from '../../ui/renderers';
+import type { UiUpload } from '../../ui/files';
 import type { Display, UiAct } from '../../ui/wire';
 import { ReactorLazy, useContributions, type LazyLoader } from '../host';
 
@@ -25,6 +26,11 @@ export type RendererProps<C = unknown> = {
   display: Display;
   /** Press an action the display offered. Absent where nothing can be pressed. */
   act?: UiAct;
+  /**
+   * Upload a file the person chose: its ref, to press with (REACTOR_UI P6).
+   * Absent where nothing can be uploaded.
+   */
+  upload?: UiUpload;
   /** Whatever the host hands its renderers — a chat passes the tool call. */
   context?: C;
 };
@@ -63,6 +69,7 @@ export type ReactorDisplayProps<C = unknown> = RendererProps<C> & {
 export function ReactorDisplay<C = unknown>({
   display,
   act,
+  upload,
   context,
   fallback,
   loading = null,
@@ -77,7 +84,7 @@ export function ReactorDisplay<C = unknown>({
   if (!renderer) {
     return <>{text}</>;
   }
-  const props: RendererProps<C> = { display, act, context };
+  const props: RendererProps<C> = { display, act, upload, context };
   const { component, load } = renderer.value as ReactRendererContribution<C>;
   if (component) {
     const Component = component;
