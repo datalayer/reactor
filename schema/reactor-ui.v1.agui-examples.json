@@ -1,0 +1,188 @@
+{
+  "ops": [
+    {
+      "v": 1,
+      "op": "show",
+      "scope": "s1",
+      "id": "card-1",
+      "body": {
+        "type": "application/vnd.example.card+json",
+        "version": 1,
+        "id": "card-1",
+        "text": "A card",
+        "data": {
+          "status": "open",
+          "history": []
+        },
+        "actions": [
+          {
+            "name": "close",
+            "label": "Close",
+            "token": "t0k"
+          }
+        ]
+      }
+    },
+    {
+      "v": 1,
+      "op": "patch",
+      "scope": "s1",
+      "id": "card-1",
+      "body": [
+        {
+          "op": "replace",
+          "path": "/data/status",
+          "value": "closed"
+        },
+        {
+          "op": "copy",
+          "from": "/data/status",
+          "path": "/data/was"
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "op": "append",
+      "scope": "s1",
+      "id": "card-1",
+      "body": {
+        "path": "/data/history",
+        "value": "closed by ada"
+      }
+    },
+    {
+      "v": 1,
+      "op": "meta",
+      "scope": "s1",
+      "body": {
+        "title": "Cards"
+      }
+    },
+    {
+      "v": 1,
+      "op": "ask",
+      "scope": "s1",
+      "id": "q-1",
+      "body": {
+        "type": "application/vnd.example.card+json",
+        "version": 1,
+        "id": "q-1",
+        "text": "Which?",
+        "data": {
+          "status": "open",
+          "history": []
+        },
+        "actions": []
+      }
+    },
+    {
+      "v": 1,
+      "op": "remove",
+      "scope": "s1",
+      "id": "card-1"
+    }
+  ],
+  "events": [
+    {
+      "type": "ACTIVITY_SNAPSHOT",
+      "messageId": "card-1",
+      "activityType": "reactor.ui",
+      "content": {
+        "scope": "s1",
+        "display": {
+          "type": "application/vnd.example.card+json",
+          "version": 1,
+          "id": "card-1",
+          "text": "A card",
+          "data": {
+            "status": "open",
+            "history": []
+          },
+          "actions": [
+            {
+              "name": "close",
+              "label": "Close",
+              "token": "t0k"
+            }
+          ]
+        }
+      },
+      "replace": true
+    },
+    {
+      "type": "ACTIVITY_DELTA",
+      "messageId": "card-1",
+      "activityType": "reactor.ui",
+      "patch": [
+        {
+          "path": "/display/data/status",
+          "op": "replace",
+          "value": "closed"
+        },
+        {
+          "path": "/display/data/was",
+          "op": "copy",
+          "from": "/display/data/status"
+        }
+      ]
+    },
+    {
+      "type": "ACTIVITY_DELTA",
+      "messageId": "card-1",
+      "activityType": "reactor.ui",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/display/data/history/-",
+          "value": "closed by ada"
+        }
+      ]
+    },
+    {
+      "type": "CUSTOM",
+      "name": "reactor.ui",
+      "value": {
+        "v": 1,
+        "scope": "s1",
+        "id": null,
+        "op": "meta",
+        "body": {
+          "title": "Cards"
+        }
+      }
+    },
+    {
+      "type": "CUSTOM",
+      "name": "reactor.ui",
+      "value": {
+        "v": 1,
+        "scope": "s1",
+        "id": "q-1",
+        "op": "ask",
+        "body": {
+          "type": "application/vnd.example.card+json",
+          "version": 1,
+          "id": "q-1",
+          "text": "Which?",
+          "data": {
+            "status": "open",
+            "history": []
+          },
+          "actions": []
+        }
+      }
+    },
+    {
+      "type": "CUSTOM",
+      "name": "reactor.ui",
+      "value": {
+        "v": 1,
+        "scope": "s1",
+        "id": "card-1",
+        "op": "remove",
+        "body": null
+      }
+    }
+  ]
+}

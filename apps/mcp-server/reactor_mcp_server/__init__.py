@@ -64,7 +64,7 @@ try:
 
     __version__ = _distribution_version("reactor_mcp_server")
 except Exception:  # pragma: no cover - not installed as a distribution
-    __version__ = "1.1.0"
+    __version__ = "1.1.1"
 
 __all__ = [
     "BuiltServer",
