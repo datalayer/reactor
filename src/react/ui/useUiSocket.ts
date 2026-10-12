@@ -25,10 +25,10 @@ export type UseUiSocketOptions = Pick<
   UiSocketOptions,
   'url' | 'scope' | 'token' | 'open' | 'heartbeatMs' | 'timeoutMs' | 'backoffMs'
 > & {
-  /** A window op, for the host window to act on. */
+  /** A window op, for the host window to act on: never one of the past. */
   onWindow?: (op: WindowOp) => void;
   /** Every op as it is applied, for a host that keeps more than the model. */
-  onOp?: (op: UiOp, seq: number) => void;
+  onOp?: (op: UiOp, seq: number, history: boolean) => void;
 };
 
 export type UiSocketState = {
@@ -64,11 +64,11 @@ export function useUiSocket(options: UseUiSocketOptions): UiSocketState {
       heartbeatMs: latest.current.heartbeatMs,
       timeoutMs: latest.current.timeoutMs,
       backoffMs: latest.current.backoffMs,
-      onOp: (op, seq) => {
-        if (op.op === 'window') {
+      onOp: (op, seq, history) => {
+        if (op.op === 'window' && !history) {
           latest.current.onWindow?.(op);
         }
-        latest.current.onOp?.(op, seq);
+        latest.current.onOp?.(op, seq, history);
         dispatch({ kind: 'op', op });
       },
       onStatus: (next, reason) => setStatus({ status: next, reason }),

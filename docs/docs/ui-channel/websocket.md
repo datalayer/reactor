@@ -44,6 +44,12 @@ last op. A resume the hub cannot serve — `since` older than what it keeps, or
 past its last op — is closed with `4410`, and the page draws the
 conversation again from its host.
 
+The page's `onOp(op, seq, history)` says which ops are the past: on a fresh
+hello, every op the host replays (up to the welcome's `seq`) is history — the
+page draws it again but does not act on it as news, so a `window` op of the
+past is not raised again (`useUiSocket` passes only new ones to `onWindow`).
+Ops replayed on a resume were missed live, and are news.
+
 A press carries an idempotency id (the page makes one when the caller gives
 none). Waiting for its result when the connection drops, it is sent again
 after the welcome with the same id, and the host's `ActionRegistry` runs it

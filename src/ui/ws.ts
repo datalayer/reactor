@@ -75,8 +75,13 @@ export type UiSocketOptions = {
   scope: string;
   /** The credential the hello carries, read at each (re)connection. */
   token: () => string | Promise<string>;
-  /** Each op, in order, once. */
-  onOp: (op: UiOp, seq: number) => void;
+  /**
+   * Each op, in order, once. `history` is true for an op the host sent
+   * before this page first connected (a fresh hello replays what it keeps):
+   * a page draws it again, and does not act on it as news — a `window` op
+   * of the past is not raised again.
+   */
+  onOp: (op: UiOp, seq: number, history: boolean) => void;
   /** Where the socket is, and why when it stopped. */
   onStatus?: (status: UiSocketStatus, reason?: string) => void;
   /** Opens a connection; a browser `WebSocket` by default. */
@@ -131,6 +136,7 @@ export class UiSocket {
 
   private ws: WebSocketLike | null = null;
   private welcomed = false;
+  private historyUpTo = 0;
   private resumable: boolean;
   private stopped = false;
   private attempt = 0;
@@ -276,6 +282,10 @@ export class UiSocket {
           this.stop('gone', `the host is at op ${frame.seq}, the page at ${this.lastSeq}`, 1000);
           return;
         }
+        if (!this.resumable) {
+          // A fresh hello: what the host replays now is the past.
+          this.historyUpTo = frame.seq;
+        }
         this.welcomed = true;
         this.attempt = 0;
         this.setStatus('open');
@@ -299,7 +309,7 @@ export class UiSocket {
         }
         this.lastSeq = frame.seq;
         this.resumable = true;
-        this.options.onOp(frame.op, frame.seq);
+        this.options.onOp(frame.op, frame.seq, frame.seq <= this.historyUpTo);
         return;
       case 'result': {
         const waiting = this.pending.get(frame.ref);

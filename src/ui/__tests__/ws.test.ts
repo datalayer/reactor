@@ -56,13 +56,17 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 function harness(options: Partial<UiSocketOptions> = {}) {
   const sockets: FakeWs[] = [];
   const ops: [UiOp, number][] = [];
+  const history: number[] = [];
   const statuses: string[] = [];
   let next = 0;
   const socket = new UiSocket({
     url: 'wss://host/ui',
     scope: 's1',
     token: () => 'ada',
-    onOp: (op, seq) => ops.push([op, seq]),
+    onOp: (op, seq, past) => {
+      ops.push([op, seq]);
+      if (past) history.push(seq);
+    },
     onStatus: (status) => statuses.push(status),
     open: (url, protocols) => {
       const ws = new FakeWs(url, protocols);
@@ -73,7 +77,7 @@ function harness(options: Partial<UiSocketOptions> = {}) {
     newId: () => `id-${++next}`,
     ...options,
   });
-  return { socket, sockets, ops, statuses, last: () => sockets[sockets.length - 1] };
+  return { socket, sockets, ops, history, statuses, last: () => sockets[sockets.length - 1] };
 }
 
 const op = (seq: number, id = `d${seq}`): Frame => ({
@@ -133,6 +137,9 @@ describe('the committed example, written by the Python host', () => {
     }
     expect(result).toEqual({ ok: true, status: 200, detail: null, value: { closed: 'card-1' } });
     expect(h.ops.map(([, seq]) => seq)).toEqual([1, 2, 3, 4]);
+    // Ops 1 and 2 were sent before the page first connected: its history.
+    // The one emitted while it pressed, and the one missed while away, are news.
+    expect(h.history).toEqual([1, 2]);
     const model = applyUiOps(
       emptyUiModel(),
       h.ops.map(([one]) => one),
