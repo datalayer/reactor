@@ -66,7 +66,8 @@ def render_examples() -> str:
         encode_agui(op).model_dump(mode="json", by_alias=True, exclude_none=True)
         for op in OPS
     ]
-    return json.dumps({"ops": OPS, "events": events}, indent=2) + "\n"
+    # Keys sorted: ag-ui-protocol 0.1 and 1.0 order a JSON patch's keys differently.
+    return json.dumps({"ops": OPS, "events": events}, indent=2, sort_keys=True) + "\n"
 
 
 def test_the_committed_examples_are_what_the_encoder_sends() -> None:
