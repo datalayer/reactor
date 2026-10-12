@@ -97,6 +97,15 @@ export type UiOp = ShowOp | PatchOp | AppendOp | RemoveOp | StateOp | AskOp | Wi
 
 export type UiOpName = UiOp['op'];
 
+/**
+ * The action that answers a display shown by `ask` (REACTOR_UI P5): its
+ * payload is an `Answer`, which the host checks against what it asked.
+ */
+export const ANSWER_ACTION = 'reactor.answer';
+
+/** What answers a question: a choice, the words, a form's values. */
+export type Answer = { value: unknown };
+
 /** The page pressing something a display offered. */
 export type UiAction = {
   action: string;

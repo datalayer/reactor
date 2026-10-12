@@ -345,6 +345,21 @@ DownFrame = Annotated[
 ]
 
 
+#: The action that answers a display shown by ``ask`` (REACTOR_UI P5): its
+#: payload is :class:`Answer`. A host registers it, offers it on the question
+#: it asks, and takes the press as the answer.
+ANSWER_ACTION = "reactor.answer"
+
+
+class Answer(BaseModel):
+    """What answers a question: its ``value`` — a choice, the words, a form's
+    values — checked by the host against what it asked."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: Any
+
+
 class Display(BaseModel):
     """A typed display: subclass it, declare fields, say what it reads as.
 
@@ -418,7 +433,9 @@ class Display(BaseModel):
 
 
 __all__ = [
+    "ANSWER_ACTION",
     "UI_WIRE_VERSION",
+    "Answer",
     "ActionFrame",
     "ActionOffer",
     "DownFrame",

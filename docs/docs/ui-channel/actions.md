@@ -142,7 +142,8 @@ adds the display id and the token from the offer:
 const actOn = (display: Display): UiAct => async (action) => {
   const offer = display.actions?.find((candidate) => candidate.name === action.action);
   if (!offer) return;
-  return post(`/sessions/${session}/actions`, { ...action, display_id: display.id, token: offer.token });
+  // Up the ui socket (`useUiSocket`'s `act`, see WebSocket).
+  return act({ ...action, display_id: display.id, token: offer.token });
 };
 
 <ReactorDisplay display={display} act={actOn(display)} />
@@ -150,3 +151,20 @@ const actOn = (display: Display): UiAct => async (action) => {
 
 Give each press an `idempotency_id` (`crypto.randomUUID()`), and a retry of it
 the same one.
+
+## Answers
+
+A question is a display shown with `ask`, offering one action:
+`reactor.answer` (`ANSWER_ACTION` on both tiers). Its payload is an `Answer`,
+`{value}` — the choice pressed, the words typed, a form's values — which the
+host checks against what it asked before its code is given it. Nothing else
+answers a question: a message typed in the conversation is the next turn,
+not an answer.
+
+```python
+from reactor.ui import ANSWER_ACTION, Answer
+
+actions.register(ANSWER_ACTION, Answer, take_the_answer, plugin="host")
+question.actions = [actions.offer(session, question.id, ANSWER_ACTION)]
+channel.emit(AskOp(scope=session, id=question.id, body=question.wire()))
+```
