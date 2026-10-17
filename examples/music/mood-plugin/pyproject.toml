@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -9,6 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "music-mood-plugin"
 version = "0.1.0"
+license = { text = "BSD-3-Clause" }
 description = "Mood backend plugin for the Reactor music example"
 requires-python = ">=3.10"
 dependencies = [

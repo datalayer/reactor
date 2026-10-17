@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """The AG-UI stream the page's decoder is tested on is what ``encode_agui`` sends.
 

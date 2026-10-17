@@ -28,5 +28,6 @@
     "postcss": "^8.5.23",
     "tailwindcss": "^4.3.3",
     "typescript": "5.9.3"
-  }
+  },
+  "license": "BSD-3-Clause"
 }

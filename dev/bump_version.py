@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 # Copyright (c) 2024- Datalayer, Inc.
 #

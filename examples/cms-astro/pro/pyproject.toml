@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling"]
@@ -9,6 +9,7 @@ build-backend = "hatchling.build"
 [project]
 name = "datalayer-cms-astro-pro"
 version = "0.1.0"
+license = { text = "BSD-3-Clause" }
 description = "Pro workflow and SEO Reactor extension for the Astro CMS"
 requires-python = ">=3.10"
 dependencies = ["datalayer-reactor"]

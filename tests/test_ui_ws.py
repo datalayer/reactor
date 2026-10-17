@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """The ui channel over one WebSocket (REACTOR_UI RU-W): ordering, resume,
 refusal, reconnect, two tabs on one conversation, heartbeats, backpressure,

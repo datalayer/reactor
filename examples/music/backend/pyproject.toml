@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling"]
@@ -9,6 +9,7 @@ build-backend = "hatchling.build"
 [project]
 name = "datalayer_music_example"
 version = "0.1.0"
+license = { text = "BSD-3-Clause" }
 description = "The Reactor music store: every plugin and its interface, in one install"
 requires-python = ">=3.10"
 # The plugins stay separate distributions — a plugin being its own installable

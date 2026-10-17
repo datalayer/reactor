@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """An extensible MCP server built on Reactor.
 
@@ -64,7 +64,7 @@ try:
 
     __version__ = _distribution_version("reactor_mcp_server")
 except Exception:  # pragma: no cover - not installed as a distribution
-    __version__ = "1.3.0"
+    __version__ = "1.3.1"
 
 __all__ = [
     "BuiltServer",
