@@ -1,4 +1,4 @@
-[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
+[![Datalayer](https://images.datalayer.io/legacy/datalayer-25.svg)](https://datalayer.ai)
 
 # ⚛️ 🚀 Reactor Examples
 
@@ -55,3 +55,26 @@ cd examples/federation && npm install && npm run dev     # http://localhost:5180
 - `examples/extension-template/` — the layout with the names left blank, and a
   script that fills them: `python examples/extension-template/new-extension.py acme-charts ~/src/acme-charts`.
 
+## UI channel
+
+`examples/ui-channel/` — the `reactor.ui` loop: a FastAPI host shows an
+approval card (a `@display_type` display with page-only fields), a React page
+draws it with a renderer a plugin contributed, and the press comes back with
+the token the server minted, past a plugin's veto.
+
+```bash
+uvicorn --app-dir examples/ui-channel ui_channel_example.server:app --port 8791
+cd examples/ui-channel && npm install && npm run dev     # http://localhost:5181
+```
+
+## MCP toolsets
+
+`examples/mcp-toolsets/` — two toolsets for `reactor_mcp_server` in one wheel:
+`math` (`add`, `multiply`), on by default, and `geo`
+(`get_capital_of_country`, `get_country_of_capital`), served only to a client
+that asks for it with `/mcp?geo`.
+
+```bash
+pip install -e "examples/mcp-toolsets[server]"
+reactor-mcp-server --port 4040     # http://localhost:4040/mcp?geo
+```

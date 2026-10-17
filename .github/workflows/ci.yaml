@@ -58,7 +58,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .[dev]
-          python -m pip install -e "plugins/mcp-server[test]"
+          python -m pip install -e "apps/mcp-server[test]"
+          # The example toolsets, so a stdio client can find them by entry point.
+          python -m pip install -e examples/mcp-toolsets
 
       - name: Run tests
         run: pytest -q

@@ -93,6 +93,53 @@ def create_reactor_host(
     return app
 
 
+#: What a route descriptor's ``"*"`` method stands for when it is mounted.
+ANY_METHOD = ("GET", "POST", "PUT", "PATCH", "DELETE")
+
+
+def include_plugin_routes(
+    api: FastAPI,
+    platform: PluginPlatform,
+    *,
+    prefix: str = "",
+    tenant_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Mount every route enabled plugins provide with an endpoint, under ``prefix``.
+
+    ``provide_routes`` describes routes; a descriptor that also carries the
+    callable answering it (``"endpoint"``) is one a host can serve, and this is
+    that host's half — the route added to ``api`` at ``prefix + path``, for its
+    ``method`` (``"*"`` for every one in :data:`ANY_METHOD`). A descriptor
+    without an endpoint is a declaration for a gateway, which serves it
+    elsewhere: left alone here, and not in the answer.
+
+    Call it **before** anything that would answer the same paths — a mount, a
+    UI's catch-all — since the first route to match answers.
+
+    Returns the descriptors mounted, without their endpoints.
+
+    :raises ValueError: for an endpoint that is not callable, or a path that
+        does not start with ``/`` — a route nobody could reach is a bug to say,
+        not one to skip.
+    """
+    mounted: list[dict[str, Any]] = []
+    for route in platform.collect_routes(tenant_id):
+        endpoint = route.get("endpoint")
+        if endpoint is None:
+            continue
+        path = str(route.get("path") or "")
+        plugin = route.get("plugin") or "a plugin"
+        if not callable(endpoint):
+            raise ValueError(f"{plugin}'s route {path} has an endpoint that is not callable")
+        if not path.startswith("/"):
+            raise ValueError(f"{plugin}'s route {path!r} does not start with '/'")
+        method = str(route.get("method") or "GET").upper()
+        methods = list(ANY_METHOD) if method == "*" else [method]
+        api.add_api_route(prefix.rstrip("/") + path, endpoint, methods=methods)
+        mounted.append({key: value for key, value in route.items() if key != "endpoint"})
+    return mounted
+
+
 def mount_reactor_ui(app: FastAPI, ui: Path | str | None = None) -> bool:
     """Serve a built single-page UI from this application, at ``/``.
 

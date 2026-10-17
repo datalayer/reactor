@@ -63,7 +63,7 @@ def test_frontend_manifest_is_readable_without_the_module(tmp_path: Path) -> Non
     """The whole point: list and describe a plugin before fetching its code."""
     platform = PluginPlatform()
     extension = make_extension(tmp_path)
-    platform._register_extension_object("hello", extension)  # noqa: SLF001
+    platform.register_extension_object(extension)
 
     [record] = platform.frontend_extensions()
     assert record["name"] == "hello"
@@ -83,7 +83,7 @@ def test_frontend_entry_url_changes_with_its_content(tmp_path: Path) -> None:
     """A rebuilt stable entry cannot load stale hashed chunks from cache."""
     platform = PluginPlatform()
     extension = make_extension(tmp_path)
-    platform._register_extension_object("hello", extension)  # noqa: SLF001
+    platform.register_extension_object(extension)
 
     [before] = platform.frontend_extensions()
     assert extension.frontend is not None
@@ -97,7 +97,7 @@ def test_frontend_entry_url_changes_with_its_content(tmp_path: Path) -> None:
 
 def test_assets_are_served_and_traversal_is_refused(tmp_path: Path) -> None:
     platform = PluginPlatform()
-    platform._register_extension_object("hello", make_extension(tmp_path))  # noqa: SLF001
+    platform.register_extension_object(make_extension(tmp_path))
     client = TestClient(create_reactor_app(platform))
 
     served = client.get("/reactor-extensions/hello/index.js")
@@ -379,8 +379,7 @@ def test_a_federated_frontend_is_described_as_one(tmp_path: Path) -> None:
     (frontend / "remoteEntry.js").write_text("export async function get() {}\nexport function init() {}\n")
 
     platform = PluginPlatform()
-    platform._register_extension_object(  # noqa: SLF001
-        "charts",
+    platform.register_extension_object(
         ReactorExtension(
             manifest=ExtensionManifest(name="charts", display_name="Charts"),
             frontend=FrontendExtension(
@@ -407,7 +406,7 @@ def test_a_federated_frontend_is_described_as_one(tmp_path: Path) -> None:
     plain = make_extension(tmp_path, "plain")
     assert plain.frontend is not None and plain.frontend.kind == "esm"
     other = PluginPlatform()
-    other._register_extension_object("plain", plain)  # noqa: SLF001
+    other.register_extension_object(plain)
     [plain_record] = other.frontend_extensions()
     assert plain_record["kind"] == "esm"
     for key in ("remoteName", "module", "remoteType"):

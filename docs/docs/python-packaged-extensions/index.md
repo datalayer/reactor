@@ -103,6 +103,23 @@ platform.start()
 | `GET /plugins/frontend-extensions` | rescans, then answers with every extension and every frontend plugin's manifest |
 | `GET /reactor-extensions/{name}/{path}` | serves that extension's files out of the installed distribution |
 
+## Registering one you hold
+
+A host that holds the extension object itself — built in its own process,
+composed by an application, made in a test — registers it without an entry
+point, and the platform answers the same about it as about an installed one:
+
+```python
+platform.register_extension_object(extension)   # both halves: plugins and frontend
+platform.unregister_extension(extension.name)   # every plugin it delivered, and its frontend
+```
+
+Registering a name that is registered already is refused (`ValueError`): two
+deliveries of one name would leave nobody able to say which one an uninstall
+takes away. A host serving an extension's files from a route of its own — one
+scoped to an application, say — answers with the same allowlist
+`/reactor-extensions` serves: `EXTENSION_CONTENT_TYPES`, by suffix.
+
 ## Installing while the server runs
 
 This works, and it is designed for rather than accidental:

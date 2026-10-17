@@ -64,3 +64,4 @@ import { ReactorSlot } from '@datalayer/reactor/react';   // React bindings
 | ship several plugins as one capability | [Extensions](/typescript-plugins/extensions) |
 | not load a plugin until something asks | [Activation events](/typescript-plugins/activation-events) and [Lazy loading](/typescript-plugins/lazy-loading) |
 | render all of it | [React bindings](/typescript-plugins/react) |
+| draw what a Python host shows, with renderers plugins contribute | [UI channel](/ui-channel/renderers) |

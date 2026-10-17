@@ -1,0 +1,188 @@
+{
+  "events": [
+    {
+      "activityType": "reactor.ui",
+      "content": {
+        "display": {
+          "actions": [
+            {
+              "label": "Close",
+              "name": "close",
+              "token": "t0k"
+            }
+          ],
+          "data": {
+            "history": [],
+            "status": "open"
+          },
+          "id": "card-1",
+          "text": "A card",
+          "type": "application/vnd.example.card+json",
+          "version": 1
+        },
+        "scope": "s1"
+      },
+      "messageId": "card-1",
+      "replace": true,
+      "type": "ACTIVITY_SNAPSHOT"
+    },
+    {
+      "activityType": "reactor.ui",
+      "messageId": "card-1",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/display/data/status",
+          "value": "closed"
+        },
+        {
+          "from": "/display/data/status",
+          "op": "copy",
+          "path": "/display/data/was"
+        }
+      ],
+      "type": "ACTIVITY_DELTA"
+    },
+    {
+      "activityType": "reactor.ui",
+      "messageId": "card-1",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/display/data/history/-",
+          "value": "closed by ada"
+        }
+      ],
+      "type": "ACTIVITY_DELTA"
+    },
+    {
+      "name": "reactor.ui",
+      "type": "CUSTOM",
+      "value": {
+        "body": {
+          "title": "Cards"
+        },
+        "id": null,
+        "op": "meta",
+        "scope": "s1",
+        "v": 1
+      }
+    },
+    {
+      "name": "reactor.ui",
+      "type": "CUSTOM",
+      "value": {
+        "body": {
+          "actions": [],
+          "data": {
+            "history": [],
+            "status": "open"
+          },
+          "id": "q-1",
+          "text": "Which?",
+          "type": "application/vnd.example.card+json",
+          "version": 1
+        },
+        "id": "q-1",
+        "op": "ask",
+        "scope": "s1",
+        "v": 1
+      }
+    },
+    {
+      "name": "reactor.ui",
+      "type": "CUSTOM",
+      "value": {
+        "body": null,
+        "id": "card-1",
+        "op": "remove",
+        "scope": "s1",
+        "v": 1
+      }
+    }
+  ],
+  "ops": [
+    {
+      "body": {
+        "actions": [
+          {
+            "label": "Close",
+            "name": "close",
+            "token": "t0k"
+          }
+        ],
+        "data": {
+          "history": [],
+          "status": "open"
+        },
+        "id": "card-1",
+        "text": "A card",
+        "type": "application/vnd.example.card+json",
+        "version": 1
+      },
+      "id": "card-1",
+      "op": "show",
+      "scope": "s1",
+      "v": 1
+    },
+    {
+      "body": [
+        {
+          "op": "replace",
+          "path": "/data/status",
+          "value": "closed"
+        },
+        {
+          "from": "/data/status",
+          "op": "copy",
+          "path": "/data/was"
+        }
+      ],
+      "id": "card-1",
+      "op": "patch",
+      "scope": "s1",
+      "v": 1
+    },
+    {
+      "body": {
+        "path": "/data/history",
+        "value": "closed by ada"
+      },
+      "id": "card-1",
+      "op": "append",
+      "scope": "s1",
+      "v": 1
+    },
+    {
+      "body": {
+        "title": "Cards"
+      },
+      "op": "meta",
+      "scope": "s1",
+      "v": 1
+    },
+    {
+      "body": {
+        "actions": [],
+        "data": {
+          "history": [],
+          "status": "open"
+        },
+        "id": "q-1",
+        "text": "Which?",
+        "type": "application/vnd.example.card+json",
+        "version": 1
+      },
+      "id": "q-1",
+      "op": "ask",
+      "scope": "s1",
+      "v": 1
+    },
+    {
+      "id": "card-1",
+      "op": "remove",
+      "scope": "s1",
+      "v": 1
+    }
+  ]
+}

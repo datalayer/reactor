@@ -176,7 +176,7 @@ app()
 ```
 
 `examples/cli` is the smallest version of this — a host, a weather plugin, and
-no browser anywhere. See [the CLI example](/examples/cli).
+no browser anywhere. See [the CLI example](/examples/cli/).
 
 The Datalayer CLI is the biggest: `datalayer` hosts its extensions through
 this exact machinery (`extend` over the `datalayer.cli` group), and the

@@ -29,7 +29,7 @@ env:
   NPM_PACKAGES: . plugins/commands plugins/graph plugins/manager plugins/shell
   # The Python packages this workflow releases (directories with a pyproject).
   # The root package takes its version from package.json (hatch-nodejs-version).
-  PY_PACKAGES: . plugins/mcp-server
+  PY_PACKAGES: . apps/mcp-server
 
 jobs:
   build:
@@ -121,7 +121,9 @@ jobs:
           npm install
           python -m pip install --upgrade pip build
           python -m pip install -e .[dev]
-          python -m pip install -e "plugins/mcp-server[test]"
+          python -m pip install -e "apps/mcp-server[test]"
+          # The example toolsets, so a stdio client can find them by entry point.
+          python -m pip install -e examples/mcp-toolsets
 
       - name: Build and test
         if: steps.plan.outputs.npm != '' || steps.plan.outputs.python != ''

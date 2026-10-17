@@ -1,0 +1,8 @@
+{
+  "label": "REPL",
+  "position": 2,
+  "link": {
+    "type": "doc",
+    "id": "examples/repl/index"
+  }
+}

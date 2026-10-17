@@ -31,8 +31,7 @@ list, one overlay and one graph draw a plugin from either side of the wire.
 ## Registering one
 
 ```python
-from reactor import PluginManifest, PluginPlatform
-from reactor.hooks import hookimpl
+from reactor import PluginManifest, PluginPlatform, hookimpl
 
 class CatalogPlugin:
     @hookimpl
@@ -46,6 +45,30 @@ platform = PluginPlatform()
 platform.register_plugin(CATALOG_MANIFEST, CatalogPlugin())
 platform.start()
 ```
+
+A route descriptor may carry the callable that answers it, `"endpoint"` — a
+FastAPI endpoint — for a host that serves what its plugins provide:
+
+```python
+from fastapi import FastAPI
+from reactor import include_plugin_routes
+
+class StatusPlugin:
+    def provide_routes(self) -> list[dict]:
+        def status() -> dict:
+            return {"ok": True}
+        return [{"path": "/status", "method": "GET", "plugin": "status", "endpoint": status}]
+
+api = FastAPI()
+include_plugin_routes(api, platform, prefix="/plugins")   # GET /plugins/status
+```
+
+Only enabled plugins' routes with an endpoint are mounted (`"*"` mounts every
+method); a descriptor without one is a declaration for a gateway, and is left
+alone. Over HTTP (`GET /tenants/{id}/routes`) a route is described without its
+endpoint: `platform.describe_routes()`. Mount them before anything that would
+answer the same paths. `platform.has_plugin(name)` says whether a name is
+registered — registering it again is not a replacement: unregister it first.
 
 `dependencies` are **enforced**: the platform refuses a plugin whose declared
 dependencies are not registered yet, which is why a host registers in dependency

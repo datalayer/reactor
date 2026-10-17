@@ -21,7 +21,14 @@ class ReactorHookSpecs:
 
     @hookspec
     def provide_routes(self) -> list[dict]:
-        """Return route descriptors consumed by API or gateway layers."""
+        """Return route descriptors consumed by API or gateway layers.
+
+        Each is ``{"path", "method", "plugin"}``, and may carry the callable
+        that answers it as ``"endpoint"`` — a FastAPI endpoint — for a host
+        that serves what its plugins provide
+        (:func:`reactor.host.include_plugin_routes`). Described over HTTP, a
+        route never carries its endpoint (`PluginPlatform.describe_routes`).
+        """
 
     @hookspec
     def feature_flags(self, tenant_id: str) -> dict[str, bool]:
@@ -78,4 +85,25 @@ class ReactorHookSpecs:
         ``cli.add_typer(...)``, ``cli.command(...)``. The reactor stays
         framework-agnostic: it hands the object over, the plugin knows what
         it is.
+        """
+
+    @hookspec
+    def provide_display_types(self, registry: Any) -> None:
+        """Register the plugin's display types into the host's registry.
+
+        The host passes a :class:`~reactor.ui.display.DisplayRegistry` and the
+        plugin calls ``registry.register(MyDisplay)`` for each
+        ``@display_type`` class it ships, so a host can turn a wire display
+        back into its class and publish every type's schema
+        (:meth:`PluginPlatform.display_types`).
+        """
+
+    @hookspec
+    def authorize_ui_action(self, principal: Any, session: str, action: Any) -> bool | None:
+        """Say whether a press on the page may run.
+
+        Asked for every :class:`~reactor.ui.wire.UiAction` whose token checked
+        out (:class:`~reactor.ui.actions.ActionRegistry`). ``False`` vetoes it;
+        ``True`` or ``None`` has no objection. Any plugin's ``False`` wins, and
+        a plugin whose hook raises vetoes too: a refusal fails closed.
         """

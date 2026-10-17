@@ -42,6 +42,24 @@ from .types import ExtensionManifest, PluginManifest
 #: absent rather than living somewhere else.
 EXTENSION_ENTRY_POINT_GROUP = "datalayer.reactor.extensions"
 
+#: The content types a frontend extension's files are served as, by suffix.
+#:
+#: An allowlist rather than a guess: a host hands files out of an installed
+#: distribution, and the set of things a browser should execute from there is
+#: small and knowable. A file of any other suffix is not served — a host
+#: serving an extension's files outside ``/reactor-extensions`` (a route scoped
+#: to one application, say) answers with the same list, so the two cannot drift.
+EXTENSION_CONTENT_TYPES: dict[str, str] = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".json": "application/json",
+    ".css": "text/css",
+    ".map": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".woff2": "font/woff2",
+}
+
 #: Where a wheel puts data Reactor serves, relative to ``sys.prefix``.
 #:
 #: Borrowed from JupyterLab rather than invented: ``share/`` is where the
