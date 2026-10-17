@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """What a host does with toolsets beyond picking them from a URL.
 

@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """Small, dependency-free public blog crawler used by the CMS agent tools."""
 

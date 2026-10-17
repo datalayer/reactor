@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling"]
@@ -9,6 +9,7 @@ build-backend = "hatchling.build"
 [project]
 name = "cms-pro"
 version = "0.1.0"
+license = { text = "BSD-3-Clause" }
 description = "The paid tier of the Reactor CMS: three more plugins, same three points"
 requires-python = ">=3.10"
 # It depends on `cms` for nothing but the application being there to extend.

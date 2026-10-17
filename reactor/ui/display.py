@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """Display types: declared once in Python, drawn by whichever renderer claims them.
 

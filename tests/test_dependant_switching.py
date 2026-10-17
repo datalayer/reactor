@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """Switching a plugin off should switch off what depends on it.
 

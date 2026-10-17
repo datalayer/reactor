@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """Two example toolsets for reactor_mcp_server: ``math`` (on) and ``geo`` (opt-in)."""
 

@@ -1,12 +1,11 @@
 header:
   license:
-    spdx-id: Datalayer
+    spdx-id: BSD-3-Clause
     copyright-owner: Datalayer, Inc.
     copyright-year: 2026-Present
     content: |
       Copyright (c) [year] [owner]
-
-      Datalayer License
+      BSD 3-Clause License
 
   paths-ignore:
     - '**/*.ipynb'

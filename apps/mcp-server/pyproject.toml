@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling"]
@@ -8,10 +8,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reactor_mcp_server"
-version = "1.3.0"
+version = "1.3.1"
 description = "An extensible MCP server built on Reactor: tools are contributions, and a contribution can be extended"
 readme = "README.md"
-license = { text = "Datalayer License" }
+license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 authors = [{ name = "Datalayer", email = "support@datalayer.io" }]
 keywords = ["mcp", "reactor", "plugins", "tools"]
@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "datalayer_reactor>=1.3.0",
+    "datalayer_reactor>=1.3.1",
     "mcp>=2,<3",
     "starlette",
 ]

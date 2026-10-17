@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 """What the review of the MCP server plugin found, kept from coming back.
 
 Each test here is one finding: a lifecycle hook the platform never called, a

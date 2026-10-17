@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """Files as references: uploaded once, named after (REACTOR_UI P6, RU-6).
 

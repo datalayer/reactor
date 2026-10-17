@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2026-Present Datalayer, Inc.
  *
- * Datalayer License
+ * BSD 3-Clause License
  */
 
 /** The example server's routes and socket (`ui_channel_example.server`). */

@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 """A Reactor extension in one wheel: a Python plugin and the UI that uses it.
 

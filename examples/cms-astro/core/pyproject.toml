@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling"]
@@ -9,6 +9,7 @@ build-backend = "hatchling.build"
 [project]
 name = "datalayer-cms-astro-core"
 version = "0.1.0"
+license = { text = "BSD-3-Clause" }
 description = "Astro-native SQLite CMS host and Core Reactor extension"
 requires-python = ">=3.10"
 dependencies = ["datalayer-reactor", "fastapi>=0.115.0", "pydantic>=2.8.0", "uvicorn>=0.30.0"]

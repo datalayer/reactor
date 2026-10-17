@@ -1,6 +1,6 @@
 # Copyright (c) 2026-Present Datalayer, Inc.
 #
-# Datalayer License
+# BSD 3-Clause License
 
 [build-system]
 requires = ["hatchling==1.21.1", "hatch-nodejs-version>=0.3.2"]
@@ -11,6 +11,7 @@ name = "datalayer_reactor"
 dynamic = ["version"]
 description = "FastAPI + pluggy extension reactor for modular SaaS applications"
 readme = "README.md"
+license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.115.0",
