@@ -85,7 +85,10 @@ environment exactly: renaming any of them means re-registering the publisher.
    ```
 
 3. The `Release` workflow checks that the tag names every package's version,
-   builds and tests, packs the npm tarballs, builds the wheels and sdists, and
+   builds and tests, checks that each tarball carries every file its `lib/`
+   imports, written whole as Node's ESM loader needs it (`npm run check:pack`;
+   the build writes them so with `scripts/fully-specify-lib.mjs`), packs the
+   npm tarballs, builds the wheels and sdists, and
    publishes what is not on the registries yet — in that order, `@datalayer/reactor`
    before the plugins. A GitHub release with generated notes closes it.
 

@@ -133,6 +133,10 @@ jobs:
           npm run test:ts
           pytest -q
 
+      - name: Check the tarballs carry what lib/ imports
+        if: steps.plan.outputs.npm != ''
+        run: npm run check:pack
+
       - name: Pack the npm packages
         if: steps.plan.outputs.npm != ''
         run: |
