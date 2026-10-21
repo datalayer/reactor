@@ -34,6 +34,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Every relative import of each package's lib/ names a file its tarball
+      # carries, written whole as Node's ESM loader needs it ('./wire.js'):
+      # 1.3.1's './wire' failed every consumer that loads lib/ unbundled.
+      - name: Check the tarballs carry what lib/ imports
+        run: npm run check:pack
+
       - name: Test
         run: npm run test:ts
 
