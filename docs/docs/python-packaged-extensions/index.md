@@ -264,6 +264,9 @@ readable end to end.
 [`examples/extension-federated`](https://github.com/datalayer/reactor/tree/main/examples/extension-federated)
 is the same extension shipping a container — hand-written so it runs unbuilt,
 with the Rsbuild project that emits the real one beside it.
+[`examples/extension-template`](https://github.com/datalayer/reactor/tree/main/examples/extension-template)
+is where to start your own, outside this repository — see
+[Starting one outside this repository](/python-packaged-extensions/containers#starting-one-outside-this-repository).
 
 ## Where this carries on
 

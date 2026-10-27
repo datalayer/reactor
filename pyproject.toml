@@ -46,7 +46,11 @@ dev = [
   # import with a message about a package nobody asked for.
   "httpx>=0.27.0",
   # The tests encode `reactor.ui` ops as AG-UI events (the `agui` extra).
-  "ag-ui-protocol>=0.1.10"
+  "ag-ui-protocol>=0.1.10",
+  # tests/test_extension_template.py builds the extension template's wheel
+  # with its own build backend, without build isolation.
+  "hatchling>=1.21",
+  "hatch-nodejs-version>=0.3.2"
 ]
 
 [project.scripts]

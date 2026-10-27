@@ -3,24 +3,34 @@
 # BSD 3-Clause License
 
 [build-system]
-requires = ["hatchling"]
+# hatch-nodejs-version reads the version from frontend/package.json, so the
+# two halves have one version written in one place.
+requires = ["hatchling>=1.21", "hatch-nodejs-version>=0.3.2"]
 build-backend = "hatchling.build"
 
 [project]
 name = "reactor-extension-__NAME__"
-version = "0.1.0"
+dynamic = ["version"]
 license = { text = "BSD-3-Clause" }
 description = "A Reactor extension: a Python plugin and its UI, in one wheel"
 requires-python = ">=3.10"
-dependencies = ["datalayer_reactor"]
+# 1.4.0 is the first with FrontendExtension.version, which __init__.py uses.
+dependencies = ["datalayer_reactor>=1.4.0"]
 
 # Installing this distribution publishes the extension. The host scans this
 # group; nothing is hardcoded anywhere.
 [project.entry-points."datalayer.reactor.extensions"]
 __NAME__ = "__PACKAGE__:extension"
 
+[tool.hatch.version]
+source = "nodejs"
+path = "frontend/package.json"
+
 [tool.hatch.build.targets.wheel]
 packages = ["__PACKAGE__"]
+# The built frontend is ignored by git (.gitignore) and must still be in the
+# wheel: hatch leaves ignored files out unless they are named as artifacts.
+artifacts = ["share/datalayer/reactor/extensions/__NAME__"]
 
 # The built container travels in the wheel under `share/` — the JupyterLab
 # convention — and Reactor serves it from there.

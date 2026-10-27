@@ -67,7 +67,10 @@ def main(argv: list[str]) -> int:
     print(f"  extension : {name}")
     print(f"  package   : {package}   (also the container's name)")
     print(f"  plugin    : {plugin}")
-    print("Next: (cd frontend && npm install && npm run build) && pip install .")
+    print("Next, from that directory (the README beside the template says why):")
+    print("  (cd frontend && npm install && npm run build)   # the container, into share/")
+    print("  pip install .                                   # both halves, one wheel")
+    print("  reactor serve                                   # or any Reactor host")
     return 0
 
 

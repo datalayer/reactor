@@ -6,7 +6,8 @@
 
 /**
  * Builds the __NAME__ container straight into the wheel's `share/` directory,
- * so `npm run build` then `pip install .` ships both halves at one version.
+ * so `npm run build` then `pip install .` ships both halves at one version —
+ * the version in this directory's package.json, which pyproject.toml reads too.
  */
 
 import { defineConfig } from '@rsbuild/core';
@@ -19,6 +20,11 @@ export default defineConfig({
     pluginModuleFederation({
       // Must match `remote_name` in the Python declaration.
       name: '__PACKAGE__',
+      // Must match `entry` in the Python declaration. Named, because the
+      // plugin's default is a hashed `static/js/__PACKAGE__.<hash>.js` that
+      // nothing would find.
+      filename: 'remoteEntry.js',
+      // The key must match `module` in the Python declaration.
       exposes: { './plugin': './src/plugin.tsx' },
       // Borrowed from the host, never bundled: two Reacts means broken hooks.
       shared: {
@@ -34,6 +40,13 @@ export default defineConfig({
   server: { port: 5183 },
   output: {
     assetPrefix: 'auto',
+    // Emptied before each build, so the wheel carries this build's chunks and
+    // none of the last one's. Outside this directory, so it has to be said.
+    cleanDistPath: true,
     distPath: { root: '../share/datalayer/reactor/extensions/__NAME__' },
+    // The build records the version it was built at, beside what it emitted.
+    // The Python half checks it: a wheel whose frontend was built at another
+    // version is refused, by name, instead of loaded.
+    copy: [{ from: './package.json' }],
   },
 });

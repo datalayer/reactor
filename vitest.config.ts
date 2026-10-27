@@ -54,6 +54,8 @@ export default defineConfig({
       'plugins/*/__tests__/**/*.test.{ts,tsx}',
       // The reactor.ui example replays the session its Python half records.
       'examples/ui-channel/src/**/*.test.{ts,tsx}',
+      // The extension template's browser half, read before it is generated.
+      'examples/extension-template/*.test.ts',
     ],
     environmentMatchGlobs: [['src/react/**', 'jsdom']],
     setupFiles: ['./tests/vitest.setup.ts'],

@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from reactor import PluginManifest
 
+from ._version import __version__
+
 MANIFEST = PluginManifest(
     name="__NAME__",
-    version="0.1.0",
+    version=__version__,
     display_name="__NAME__",
     description="Server side of the __NAME__ extension.",
 )

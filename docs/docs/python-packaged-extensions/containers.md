@@ -35,11 +35,17 @@ The build writes straight into `share/`, so the two halves cannot drift:
 // frontend/rsbuild.config.ts
 pluginModuleFederation({
   name: 'acme_charts',                              // == remote_name
-  exposes: { './plugin': './src/plugin.tsx' },
+  filename: 'remoteEntry.js',                       // == entry; the default is hashed
+  exposes: { './plugin': './src/plugin.tsx' },        // key == module
   shared: { react: { singleton: true, requiredVersion: '^19.0.0' }, '@datalayer/reactor': { singleton: true } },
   dts: true,
 }),
-output: { assetPrefix: 'auto', distPath: { root: '../share/datalayer/reactor/extensions/acme-charts' } }
+output: {
+  assetPrefix: 'auto',
+  cleanDistPath: true,                              // this build's chunks, none of the last one's
+  distPath: { root: '../share/datalayer/reactor/extensions/acme-charts' },
+  copy: [{ from: './package.json' }],               // the version it was built at
+}
 ```
 
 ```bash
@@ -75,6 +81,11 @@ seams to turn into a way in — so it goes through the same gate as everything
 else. A dev server on another port is another origin, and saying so once is
 what the gate asks for. See [Allowed origins](/typescript-plugins/allowed-origins).
 
+`copy` is what makes the version check possible: the Python half declares the
+version its frontend must be (`FrontendExtension(version=…)`) and a build that
+records another is refused — see
+[One version, checked](/python-packaged-extensions/#one-version-checked).
+
 ## Starting one outside this repository
 
 [`examples/extension-template`](https://github.com/datalayer/reactor/tree/main/examples/extension-template)
@@ -82,7 +93,20 @@ is the layout above with the names left blank and a script that fills them:
 
 ```bash
 python examples/extension-template/new-extension.py acme-charts ~/src/acme-charts
+cd ~/src/acme-charts
+(cd frontend && npm install && npm run build)   # the container, into share/
+pip install .                                    # both halves, one wheel
 ```
 
 It copies a directory and substitutes three placeholders. What comes out is a
-plain project you own, comments included.
+plain project you own, comments included, with one version written once — in
+`frontend/package.json`, which `pyproject.toml` reads through
+`hatch-nodejs-version`. Its
+[README](https://github.com/datalayer/reactor/tree/main/examples/extension-template#readme)
+walks a newcomer from nothing to the panel in a browser, including which names
+must agree across the two languages and what a host page needs to load a
+container (`setFederationRuntime`).
+
+The template is under test: `tests/test_extension_template.py` generates one,
+builds its wheel with its own `pyproject.toml`, installs it and serves it, and
+`examples/extension-template/template.test.ts` runs its frontend plugin.
