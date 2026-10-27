@@ -9,9 +9,12 @@ import { createRoot } from "react-dom/client";
 import * as Reactor from "@datalayer/reactor";
 import {
   bootstrapExtensions,
+  setFederationRuntime,
   setReactorSharedModules,
+  type FederationRuntime as ReactorFederationRuntime,
 } from "@datalayer/reactor";
 import * as ReactorReact from "@datalayer/reactor/react";
+import * as FederationRuntime from "@module-federation/runtime";
 import { ThemedProvider, useThemeStore } from "@datalayer/primer-addons";
 import { CATALOG_BACKEND_URL } from "@datalayer-examples/reactor-music-catalog-plugin";
 import App from "./App";
@@ -32,6 +35,19 @@ setReactorSharedModules({
   "@datalayer/reactor": Reactor,
   "@datalayer/reactor/react": ReactorReact,
 });
+
+/**
+ * The Module Federation runtime, for extensions that ship a container.
+ *
+ * Reactor imports it lazily by its bare name so a host that never federates
+ * never pays for it — but a bare name means nothing to a browser once this app
+ * is bundled, so a host that does federate hands its own copy over. Without
+ * it, every pip-installed container (the extension template's, decks') stays
+ * listed and unloadable, saying it needs `@module-federation/runtime`.
+ */
+// Reactor types the four functions it calls, structurally and a little looser
+// than the SDK declares them (an optional `requiredVersion`), hence the cast.
+setFederationRuntime(FederationRuntime as unknown as ReactorFederationRuntime);
 
 /**
  * Ask the server what is installed, then start.
