@@ -27,6 +27,36 @@ worth stating plainly: **there is no second kind of plugin.** Ordering,
 activation events, failure isolation, disable/enable and the graph all work
 unchanged, because what the runtime receives is the same thing it always had.
 
+## Where a plugin came from
+
+A plugin the shell was built with came from the shell. One that arrived from a
+URL came from somebody else's build, and "where is this served from?" is the
+first thing anybody asks about it — so the manifest says, from the first frame,
+while the module is still on the wire:
+
+```ts
+reactor.getManifest('@acme/charts').remote;
+// { kind: 'federated', name: 'acme_charts',
+//   entry: 'https://cdn.acme.com/charts/remoteEntry.js', module: './plugin' }
+
+reactor.getManifest('@remote/greeting').remote;
+// { kind: 'esm', name: 'https://example.com/remotes/greeting.js',
+//   entry: 'https://example.com/remotes/greeting.js', module: 'default' }
+```
+
+| Field | A container (`federated`) | A plain module (`esm`) |
+| --- | --- | --- |
+| `name` | the container's name, as its build declared it | the URL, without its query string |
+| `entry` | the container entry | the module |
+| `module` | the exposed module read from it | the export read from it |
+
+`remote` is absent for every plugin the shell bundled, lazy ones included. The
+[plugin graph](/core-plugins/graph)
+draws it as the left-most column, *Remotes*: one node per container, joined to
+each plugin it serves, so two plugins exposed by one container read as coming
+from one place. `describePluginGraph` gives the same as data — `remote` nodes
+and `serves` edges — and each plugin node carries its `loadError`.
+
 ## Two things a URL brings that an import does not
 
 ### Shared modules

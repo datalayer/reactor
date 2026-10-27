@@ -11,6 +11,7 @@ import {
   definePlugin,
   defineContributionPoint,
   defineLazyPlugin,
+  defineRemotePlugin,
   describePluginGraph,
   type PluginGraph,
   type PluginGraphEdgeKind,
@@ -115,6 +116,73 @@ describe('describePluginGraph', () => {
       (node) => node.id === 'plugin:@app/lazy',
     );
     expect(after?.loaded).toBe(true);
+  });
+
+  it('draws where a remote plugin is served from, one node per container', () => {
+    const container = {
+      entry: 'https://cdn.example/remoteEntry.js',
+      scope: 'acme',
+    };
+    const loader = () => Promise.resolve({ default: definePlugin({ name: 'x' }) });
+    const reactor = buildReactorFromPlugins([
+      Base,
+      defineRemotePlugin(
+        { ...container, name: '@acme/one', module: './one' },
+        { loader, allowedOrigins: ['https://cdn.example'] },
+      ),
+      defineRemotePlugin(
+        { ...container, name: '@acme/two', module: './two' },
+        { loader, allowedOrigins: ['https://cdn.example'] },
+      ),
+    ]);
+
+    const graph = describePluginGraph(reactor);
+    const remotes = graph.nodes.filter((node) => node.kind === 'remote');
+    expect(remotes).toEqual([
+      expect.objectContaining({
+        id: 'remote:acme',
+        label: 'acme',
+        description: 'Module Federation container at https://cdn.example/remoteEntry.js',
+      }),
+    ]);
+    expect(edgesOf(graph, 'serves')).toEqual([
+      'remote:acme -> plugin:@acme/one',
+      'remote:acme -> plugin:@acme/two',
+    ]);
+    // A bundled plugin has no remote to come from.
+    expect(graph.edges.some((edge) => edge.target === 'plugin:@app/base' && edge.kind === 'serves')).toBe(false);
+  });
+
+  it('drops a remote with nothing left to serve when only what is live is drawn', () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@acme/one', entry: '/one.js' },
+        { loader: () => Promise.resolve({ default: definePlugin({ name: '@acme/one' }) }) },
+      ),
+    ]);
+    reactor.disable('@acme/one');
+
+    expect(
+      describePluginGraph(reactor, {}, { includeDisabled: false }).nodes.map((node) => node.id),
+    ).toEqual([]);
+    expect(describePluginGraph(reactor).nodes.map((node) => node.id).sort()).toEqual([
+      'plugin:@acme/one',
+      'remote:/one.js',
+    ]);
+  });
+
+  it('carries a load error onto the node', async () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@acme/one', entry: '/one.js', apiVersion: 'v99' },
+        { loader: () => Promise.resolve({}) },
+      ),
+    ]);
+    reactor.start();
+    await reactor.whenReady();
+
+    const node = describePluginGraph(reactor).nodes.find((n) => n.id === 'plugin:@acme/one');
+    expect(node?.loadError).toMatch(/API version v99/);
   });
 
   it('joins the backend half onto the same graph', () => {

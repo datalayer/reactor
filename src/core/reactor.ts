@@ -611,6 +611,7 @@ export function buildReactorFromPlugins(
         activated: current.activated,
         disabledBy: current.enabled ? undefined : current.disabledBy ?? 'user',
         loadError: current.loadError?.message,
+        remote: current.lazy?.remote,
         activationEvents: plugin.activationEvents ?? [ON_STARTUP],
         deactivationEvents: plugin.deactivationEvents ?? [],
         contributionPoints: (plugin.contributionPoints ?? []).map((point) => point.id),

@@ -34,7 +34,7 @@
 
 import { defineExtension, type ReactorExtension } from './extension';
 import { defineFederatedPlugin } from './federation';
-import { defineLazyPlugin, type LazyPluginRef } from './plugin';
+import { defineLazyPlugin, type LazyPluginRef, type PluginRemote } from './plugin';
 import { assertOriginAllowed } from './origins';
 import type { ActivationEvent } from './activation';
 
@@ -222,6 +222,30 @@ export type DefineRemoteOptions = {
 class RemoteRefused extends Error {}
 
 /**
+ * Where a remote's module comes from, as its manifest reports it.
+ *
+ * A container is named by its build and read by its exposed module; a plain
+ * module has neither, so it is named by its URL (the `?v=` a server adds to
+ * bust caches is not part of where it came from) and read by its export.
+ */
+function remoteOrigin(ref: RemotePluginRef): PluginRemote {
+  if (ref.scope) {
+    return {
+      kind: 'federated',
+      name: ref.scope,
+      entry: ref.entry,
+      module: ref.module ?? './plugin',
+    };
+  }
+  return {
+    kind: 'esm',
+    name: ref.entry.split('?')[0],
+    entry: ref.entry,
+    module: ref.export || 'default',
+  };
+}
+
+/**
  * Declare a plugin whose module is fetched from a URL.
  *
  * Returns a `LazyPluginRef`, so the result goes into
@@ -251,6 +275,7 @@ export function defineRemotePlugin(
     deactivationEvents: ref.deactivationEvents,
     requiredBackendPlugins: ref.requiredBackendPlugins,
     optionalBackendPlugins: ref.optionalBackendPlugins,
+    remote: remoteOrigin(ref),
     load: async () => {
       if (ref.apiVersion && ref.apiVersion !== apiVersion) {
         throw new RemoteRefused(

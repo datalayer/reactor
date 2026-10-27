@@ -48,6 +48,8 @@ const PANEL = definePlugin({
   build: () => ({ greeting: 'hello' }),
 });
 
+const PANEL_SHELL = definePlugin({ name: '@app/shell' });
+
 /** A loader standing in for the network, so a test never touches one. */
 const loaderFor = (module: Record<string, unknown>): RemoteModuleLoader =>
   vi.fn(async () => module);
@@ -84,6 +86,58 @@ describe('defineRemotePlugin', () => {
     expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js', expect.objectContaining({ name: expect.any(String) }));
     expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
     expect(reactor.getOutput('@hello/panel')).toEqual({ greeting: 'hello' });
+  });
+
+  it('says where its module comes from, before and after it loads', async () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@hello/panel', entry: '/reactor-extensions/hello/index.js?v=abc123' },
+        { loader: loaderFor({ default: PANEL }) },
+      ),
+      defineRemotePlugin(
+        {
+          name: '@hello/federated',
+          entry: '/reactor-extensions/hello/remoteEntry.js',
+          scope: 'hello_federated',
+          module: './panel',
+        },
+        { loader: loaderFor({ default: { ...PANEL, name: '@hello/federated' } }) },
+      ),
+      PANEL_SHELL,
+    ]);
+    reactor.start();
+
+    // A plain module is named by its URL, without the cache-busting query.
+    const esm = {
+      kind: 'esm',
+      name: '/reactor-extensions/hello/index.js',
+      entry: '/reactor-extensions/hello/index.js?v=abc123',
+      module: 'default',
+    };
+    // A container by the name its build declared, and read by what it exposes.
+    const federated = {
+      kind: 'federated',
+      name: 'hello_federated',
+      entry: '/reactor-extensions/hello/remoteEntry.js',
+      module: './panel',
+    };
+    expect(reactor.getManifest('@hello/panel')?.remote).toEqual(esm);
+    expect(reactor.getManifest('@hello/federated')?.remote).toEqual(federated);
+    // The shell's own plugins came from nowhere worth naming.
+    expect(reactor.getManifest('@app/shell')?.remote).toBeUndefined();
+
+    await reactor.whenReady();
+    expect(reactor.getManifest('@hello/panel')?.remote).toEqual(esm);
+  });
+
+  it('names the export a plain module is read from', () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@hello/panel', entry: '/index.js', export: 'HelloPlugin' },
+        { loader: loaderFor({ HelloPlugin: PANEL }) },
+      ),
+    ]);
+    expect(reactor.getManifest('@hello/panel')?.remote?.module).toBe('HelloPlugin');
   });
 
   it('takes a named export when the manifest asked for one', async () => {

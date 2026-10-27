@@ -165,6 +165,7 @@ const EDGE_STYLES: Record<
   PluginGraphEdgeKind,
   { label: string; token: string; fallback: string; dashed?: boolean }
 > = {
+  serves: { label: 'serves', token: '--fgColor-open', fallback: '#3fb950', dashed: true },
   'depends-on': { label: 'depends on', token: '--fgColor-muted', fallback: '#8b949e' },
   groups: { label: 'delivers', token: '--fgColor-sponsors', fallback: '#db61a2' },
   'offers-point': { label: 'offers', token: '--fgColor-done', fallback: '#a371f7' },
@@ -197,9 +198,18 @@ const EDGE_STYLES: Record<
  *
  * The shapes are chosen to mean something rather than merely to differ: a box
  * for the thing that packages others, a circle for a thing that runs, a
- * diamond for a meeting place, and a triangle for the tier across the wire.
+ * diamond for a meeting place, and a triangle for the tier across the wire —
+ * and a pin for a remote, which is a place: where a module is served from.
  */
 const CATEGORIES = [
+  {
+    key: 'remote',
+    name: 'Remote',
+    // A place on the map: where the module is served from.
+    symbol: 'pin',
+    token: '--fgColor-open',
+    fallback: '#3fb950',
+  },
   {
     key: 'extension',
     name: 'Extension',
@@ -245,6 +255,7 @@ const SHAPE_OF: Record<PluginGraphNodeKind, string> = Object.fromEntries(
  * smaller nodes rather than different ones, which is the opposite of the point.
  */
 const SIZE_SCALE: Record<PluginGraphNodeKind, number> = {
+  remote: 1,
   extension: 1,
   plugin: 1,
   'backend-plugin': 1.25,
@@ -259,20 +270,38 @@ const SIZE_SCALE: Record<PluginGraphNodeKind, number> = {
  * plugin column. They are a different kind of thing — a package, not a
  * participant — and mixing them in would make the plugin column read as a flat
  * list of peers, which is exactly the confusion the grouping exists to remove.
+ *
+ * Remotes go further left still: read left to right, a row says where a module
+ * was served from, which package delivered it, and what it is. A platform with
+ * no remote plugins draws that column empty, which is itself the answer.
  */
 const COLUMN_OF: Record<PluginGraphNodeKind, number> = {
-  extension: 0,
-  plugin: 1,
-  'contribution-point': 2,
-  'backend-plugin': 3,
+  remote: 0,
+  extension: 1,
+  plugin: 2,
+  'contribution-point': 3,
+  'backend-plugin': 4,
 };
 
 const COLUMN_TITLES = [
+  'Remotes',
   'Extensions',
   'Frontend (TypeScript)',
   'Contribution points',
   'Backend (Python)',
 ];
+
+/**
+ * A load error is text from somewhere else — a URL, a remote's own message —
+ * and the tooltip is HTML.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /** Horizontal spacing between columns, in the chart's own units. */
 const COLUMN_GAP = 340;
@@ -289,7 +318,7 @@ type PositionedNode = PluginGraphNode & { x: number; y: number };
  * even spacing rather than for the one structure a reader actually wants —
  * which tier a plugin is on, and which way a dependency points.
  *
- * So: four columns, extensions and the plugins they deliver on the left,
+ * So: five columns, remotes, extensions and the plugins they deliver on the left,
  * backend on the right, and the contribution points between them, because a
  * point is exactly the place where the two tiers meet. Within a column, nodes
  * are ordered by dependency depth, so what depends on something sits below it
@@ -361,6 +390,7 @@ function layoutGraph(graph: PluginGraph): PositionedNode[] {
 
 /** The edge kinds worth spelling out, and how to say them. */
 const EDGE_LEGEND: { kind: PluginGraphEdgeKind; description: string; color: string }[] = [
+  { kind: 'serves', description: 'serves a module', color: 'open.fg' },
   { kind: 'depends-on', description: 'depends on', color: 'fg.muted' },
   { kind: 'groups', description: 'delivers a plugin', color: 'sponsors.fg' },
   { kind: 'offers-point', description: 'offers a contribution point', color: 'done.fg' },
@@ -513,6 +543,8 @@ export function PluginGraphView({
               `<code>${node.name}</code>`,
               node.kind === 'contribution-point'
                 ? 'Contribution point'
+                : node.kind === 'remote'
+                  ? 'Remote'
                 : node.kind === 'extension'
                   ? 'Extension'
                 : node.tier === 'backend'
@@ -524,6 +556,9 @@ export function PluginGraphView({
             }
             if (node.enabled === false) {
               lines.push('', '<em>disabled</em>');
+            }
+            if (node.loadError) {
+              lines.push('', `<em>not loaded: ${escapeHtml(node.loadError)}</em>`);
             }
             if (pending) {
               lines.push('', '<em>lazy — not loaded yet</em>');
@@ -585,7 +620,8 @@ export function PluginGraphView({
       ],
       graphic: COLUMN_TITLES.map((title, index) => ({
         type: 'text' as const,
-        left: `${12 + index * 38}%`,
+        // Spread over the same span the columns are, however many there are.
+        left: `${4 + (index * 80) / (COLUMN_TITLES.length - 1)}%`,
         top: 32,
         style: {
           text: title,
