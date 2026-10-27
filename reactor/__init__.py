@@ -5,6 +5,7 @@
 from .extensions import (
     EXTENSION_CONTENT_TYPES,
     EXTENSION_ENTRY_POINT_GROUP,
+    FRONTEND_VERSION_FILE,
     SHARE_DIRECTORY,
     SHARE_ROOT,
     find_extension_frontend,
@@ -84,6 +85,7 @@ __all__ = [
     "serve",
     "EXTENSION_CONTENT_TYPES",
     "EXTENSION_ENTRY_POINT_GROUP",
+    "FRONTEND_VERSION_FILE",
     "SHARE_DIRECTORY",
     "SHARE_ROOT",
     "find_extension_frontend",

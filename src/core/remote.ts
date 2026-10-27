@@ -193,6 +193,13 @@ export interface RemotePluginRef {
   type?: string;
   /** Refused if it is not what this runtime speaks. */
   apiVersion?: string;
+  /**
+   * Why the server that listed this plugin will not have it loaded — a
+   * frontend built at another version than the Python half it shipped with,
+   * say. The plugin stays listed and its module is never fetched: its load
+   * fails with this reason, which is what the manifest's `loadError` says.
+   */
+  refused?: string;
   dependencies?: LazyPluginRef['dependencies'];
   activationEvents?: ActivationEvent[];
   deactivationEvents?: ActivationEvent[];
@@ -277,6 +284,9 @@ export function defineRemotePlugin(
     optionalBackendPlugins: ref.optionalBackendPlugins,
     remote: remoteOrigin(ref),
     load: async () => {
+      if (ref.refused) {
+        throw new RemoteRefused(ref.refused);
+      }
       if (ref.apiVersion && ref.apiVersion !== apiVersion) {
         throw new RemoteRefused(
           `${ref.name} declares API version ${ref.apiVersion}; this host speaks ${apiVersion}.`,
@@ -336,7 +346,13 @@ export type FrontendExtensionRecord = {
   module?: string;
   /** How the container entry is built (`global`, `esm`, …). Optional. */
   remoteType?: string;
-  plugins: Array<Omit<RemotePluginRef, 'entry' | 'apiVersion'> & { export?: string }>;
+  /**
+   * Why the server will not have this extension's frontend loaded, when it
+   * will not — its build records another version than its Python half. Every
+   * plugin in it stays listed and unloadable, with this as its `loadError`.
+   */
+  refused?: string;
+  plugins: Array<Omit<RemotePluginRef, 'entry' | 'apiVersion' | 'refused'> & { export?: string }>;
 };
 
 export type BootstrapOptions = DefineRemoteOptions & {
@@ -431,6 +447,7 @@ export async function bootstrapExtensions(
         ...plugin,
         entry,
         apiVersion: extension.apiVersion,
+        refused: extension.refused,
         scope,
         module,
         // Empty means unset — a backend serialising its default must not

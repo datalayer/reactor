@@ -353,6 +353,40 @@ describe('bootstrapExtensions', () => {
     );
   });
 
+  it('lists what the server refused, and never fetches it', async () => {
+    const load = loaderFor({ default: PANEL });
+    const refused =
+      'charts: its frontend was built at 1.2.0 and its Python half is 1.3.0. ' +
+      'Both ship in one wheel, so this is a packaging bug.';
+    const [extension] = await bootstrapExtensions('http://localhost:8799', {
+      loader: load,
+      fetchJson: async () => [
+        {
+          name: 'charts',
+          entry: '/reactor-extensions/charts/remoteEntry.js',
+          kind: 'federated',
+          remoteName: 'acme_charts',
+          module: './plugin',
+          refused,
+          plugins: [{ name: '@acme/charts', displayName: 'Charts' }],
+        },
+      ],
+    });
+
+    const reactor = buildReactorFromPlugins([extension]);
+    reactor.start();
+    await reactor.whenReady();
+
+    // Listed and described, from the server's manifest; refused, with the
+    // server's reason, rather than loaded and crashed.
+    const manifest = reactor.getManifest('@acme/charts');
+    expect(manifest?.displayName).toBe('Charts');
+    expect(manifest?.loaded).toBe(false);
+    expect(manifest?.loadError).toBe(refused);
+    expect(manifest?.remote?.name).toBe('acme_charts');
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it('normalises a trailing slash rather than building a double one', async () => {
     let asked = '';
     const load = loaderFor({ default: PANEL });

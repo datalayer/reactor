@@ -209,6 +209,53 @@ picks the loader from what the server says, so the two kinds coexist.
   remote — the origin a host named is the server, not everywhere the server can
   point. See [Allowed origins](/typescript-plugins/allowed-origins).
 
+## One version, checked
+
+Both halves ship in one wheel, so they are one version — and a wheel whose
+JavaScript was built at another one is a packaging bug: the version was bumped,
+the package reinstalled, and the frontend never rebuilt. Nothing about that is
+worth negotiating, so it is checked, not asked.
+
+The Python half says which version its frontend must be; the build records the
+version it was built at, by copying the frontend's `package.json` beside what
+it emitted — JupyterLab's convention for a prebuilt extension:
+
+```python
+FrontendExtension(
+    directory=_FRONTEND,
+    entry="remoteEntry.js",
+    version=__version__,          # the build in `directory` must say the same
+    ...
+)
+```
+
+```ts
+// frontend/rsbuild.config.ts
+output: { copy: [{ from: './package.json' }], distPath: { root: '../share/…' } }
+```
+
+When the two differ, or the build recorded no version, the frontend is
+**refused**, and refused the way every other refusal here is — visibly, and
+without a crash:
+
+| Where | What it says |
+| --- | --- |
+| the server's log, at load | `Frontend refused: acme-charts: its frontend was built at 1.2.0 and its Python half is 1.3.0. …` — once, at `ERROR` |
+| `GET /plugins/frontend-extensions` | the same sentence, as `refused` on the extension's record |
+| the browser | every plugin in it listed and described, never fetched, with that sentence as its manifest's `loadError` |
+
+The Python plugins keep running: they are the version `pip` installed. The
+check reads the build's `package.json` on every request, so rebuilding the
+frontend in place lifts the refusal on the next refresh, with no restart.
+Versions are compared as written — `1.0` is not `1.0.0` — because one wheel has
+no reason to spell its version twice. A `FrontendExtension` that declares no
+`version` claims no coupling, and nothing is checked.
+
+Compare `frontend_dependencies` on a plugin manifest: a backend plugin that
+needs a frontend plugin can only *ask* a browser what it loaded
+(`frontend_requirements`), because the answer lives in another process. This is
+a fact about two files in one directory, so it is enforced.
+
 ## Worked examples
 
 [`examples/extension`](https://github.com/datalayer/reactor/tree/main/examples/extension)
