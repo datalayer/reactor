@@ -74,32 +74,36 @@ const PALETTE_CSS = `
  * fallback is written as "not explicitly light" rather than a bare media rule.
  */
 .dla-cmdk-panel {
-  --cmdk-bg: var(--dla-cmdk-bg, #ffffff);
-  --cmdk-fg: var(--dla-cmdk-fg, #1f2328);
-  --cmdk-border: var(--dla-cmdk-border, rgba(0, 0, 0, 0.12));
-  --cmdk-selected: var(--dla-cmdk-selected, rgba(0, 0, 0, 0.06));
-  --cmdk-error-fg: var(--dla-cmdk-error-fg, #d1242f);
-  --cmdk-error-bg: var(--dla-cmdk-error-bg, rgba(209, 36, 47, 0.08));
+  --cmdk-bg: var(--dla-cmdk-bg, var(--overlay-bgColor, #ffffff));
+  --cmdk-fg: var(--dla-cmdk-fg, var(--fgColor-default, #1f2328));
+  --cmdk-muted: var(--dla-cmdk-muted, var(--fgColor-muted, #59636e));
+  --cmdk-border: var(--dla-cmdk-border, var(--borderColor-default, rgba(0, 0, 0, 0.12)));
+  --cmdk-selected: var(--dla-cmdk-selected, var(--bgColor-neutral-muted, rgba(0, 0, 0, 0.06)));
+  --cmdk-error-fg: var(--dla-cmdk-error-fg, var(--fgColor-danger, #d1242f));
+  --cmdk-error-bg: var(--dla-cmdk-error-bg, var(--bgColor-danger-muted, rgba(209, 36, 47, 0.08)));
+  --cmdk-shadow: var(--dla-cmdk-shadow, var(--shadow-floating-large, 0 16px 48px rgba(0, 0, 0, 0.2)));
 }
 [data-color-mode='dark'] .dla-cmdk-panel,
 [data-theme='dark'] .dla-cmdk-panel,
 .dark .dla-cmdk-panel {
-  --cmdk-bg: var(--dla-cmdk-bg, #1c2128);
-  --cmdk-fg: var(--dla-cmdk-fg, #e6edf3);
-  --cmdk-border: var(--dla-cmdk-border, rgba(255, 255, 255, 0.14));
-  --cmdk-selected: var(--dla-cmdk-selected, rgba(255, 255, 255, 0.08));
-  --cmdk-error-fg: var(--dla-cmdk-error-fg, #ff7b72);
-  --cmdk-error-bg: var(--dla-cmdk-error-bg, rgba(248, 81, 73, 0.12));
+  --cmdk-bg: var(--dla-cmdk-bg, var(--overlay-bgColor, #1c2128));
+  --cmdk-fg: var(--dla-cmdk-fg, var(--fgColor-default, #e6edf3));
+  --cmdk-muted: var(--dla-cmdk-muted, var(--fgColor-muted, #9198a1));
+  --cmdk-border: var(--dla-cmdk-border, var(--borderColor-default, rgba(255, 255, 255, 0.14)));
+  --cmdk-selected: var(--dla-cmdk-selected, var(--bgColor-neutral-muted, rgba(255, 255, 255, 0.08)));
+  --cmdk-error-fg: var(--dla-cmdk-error-fg, var(--fgColor-danger, #ff7b72));
+  --cmdk-error-bg: var(--dla-cmdk-error-bg, var(--bgColor-danger-muted, rgba(248, 81, 73, 0.12)));
 }
 @media (prefers-color-scheme: dark) {
   :not([data-color-mode='light']):not([data-theme='light']) > .dla-cmdk-backdrop
     .dla-cmdk-panel {
-    --cmdk-bg: var(--dla-cmdk-bg, #1c2128);
-    --cmdk-fg: var(--dla-cmdk-fg, #e6edf3);
-    --cmdk-border: var(--dla-cmdk-border, rgba(255, 255, 255, 0.14));
-    --cmdk-selected: var(--dla-cmdk-selected, rgba(255, 255, 255, 0.08));
-    --cmdk-error-fg: var(--dla-cmdk-error-fg, #ff7b72);
-    --cmdk-error-bg: var(--dla-cmdk-error-bg, rgba(248, 81, 73, 0.12));
+    --cmdk-bg: var(--dla-cmdk-bg, var(--overlay-bgColor, #1c2128));
+    --cmdk-fg: var(--dla-cmdk-fg, var(--fgColor-default, #e6edf3));
+    --cmdk-muted: var(--dla-cmdk-muted, var(--fgColor-muted, #9198a1));
+    --cmdk-border: var(--dla-cmdk-border, var(--borderColor-default, rgba(255, 255, 255, 0.14)));
+    --cmdk-selected: var(--dla-cmdk-selected, var(--bgColor-neutral-muted, rgba(255, 255, 255, 0.08)));
+    --cmdk-error-fg: var(--dla-cmdk-error-fg, var(--fgColor-danger, #ff7b72));
+    --cmdk-error-bg: var(--dla-cmdk-error-bg, var(--bgColor-danger-muted, rgba(248, 81, 73, 0.12)));
   }
 }
 
@@ -123,8 +127,8 @@ const PALETTE_CSS = `
   background: var(--cmdk-bg);
   color: var(--cmdk-fg);
   border: 1px solid var(--cmdk-border);
-  box-shadow: var(--dla-cmdk-shadow, 0 16px 48px rgba(0, 0, 0, 0.24));
-  font-family: var(--dla-cmdk-font, system-ui, -apple-system, "Segoe UI", sans-serif);
+  box-shadow: var(--cmdk-shadow);
+  font-family: var(--dla-cmdk-font, var(--fontStack-sansSerif, system-ui, -apple-system, "Segoe UI", sans-serif));
 }
 .dla-cmdk-search {
   padding: 12px;
