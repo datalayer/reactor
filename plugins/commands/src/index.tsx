@@ -31,13 +31,7 @@
  * @module commands-plugin
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   definePlugin,
@@ -394,14 +388,10 @@ export function CommandPalette(): React.JSX.Element | null {
     // capture phase of every key a person presses, including while they type.
     const bound = commands
       .map((command) => {
-        const chord = command.keybinding
-          ? parseKeybinding(command.keybinding)
-          : null;
+        const chord = command.keybinding ? parseKeybinding(command.keybinding) : null;
         return chord ? { chord, id: command.id } : null;
       })
-      .filter((entry): entry is { chord: ParsedKeybinding; id: string } =>
-        entry !== null,
-      );
+      .filter((entry): entry is { chord: ParsedKeybinding; id: string } => entry !== null);
     const apple = isApplePlatform();
 
     function onKeyDown(event: KeyboardEvent) {
@@ -443,8 +433,7 @@ export function CommandPalette(): React.JSX.Element | null {
     }
 
     document.addEventListener('keydown', onKeyDown, { capture: true });
-    return () =>
-      document.removeEventListener('keydown', onKeyDown, { capture: true });
+    return () => document.removeEventListener('keydown', onKeyDown, { capture: true });
   }, [commands, open, reactor]);
 
   // Opening focuses the input; every open starts from a clean query.
@@ -527,9 +516,7 @@ export function CommandPalette(): React.JSX.Element | null {
             aria-expanded
             aria-controls={LIST_ID}
             aria-autocomplete="list"
-            aria-activedescendant={
-              matches.length > 0 ? optionId(selected) : undefined
-            }
+            aria-activedescendant={matches.length > 0 ? optionId(selected) : undefined}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
@@ -572,9 +559,7 @@ export function CommandPalette(): React.JSX.Element | null {
                     </span>
                     {running === command.id && <span className="dla-cmdk-meta">running…</span>}
                     {command.keybinding && (
-                      <kbd className="dla-cmdk-key">
-                        {formatKeybinding(command.keybinding)}
-                      </kbd>
+                      <kbd className="dla-cmdk-key">{formatKeybinding(command.keybinding)}</kbd>
                     )}
                     {command.category && <span className="dla-cmdk-meta">{command.category}</span>}
                   </button>
@@ -587,10 +572,7 @@ export function CommandPalette(): React.JSX.Element | null {
         <div className="dla-cmdk-footer">
           <span>
             ↑↓ to move · ↵ to run · esc to close ·{' '}
-            <kbd className="dla-cmdk-key">
-              {formatKeybinding(PALETTE_KEYBINDING)}
-            </kbd>{' '}
-            to reopen
+            <kbd className="dla-cmdk-key">{formatKeybinding(PALETTE_KEYBINDING)}</kbd> to reopen
           </span>
           <span>
             {matches.length} of {commands.length}
@@ -647,5 +629,14 @@ export const CommandsPlugin = definePlugin({
     },
   ],
 });
+
+export {
+  COMMANDS_TABLE_SLOT,
+  CommandsTable,
+  commandsTablePlugin,
+  commandsTableRows,
+  type CommandsTableOptions,
+  type CommandsTableRow,
+} from './table';
 
 export default CommandsPlugin;
