@@ -73,13 +73,11 @@ export function CommandsTable(options: CommandsTableOptions): React.JSX.Element 
   const titleId = 'reactor-commands-table-title';
   return (
     <Table.Container>
-      <Table.Title as="h3" id={titleId}>
+      <Table.Title id={titleId}>
         {title} ({rows.length})
       </Table.Title>
       {options.subtitle !== undefined && (
-        <Table.Subtitle as="p" id={`${titleId}-subtitle`}>
-          {options.subtitle}
-        </Table.Subtitle>
+        <Table.Subtitle id={`${titleId}-subtitle`}>{options.subtitle}</Table.Subtitle>
       )}
       <DataTable
         aria-labelledby={titleId}
