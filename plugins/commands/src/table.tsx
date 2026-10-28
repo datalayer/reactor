@@ -87,18 +87,11 @@ export function CommandsTable(options: CommandsTableOptions): React.JSX.Element 
         data={rows}
         columns={[
           {
-            header: 'Command',
-            field: 'id',
-            rowHeader: true,
-            renderCell: (row) => <code data-command={row.id}>{row.id}</code>,
-          },
-          { header: 'Name', field: 'name' },
-          ...(options.category === undefined
-            ? [{ header: 'Category', field: 'category' as const }]
-            : []),
-          {
             header: 'Keys',
             id: 'keys',
+            // First, and no wider than its hints need: the names take the rest.
+            width: 'auto',
+            maxWidth: '220px',
             renderCell: (row) =>
               row.keys.length === 0 ? (
                 <span aria-label="No keys">—</span>
@@ -110,6 +103,16 @@ export function CommandsTable(options: CommandsTableOptions): React.JSX.Element 
                 </span>
               ),
           },
+          {
+            header: 'Command',
+            field: 'id',
+            rowHeader: true,
+            renderCell: (row) => <code data-command={row.id}>{row.id}</code>,
+          },
+          { header: 'Name', field: 'name' },
+          ...(options.category === undefined
+            ? [{ header: 'Category', field: 'category' as const }]
+            : []),
         ]}
       />
     </Table.Container>
