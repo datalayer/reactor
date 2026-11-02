@@ -33,7 +33,7 @@
   "dependencies": {
     "@datalayer/primer-addons": "^1.0.23",
     "@primer/react": "^37.31.0",
-    "@primer/octicons-react": "^19.35.0"
+    "@primer/octicons-react": "^19.42.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",
