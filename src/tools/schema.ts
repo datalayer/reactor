@@ -33,12 +33,16 @@ export interface ToolConfig<TParams = unknown> {
   [key: string]: unknown;
 }
 
-/** The JSON Schema a tool's parameters are described with. */
-export interface ToolParameters {
+/**
+ * The JSON Schema a tool's parameters are described with. A type literal,
+ * not an interface: a host that takes any JSON Schema (`Record<string,
+ * unknown>`) takes it as it is.
+ */
+export type ToolParameters = {
   type: 'object';
   properties: Record<string, unknown>;
   required?: string[];
-}
+};
 
 /** One tool, as a model is told it and as a host runs it. */
 export interface ToolDefinition<TParams = unknown> {
