@@ -135,6 +135,38 @@ describe('what the model is told a tool takes', () => {
     expect(zodToToolParameters(schema).properties.payload).toEqual({});
   });
 
+  it('keeps null beside the type of a nullable field, as a value the tool accepts', () => {
+    const schema = z.object({
+      value: z.string().nullable(),
+      kind: z.enum(['a', 'b']).nullable().optional(),
+    });
+    const parameters = zodToToolParameters(schema);
+    expect(parameters.properties.value).toEqual({ type: ['string', 'null'] });
+    expect(parameters.properties.kind).toEqual({ type: ['string', 'null'], enum: ['a', 'b', null] });
+    expect(parameters.required).toEqual(['value']);
+  });
+
+  it('describes an ordinary pipe by its input, and a preprocess by the schema after it', () => {
+    const schema = z.object({
+      count: z.number().transform(String),
+      index: z.preprocess(value => (typeof value === 'string' ? Number(value) : value), z.number()),
+    });
+    const parameters = zodToToolParameters(schema);
+    // What a caller sends is a number, whatever the transform makes of it.
+    expect(parameters.properties.count).toEqual({ type: 'number' });
+    expect(parameters.properties.index).toEqual({ type: 'number' });
+  });
+
+  it('keeps literals of several types as branches, so that 0 beside auto is still a number', () => {
+    const schema = z.object({ width: z.union([z.literal('auto'), z.literal(0)]) });
+    expect(zodToToolParameters(schema).properties.width).toEqual({
+      anyOf: [
+        { type: 'string', enum: ['auto'] },
+        { type: 'number', enum: [0] },
+      ],
+    });
+  });
+
   it('stops rather than recursing forever', () => {
     // A schema deep enough to prove the guard fires without hanging the run.
     let deep: z.ZodTypeAny = z.string();

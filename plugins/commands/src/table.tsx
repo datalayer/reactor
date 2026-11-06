@@ -20,7 +20,7 @@
  * as they are enabled and disabled.
  */
 
-import React, { useMemo } from 'react';
+import React, { useId, useMemo } from 'react';
 import { definePlugin, type RegisteredCommand } from '@datalayer/reactor';
 import { useCommands } from '@datalayer/reactor/react';
 import { DataTable, KeybindingHint, Table } from '@primer/react/experimental';
@@ -75,7 +75,8 @@ export function CommandsTable(options: CommandsTableOptions): React.JSX.Element 
   const commands = useCommands();
   const rows = useMemo(() => commandsTableRows(commands, options), [commands, options]);
   const title = options.title ?? 'Commands';
-  const titleId = 'reactor-commands-table-title';
+  // Per instance: two category tables on one page keep their own labels.
+  const titleId = `reactor-commands-table-title-${useId()}`;
   return (
     <Table.Container>
       <Table.Title id={titleId}>

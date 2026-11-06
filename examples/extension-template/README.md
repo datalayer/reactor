@@ -19,8 +19,8 @@ fills them in. This page walks through it from nothing.
 | Node.js and npm | Node 20 or newer | to build the browser half once, before packaging |
 | A copy of `new-extension.py` and `template/` | — | clone this repository, or download this directory |
 
-The generated package depends on `datalayer_reactor` 1.4.0 or newer (on PyPI)
-and its frontend on `@datalayer/reactor` 1.4.0 or newer (on npm). You install
+The generated package depends on `datalayer_reactor` 1.3.4 or newer (on PyPI)
+and its frontend on `@datalayer/reactor` 1.3.4 or newer (on npm). You install
 neither by hand: `pip` and `npm` fetch them.
 
 ## 1. Make one

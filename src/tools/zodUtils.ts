@@ -65,9 +65,10 @@ function unwrap(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   field: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): { schema: any; optional: boolean; description?: string } {
+): { schema: any; optional: boolean; nullable: boolean; description?: string } {
   let schema = field;
   let optional = false;
+  let nullable = false;
   let description: string | undefined;
 
   for (let depth = 0; schema && depth < 20; depth += 1) {
@@ -85,25 +86,33 @@ function unwrap(
       schema = def?.innerType;
       continue;
     }
-    if (
-      kind === 'ZodNullable' ||
-      kind === 'nullable' ||
-      kind === 'ZodReadonly' ||
-      kind === 'readonly'
-    ) {
+    if (kind === 'ZodNullable' || kind === 'nullable') {
+      // Null is a value the tool accepts: kept, and said beside the type.
+      nullable = true;
       schema = def?.innerType;
       continue;
     }
-    if (kind === 'ZodEffects' || kind === 'effects' || kind === 'pipe') {
-      // v4 `preprocess` is a pipe whose `out` is the real schema; v3 keeps it
-      // on `schema`.
-      schema = def?.out ?? def?.schema ?? def?.innerType;
+    if (kind === 'ZodReadonly' || kind === 'readonly') {
+      schema = def?.innerType;
+      continue;
+    }
+    if (kind === 'ZodEffects' || kind === 'effects') {
+      // v3: preprocess, refine and transform all wrap the schema the input is read with.
+      schema = def?.schema ?? def?.innerType;
+      continue;
+    }
+    if (kind === 'pipe') {
+      // v4: `preprocess` is a pipe whose `in` is the transform and whose `out`
+      // is the real schema; any other pipe (`.transform`, `.pipe`) is read
+      // by its input, which is what a caller has to send.
+      const inKind = kindOf(def?.in);
+      schema = inKind === 'transform' || inKind === 'ZodTransform' ? def?.out : (def?.in ?? def?.out);
       continue;
     }
     break;
   }
 
-  return { schema, optional, description };
+  return { schema, optional, nullable, description };
 }
 
 /** The literal values of an enum, across both Zod versions. */
@@ -130,11 +139,32 @@ const enumValuesOf = (field: any): unknown[] => {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fieldToJsonSchema(field: any, depth = 0): JsonSchemaNode {
-  const { schema, description } = unwrap(field);
-  const node: JsonSchemaNode = {};
+  const { schema, nullable, description } = unwrap(field);
+  const node = fieldNode(schema, depth);
   if (description) {
     node.description = description;
   }
+  if (nullable) {
+    // `null` beside the type when there is one type; as a branch otherwise.
+    if (typeof node.type === 'string') {
+      node.type = [node.type, 'null'];
+      if (Array.isArray(node.enum)) {
+        node.enum = [...node.enum, null];
+      }
+    } else if (Array.isArray(node.anyOf)) {
+      node.anyOf = [...(node.anyOf as unknown[]), { type: 'null' }];
+    } else {
+      node.anyOf = [{ ...node }, { type: 'null' }];
+      delete node.type;
+    }
+  }
+  return node;
+}
+
+/** The node of an unwrapped schema: its type, enum, items, properties or branches. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fieldNode(schema: any, depth: number): JsonSchemaNode {
+  const node: JsonSchemaNode = {};
 
   if (!schema || depth > 6) {
     node.type = 'string';
@@ -205,11 +235,13 @@ function fieldToJsonSchema(field: any, depth = 0): JsonSchemaNode {
       const branches = options.map(option =>
         fieldToJsonSchema(option, depth + 1)
       );
-      // A union of literals is an enum, which reads far better to a model
-      // than the same thing spelled as a list of one-value branches.
-      const literals = branches.every(
-        branch => Array.isArray(branch.enum) && branch.enum.length > 0
-      );
+      // A union of literals of one type is an enum, which reads far better to
+      // a model than the same thing spelled as a list of one-value branches;
+      // literals of several types stay branches, so that `0` beside `'auto'`
+      // is still a number.
+      const literals =
+        branches.every(branch => Array.isArray(branch.enum) && branch.enum.length > 0) &&
+        new Set(branches.map(branch => branch.type)).size === 1;
       if (literals && branches.length > 0) {
         node.type = branches[0].type;
         node.enum = branches.flatMap(branch => branch.enum as unknown[]);

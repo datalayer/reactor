@@ -996,19 +996,21 @@ class PluginPlatform:
                 )
                 if value
             }
+            # Asked per request: a frontend rebuilt in place while the server
+            # runs is refused, or let through, on the next refresh.
+            refusal = frontend.version_refusal(name)
+            refused = {"refused": refusal} if refusal is not None else {}
+            # A refused frontend advertises no public entry either: a public
+            # page loads what the record names, and must not load this.
             public = (
                 {
                     "publicEntry": _frontend_asset_url(
                         base_url, name, frontend, frontend.public_entry
                     )
                 }
-                if frontend.public_entry
+                if frontend.public_entry and refusal is None
                 else {}
             )
-            # Asked per request: a frontend rebuilt in place while the server
-            # runs is refused, or let through, on the next refresh.
-            refusal = frontend.version_refusal(name)
-            refused = {"refused": refusal} if refusal is not None else {}
             answer.append(
                 {
                     "name": name,

@@ -538,9 +538,10 @@ export function PluginGraphView({
         },
         tooltip: {
           formatter: () => {
+            // Every field from a record is escaped: a container name is the server's to say, not to run.
             const lines = [
-              `<strong>${node.emoji ? `${node.emoji} ` : ''}${node.label}</strong>`,
-              `<code>${node.name}</code>`,
+              `<strong>${node.emoji ? `${escapeHtml(node.emoji)} ` : ''}${escapeHtml(node.label)}</strong>`,
+              `<code>${escapeHtml(node.name)}</code>`,
               node.kind === 'contribution-point'
                 ? 'Contribution point'
                 : node.kind === 'remote'
@@ -552,7 +553,7 @@ export function PluginGraphView({
                   : 'Frontend plugin (TypeScript)',
             ];
             if (node.description) {
-              lines.push('', node.description);
+              lines.push('', escapeHtml(node.description));
             }
             if (node.enabled === false) {
               lines.push('', '<em>disabled</em>');

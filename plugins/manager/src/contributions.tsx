@@ -22,7 +22,7 @@
  */
 
 import type { JSX } from 'react';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useId, useMemo, useSyncExternalStore } from 'react';
 import { DataTable, Table } from '@primer/react/experimental';
 import { definePlugin, type Contribution } from '@datalayer/reactor';
 import { useReactorPlatform } from '@datalayer/reactor/react';
@@ -89,7 +89,8 @@ export function ContributionsTable(options: ContributionsTableOptions): JSX.Elem
     [platform, revision, options],
   );
   const title = options.title ?? 'Contributions';
-  const titleId = 'reactor-contributions-table-title';
+  // Per instance: a page with a table per plugin keeps each one's labels.
+  const titleId = `reactor-contributions-table-title-${useId()}`;
   return (
     <Table.Container>
       <Table.Title id={titleId}>
