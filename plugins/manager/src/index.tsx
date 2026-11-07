@@ -43,21 +43,11 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { ComponentType } from 'react';
-import {
-  AnchoredOverlay,
-  Text,
-  TextInput,
-  ToggleSwitch,
-  Truncate,
-} from '@primer/react';
+import { AnchoredOverlay, Text, TextInput, ToggleSwitch, Truncate } from '@primer/react';
 import { Box } from '@datalayer/primer-addons';
 import { SearchIcon } from '@primer/octicons-react';
 import { defineContributionPoint, definePlugin } from '@datalayer/reactor';
-import {
-  ReactorSlot,
-  useContributions,
-  useReactorPlatform,
-} from '@datalayer/reactor/react';
+import { ReactorSlot, useContributions, useReactorPlatform } from '@datalayer/reactor/react';
 
 /** This plugin's name, for configuring it and for protecting it. */
 export const MANAGER_PLUGIN_NAME = '@datalayer/reactor-manager';
@@ -190,9 +180,7 @@ export type PluginSourceProps = {
 };
 
 /** Where a plugin adds a group of plugins to the manager's list. */
-export const ManagerPluginSource = defineContributionPoint<PluginSource>(
-  'manager.pluginSource',
-);
+export const ManagerPluginSource = defineContributionPoint<PluginSource>('manager.pluginSource');
 
 /**
  * Re-read the platform whenever anything in it changes.
@@ -201,60 +189,55 @@ export const ManagerPluginSource = defineContributionPoint<PluginSource>(
  * cannot be compared by identity, and enabling a plugin has to redraw the row
  * that did it.
  */
-function usePluginRows(
-  protectedNames: Set<string>,
-  hiddenNames: Set<string>,
-): ManagedPlugin[] {
+function usePluginRows(protectedNames: Set<string>, hiddenNames: Set<string>): ManagedPlugin[] {
   const reactor = useReactorPlatform();
-  const revision = useSyncExternalStore(reactor.subscribe, () =>
-    reactor.getRevision(),
-  );
+  const revision = useSyncExternalStore(reactor.subscribe, () => reactor.getRevision());
 
   return useMemo(() => {
     return reactor
       .listPlugins()
-      .filter(name => !hiddenNames.has(name))
-      .map(name => {
-      const manifest = reactor.getManifest(name);
-      return {
-        name,
-        // The identifier is the fallback: a person should always have
-        // something to read, and `@music/catalog` beats an empty line.
-        displayName: manifest?.displayName ?? name,
-        description: manifest?.description,
-        emoji: manifest?.emoji,
-        version: manifest?.version,
-        enabled: reactor.isEnabled(name),
-        disabledBy: manifest?.disabledBy,
-        changeable: !protectedNames.has(name),
-        // What the reactor knows and a row has no room for.
-        details: [
-          {
-            label: 'Delivered by',
-            values: manifest?.extension ? [manifest.extension] : [],
-          },
-          {
-            label: 'Contributes to',
-            values: manifest?.contributesTo ?? [],
-          },
-          {
-            label: 'Offers contribution points',
-            values: manifest?.contributionPoints ?? [],
-          },
-          {
-            label: 'Requires backend plugins',
-            values: manifest?.requiredBackendPlugins ?? [],
-          },
-          {
-            label: 'Uses if available',
-            values: manifest?.optionalBackendPlugins ?? [],
-          },
-          {
-            label: 'Activates on',
-            values: manifest?.activationEvents ?? [],
-          },
-        ],
-      };
+      .filter((name) => !hiddenNames.has(name))
+      .map((name) => {
+        const manifest = reactor.getManifest(name);
+        return {
+          name,
+          // The identifier is the fallback: a person should always have
+          // something to read, and `@music/catalog` beats an empty line.
+          displayName: manifest?.displayName ?? name,
+          description: manifest?.description,
+          emoji: manifest?.emoji,
+          version: manifest?.version,
+          enabled: reactor.isEnabled(name),
+          disabledBy: manifest?.disabledBy,
+          changeable: !protectedNames.has(name),
+          // What the reactor knows and a row has no room for.
+          details: [
+            {
+              label: 'Delivered by',
+              values: manifest?.extension ? [manifest.extension] : [],
+            },
+            {
+              label: 'Contributes to',
+              values: manifest?.contributesTo ?? [],
+            },
+            {
+              label: 'Offers contribution points',
+              values: manifest?.contributionPoints ?? [],
+            },
+            {
+              label: 'Requires backend plugins',
+              values: manifest?.requiredBackendPlugins ?? [],
+            },
+            {
+              label: 'Uses if available',
+              values: manifest?.optionalBackendPlugins ?? [],
+            },
+            {
+              label: 'Activates on',
+              values: manifest?.activationEvents ?? [],
+            },
+          ],
+        };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reactor, revision, protectedNames, hiddenNames]);
@@ -339,34 +322,23 @@ function useHoverControl(): HoverControl {
 
 /** Everything about one plugin, shown while the pointer rests on its row. */
 function PluginDetails({ row }: { row: ManagedPlugin }): JSX.Element {
-  const details = (row.details ?? []).filter(detail => detail.values.length > 0);
+  const details = (row.details ?? []).filter((detail) => detail.values.length > 0);
   return (
     <Box sx={{ p: 3, maxWidth: 360, display: 'grid', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         {row.emoji ? <Text aria-hidden>{row.emoji}</Text> : null}
         <Text sx={{ fontWeight: 'semibold' }}>{row.displayName}</Text>
-        {row.version ? (
-          <Text sx={{ fontSize: 0, color: 'fg.muted' }}>v{row.version}</Text>
-        ) : null}
+        {row.version ? <Text sx={{ fontSize: 0, color: 'fg.muted' }}>v{row.version}</Text> : null}
       </Box>
       {/* The identifier, in full. The row shows a display name and truncates
           it; this is the overlay's whole reason for existing. */}
-      <Text sx={{ fontSize: 0, color: 'fg.muted', wordBreak: 'break-all' }}>
-        {row.name}
-      </Text>
-      {row.description ? (
-        <Text sx={{ fontSize: 0 }}>{row.description}</Text>
-      ) : null}
-      {details.map(detail => (
+      <Text sx={{ fontSize: 0, color: 'fg.muted', wordBreak: 'break-all' }}>{row.name}</Text>
+      {row.description ? <Text sx={{ fontSize: 0 }}>{row.description}</Text> : null}
+      {details.map((detail) => (
         <Box key={detail.label} sx={{ display: 'grid', gap: 1 }}>
-          <Text sx={{ fontSize: 0, fontWeight: 'semibold' }}>
-            {detail.label}
-          </Text>
-          {detail.values.map(value => (
-            <Text
-              key={value}
-              sx={{ fontSize: 0, color: 'fg.muted', wordBreak: 'break-all' }}
-            >
+          <Text sx={{ fontSize: 0, fontWeight: 'semibold' }}>{detail.label}</Text>
+          {detail.values.map((value) => (
+            <Text key={value} sx={{ fontSize: 0, color: 'fg.muted', wordBreak: 'break-all' }}>
               {value}
             </Text>
           ))}
@@ -374,14 +346,11 @@ function PluginDetails({ row }: { row: ManagedPlugin }): JSX.Element {
       ))}
       {row.disabledBy === 'dependency' ? (
         <Text sx={{ fontSize: 0, color: 'attention.fg' }}>
-          Off because something it depends on is off. It comes back when that
-          does.
+          Off because something it depends on is off. It comes back when that does.
         </Text>
       ) : null}
       {!row.changeable ? (
-        <Text sx={{ fontSize: 0, color: 'attention.fg' }}>
-          This one cannot be switched off.
-        </Text>
+        <Text sx={{ fontSize: 0, color: 'attention.fg' }}>This one cannot be switched off.</Text>
       ) : null}
     </Box>
   );
@@ -415,11 +384,7 @@ const OVERLAY_TAKES_NO_FOCUS = {
   returnFocusRef: { current: null } as unknown as React.RefObject<HTMLElement>,
 } as const;
 
-function PluginRowView({
-  row,
-  size,
-  onToggle,
-}: PluginRowViewProps): JSX.Element {
+function PluginRowView({ row, size, onToggle }: PluginRowViewProps): JSX.Element {
   // Primer's switch labels itself by pointing at an element, so the name in
   // the row is the label rather than a string repeated beside it.
   const labelId = `plugin-name-${row.name.replace(/[^a-zA-Z0-9]+/g, '-')}`;
@@ -443,7 +408,7 @@ function PluginRowView({
       // it flipped to the text's right when the left was short of room, which
       // is exactly where the switch sits.
       side="outside-right"
-      renderAnchor={anchorProps => (
+      renderAnchor={(anchorProps) => (
         <Box
           {...(anchorProps as Record<string, unknown>)}
           onMouseEnter={show}
@@ -466,10 +431,7 @@ function PluginRowView({
                   {row.emoji}
                 </Text>
               ) : null}
-              <Text
-                id={labelId}
-                sx={{ fontSize: 1, fontWeight: 'semibold', minWidth: 0 }}
-              >
+              <Text id={labelId} sx={{ fontSize: 1, fontWeight: 'semibold', minWidth: 0 }}>
                 {/* Truncated rather than wrapped: a long package name would
                     otherwise push the switch off the edge of the panel. */}
                 <Truncate title={row.name} maxWidth="100%" inline>
@@ -532,7 +494,7 @@ export function PluginList({
   emptyMessage,
 }: PluginListProps): JSX.Element {
   const visible = useMemo(
-    () => plugins.filter(row => pluginMatches(row, query)),
+    () => plugins.filter((row) => pluginMatches(row, query)),
     [plugins, query],
   );
 
@@ -546,13 +508,8 @@ export function PluginList({
 
   return (
     <>
-      {visible.map(row => (
-        <PluginRowView
-          key={row.name}
-          row={row}
-          size={switchSize}
-          onToggle={onToggle}
-        />
+      {visible.map((row) => (
+        <PluginRowView key={row.name} row={row} size={switchSize} onToggle={onToggle} />
       ))}
     </>
   );
@@ -605,12 +562,10 @@ export function PluginsManagerView({
   ...actions
 }: PluginsManagerViewProps): JSX.Element {
   const reactor = useReactorPlatform();
-  const config =
-    reactor.getConfig<PluginsManagerConfig>(MANAGER_PLUGIN_NAME) ?? {};
+  const config = reactor.getConfig<PluginsManagerConfig>(MANAGER_PLUGIN_NAME) ?? {};
 
   const protectedNames = useMemo(
-    () =>
-      new Set(protectedPlugins ?? config.protected ?? [MANAGER_PLUGIN_NAME]),
+    () => new Set(protectedPlugins ?? config.protected ?? [MANAGER_PLUGIN_NAME]),
     [protectedPlugins, config.protected],
   );
 
@@ -633,80 +588,73 @@ export function PluginsManagerView({
   const sources = useContributions(ManagerPluginSource);
   const groups = useMemo(
     () =>
-      [...sources]
-        .map(entry => entry.value)
-        .sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
+      [...sources].map((entry) => entry.value).sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
     [sources],
   );
 
   return (
     <PluginHoverContext.Provider value={hover}>
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 3,
-        // Laid out to the width it was given, and no wider: the truncation
-        // below has to resolve against something definite or it never fires.
-        width: width ?? config.width ?? '100%',
-        maxWidth: '100%',
-        minWidth: 0,
-      }}
-    >
-      {/* Whatever other plugins put here, above the list: these are actions,
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          // Laid out to the width it was given, and no wider: the truncation
+          // below has to resolve against something definite or it never fires.
+          width: width ?? config.width ?? '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+        }}
+      >
+        {/* Whatever other plugins put here, above the list: these are actions,
           and the list is a reference. */}
-      <ReactorSlot slot={MANAGER_ACTIONS_SLOT} props={actions} />
+        <ReactorSlot slot={MANAGER_ACTIONS_SLOT} props={actions} />
 
-      <Box>
-        <Text
-          as="h2"
-          sx={{ fontSize: 1, fontWeight: 'semibold', display: 'block', mb: 2 }}
-        >
-          {config.title ?? 'Plugins'}
-        </Text>
+        <Box>
+          <Text as="h2" sx={{ fontSize: 1, fontWeight: 'semibold', display: 'block', mb: 2 }}>
+            {config.title ?? 'Plugins'}
+          </Text>
 
-        <TextInput
-          leadingVisual={SearchIcon}
-          value={query}
-          onChange={event => setQuery(event.target.value)}
-          aria-label="Filter plugins"
-          placeholder="Filter…"
-          block
-          size="small"
-        />
-      </Box>
+          <TextInput
+            leadingVisual={SearchIcon}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Filter plugins"
+            placeholder="Filter…"
+            block
+            size="small"
+          />
+        </Box>
 
-      <Box>
-        <PluginList
-          plugins={rows}
-          query={query}
-          switchSize={size}
-          onToggle={(name, next) =>
-            next ? reactor.enable(name) : reactor.disable(name)
-          }
-        />
-      </Box>
+        <Box>
+          <PluginList
+            plugins={rows}
+            query={query}
+            switchSize={size}
+            onToggle={(name, next) => (next ? reactor.enable(name) : reactor.disable(name))}
+          />
+        </Box>
 
-      {/* Everything managed elsewhere, drawn the same way. A heading each,
+        {/* Everything managed elsewhere, drawn the same way. A heading each,
           because where a plugin runs is worth knowing even when switching it
           is not different. */}
-      {groups.map(group => (
-        <Box key={group.title}>
-          <Text
-            as="h3"
-            sx={{
-              fontSize: 1,
-              fontWeight: 'semibold',
-              display: 'block',
-              mb: 2,
-            }}
-          >
-            {group.title}
-          </Text>
-          <group.Component query={query} switchSize={size} />
-        </Box>
-      ))}
-    </Box>
+        {groups.map((group) => (
+          <Box key={group.title}>
+            <Text
+              as="h3"
+              sx={{
+                fontSize: 1,
+                fontWeight: 'semibold',
+                display: 'block',
+                mb: 2,
+              }}
+            >
+              {group.title}
+            </Text>
+            <group.Component query={query} switchSize={size} />
+          </Box>
+        ))}
+      </Box>
     </PluginHoverContext.Provider>
   );
 }
@@ -741,3 +689,4 @@ export const PluginsManagerPlugin = definePlugin({
 });
 
 export default PluginsManagerPlugin;
+export * from './contributions';

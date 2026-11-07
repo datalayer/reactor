@@ -21,6 +21,7 @@
     "@datalayer/reactor-commands": "file:../../../plugins/commands",
     "@datalayer/reactor-graph": "file:../../../plugins/graph",
     "@datalayer/reactor-manager": "file:../../../plugins/manager",
+    "@module-federation/runtime": "^2.9.0",
     "@primer/react": "^37.31.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",

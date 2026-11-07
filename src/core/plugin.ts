@@ -60,6 +60,36 @@ export interface PluginPresentation {
 }
 
 /**
+ * Where a remote plugin's module comes from.
+ *
+ * A bundled plugin came with the shell, and there is nothing to say. A remote
+ * one came from somebody else's build, served from a URL, and "where did this
+ * come from?" is the first question anybody asks of a plugin they did not
+ * install themselves — before *is it allowed*, and long before *why did it
+ * fail*. So it is on the manifest, readable while the module is still on the
+ * wire, like everything else there.
+ */
+export type PluginRemote = {
+  /**
+   * How the module is delivered: `federated` is a Module Federation
+   * container, `esm` a plain module imported from its URL.
+   */
+  kind: 'esm' | 'federated';
+  /**
+   * The container's name, as its build declared it. A plain module has no
+   * container, so it is named by its URL, without the query string.
+   */
+  name: string;
+  /** The URL the module is fetched from: a container's entry, or the module. */
+  entry: string;
+  /**
+   * What is read from it: the exposed module of a container (`./plugin`), or
+   * the export of a plain module (`default`).
+   */
+  module: string;
+};
+
+/**
  * Everything a host can know about a plugin without running it.
  *
  * This is the plugin manifest: metadata, the contributions and contribution
@@ -101,6 +131,11 @@ export type PluginManifest = PluginPresentation & {
    * "not here" is asking somebody to guess. Absent when nothing went wrong.
    */
   loadError?: string;
+  /**
+   * Where its module comes from, when it is a remote. Absent for a plugin the
+   * shell was built with, bundled or lazily imported.
+   */
+  remote?: PluginRemote;
   /**
    * Why it is switched off, when it is — and `undefined` when it is not.
    *
@@ -362,6 +397,11 @@ export interface LazyPluginRef extends PluginPresentation {
   optionalBackendPlugins?: string[];
   /** Points the module offers, declared up-front so the graph is complete. */
   contributionPoints?: ContributionPoint<any>[];
+  /**
+   * Where the module comes from, when it is not the shell's own. Set by
+   * `defineRemotePlugin`, and carried to the manifest as it is.
+   */
+  remote?: PluginRemote;
 }
 
 /**

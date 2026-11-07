@@ -96,3 +96,47 @@ a feature that vanishes looks like a feature that was lost.
 When a command throws, the palette shows the message and **stays open with the
 query intact**, so a command that failed for a fixable reason can be retried. It
 is where the person is looking, so it is where the failure belongs.
+
+## The commands as a table: `commandsTablePlugin`
+
+The palette is for running a command; a table is for reading them all at once —
+a reference page, a help panel, a settings screen. The package draws one with
+Primer's `DataTable`: each command's keys as `KeybindingHint`s, its id and its
+name, and its category when you show more than one.
+
+```tsx
+import { buildReactorFromPlugins } from '@datalayer/reactor';
+import { ReactorSlot, useReactor } from '@datalayer/reactor/react';
+import {
+  COMMANDS_TABLE_SLOT,
+  CommandsPlugin,
+  commandsTablePlugin,
+} from '@datalayer/reactor-commands';
+
+const reactor = buildReactorFromPlugins([
+  CommandsPlugin,
+  commandsTablePlugin({
+    category: 'Cells',
+    title: 'The Cells commands',
+    subtitle: 'Each is a Reactor command: the palette runs it.',
+  }),
+]);
+
+// …in the host, once the platform is published:
+<ReactorSlot slot={COMMANDS_TABLE_SLOT} />;
+```
+
+| Option      | What it does                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`  | Only the commands of this category. Absent, every command, with a _Category_ column.                                                                    |
+| `filter`    | A finer choice than the category, applied after it: `(command) => boolean`.                                                                             |
+| `extraKeys` | The keys a command answers to besides its `keybinding`, in the same format (`Mod+Alt+0`, `Shift+ArrowUp`) — a host's own keys, such as a grid's arrows. |
+| `title`     | The table's title; _Commands_ by default, with the row count beside it.                                                                                 |
+| `subtitle`  | A line under the title saying what the table is for.                                                                                                    |
+| `slot`      | The component slot it is contributed to; `commands-table` (`COMMANDS_TABLE_SLOT`) by default.                                                           |
+
+It reads the commands from the platform (`useCommands`), so the table follows
+plugins as they are enabled and disabled — a command whose plugin is switched
+off leaves the table as it leaves the palette. `CommandsTable` is the same table
+as a component, for a host that places it itself, and `commandsTableRows` is its
+pure half (the rows for a list of commands), for a test or a page of your own.

@@ -929,6 +929,11 @@ class PluginPlatform:
         registered = self.register_extension(extension.manifest, extension.plugins)
         if extension.frontend is not None:
             self._frontend[extension.name] = extension.frontend
+            # Loud here, where whoever installed it is watching the log; the
+            # browser hears the same reason from `frontend_extensions`.
+            refusal = extension.frontend.version_refusal(extension.name)
+            if refusal is not None:
+                logger.error("Frontend refused: %s", refusal)
         return registered
 
     def unregister_extension(self, name: str) -> list[str]:
@@ -991,13 +996,19 @@ class PluginPlatform:
                 )
                 if value
             }
+            # Asked per request: a frontend rebuilt in place while the server
+            # runs is refused, or let through, on the next refresh.
+            refusal = frontend.version_refusal(name)
+            refused = {"refused": refusal} if refusal is not None else {}
+            # A refused frontend advertises no public entry either: a public
+            # page loads what the record names, and must not load this.
             public = (
                 {
                     "publicEntry": _frontend_asset_url(
                         base_url, name, frontend, frontend.public_entry
                     )
                 }
-                if frontend.public_entry
+                if frontend.public_entry and refusal is None
                 else {}
             )
             answer.append(
@@ -1015,6 +1026,7 @@ class PluginPlatform:
                         base_url, name, frontend, frontend.entry
                     ),
                     **public,
+                    **refused,
                     "plugins": [plugin.to_dict() for plugin in frontend.plugins],
                     # What this extension's Python half brought, so a host can
                     # draw the two together rather than as unrelated lists.

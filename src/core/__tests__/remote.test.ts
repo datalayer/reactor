@@ -48,6 +48,8 @@ const PANEL = definePlugin({
   build: () => ({ greeting: 'hello' }),
 });
 
+const PANEL_SHELL = definePlugin({ name: '@app/shell' });
+
 /** A loader standing in for the network, so a test never touches one. */
 const loaderFor = (module: Record<string, unknown>): RemoteModuleLoader =>
   vi.fn(async () => module);
@@ -84,6 +86,58 @@ describe('defineRemotePlugin', () => {
     expect(load).toHaveBeenCalledWith('/reactor-extensions/hello/index.js', expect.objectContaining({ name: expect.any(String) }));
     expect(reactor.getManifest('@hello/panel')?.loaded).toBe(true);
     expect(reactor.getOutput('@hello/panel')).toEqual({ greeting: 'hello' });
+  });
+
+  it('says where its module comes from, before and after it loads', async () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@hello/panel', entry: '/reactor-extensions/hello/index.js?v=abc123' },
+        { loader: loaderFor({ default: PANEL }) },
+      ),
+      defineRemotePlugin(
+        {
+          name: '@hello/federated',
+          entry: '/reactor-extensions/hello/remoteEntry.js',
+          scope: 'hello_federated',
+          module: './panel',
+        },
+        { loader: loaderFor({ default: { ...PANEL, name: '@hello/federated' } }) },
+      ),
+      PANEL_SHELL,
+    ]);
+    reactor.start();
+
+    // A plain module is named by its URL, without the cache-busting query.
+    const esm = {
+      kind: 'esm',
+      name: '/reactor-extensions/hello/index.js',
+      entry: '/reactor-extensions/hello/index.js?v=abc123',
+      module: 'default',
+    };
+    // A container by the name its build declared, and read by what it exposes.
+    const federated = {
+      kind: 'federated',
+      name: 'hello_federated',
+      entry: '/reactor-extensions/hello/remoteEntry.js',
+      module: './panel',
+    };
+    expect(reactor.getManifest('@hello/panel')?.remote).toEqual(esm);
+    expect(reactor.getManifest('@hello/federated')?.remote).toEqual(federated);
+    // The shell's own plugins came from nowhere worth naming.
+    expect(reactor.getManifest('@app/shell')?.remote).toBeUndefined();
+
+    await reactor.whenReady();
+    expect(reactor.getManifest('@hello/panel')?.remote).toEqual(esm);
+  });
+
+  it('names the export a plain module is read from', () => {
+    const reactor = buildReactorFromPlugins([
+      defineRemotePlugin(
+        { name: '@hello/panel', entry: '/index.js', export: 'HelloPlugin' },
+        { loader: loaderFor({ HelloPlugin: PANEL }) },
+      ),
+    ]);
+    expect(reactor.getManifest('@hello/panel')?.remote?.module).toBe('HelloPlugin');
   });
 
   it('takes a named export when the manifest asked for one', async () => {
@@ -297,6 +351,40 @@ describe('bootstrapExtensions', () => {
       'http://localhost:8799/reactor-extensions/hello/index.js',
       expect.objectContaining({ name: expect.any(String) }),
     );
+  });
+
+  it('lists what the server refused, and never fetches it', async () => {
+    const load = loaderFor({ default: PANEL });
+    const refused =
+      'charts: its frontend was built at 1.2.0 and its Python half is 1.3.0. ' +
+      'Both ship in one wheel, so this is a packaging bug.';
+    const [extension] = await bootstrapExtensions('http://localhost:8799', {
+      loader: load,
+      fetchJson: async () => [
+        {
+          name: 'charts',
+          entry: '/reactor-extensions/charts/remoteEntry.js',
+          kind: 'federated',
+          remoteName: 'acme_charts',
+          module: './plugin',
+          refused,
+          plugins: [{ name: '@acme/charts', displayName: 'Charts' }],
+        },
+      ],
+    });
+
+    const reactor = buildReactorFromPlugins([extension]);
+    reactor.start();
+    await reactor.whenReady();
+
+    // Listed and described, from the server's manifest; refused, with the
+    // server's reason, rather than loaded and crashed.
+    const manifest = reactor.getManifest('@acme/charts');
+    expect(manifest?.displayName).toBe('Charts');
+    expect(manifest?.loaded).toBe(false);
+    expect(manifest?.loadError).toBe(refused);
+    expect(manifest?.remote?.name).toBe('acme_charts');
+    expect(load).not.toHaveBeenCalled();
   });
 
   it('normalises a trailing slash rather than building a double one', async () => {

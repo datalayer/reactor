@@ -1,0 +1,9 @@
+# The frontend's dependencies.
+frontend/node_modules/
+# What `npm run build` writes: built, not authored.
+share/
+# Python build output.
+__pycache__/
+*.egg-info/
+build/
+dist/

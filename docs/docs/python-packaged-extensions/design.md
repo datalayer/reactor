@@ -42,8 +42,14 @@ in step by hand.
   it, and the browser loads it through the same seam as any
   [remote plugin](/typescript-plugins/federation) — as a plain module or as a
   Module Federation container.
-- **Version coupling** — the container is built straight into `share/`, so
-  the two halves cannot ship at different versions.
+- **Version coupling** — the container is built straight into `share/`, which
+  makes one version the normal case but does not guarantee it: a bumped,
+  reinstalled package whose frontend was never rebuilt ships two. So the build
+  records its version (the frontend's `package.json`, copied beside it), the
+  Python half declares the one it must be (`FrontendExtension.version`), and a
+  mismatch refuses the frontend with the reason in the log, on the record and on
+  every plugin's `loadError` — see
+  [One version, checked](/python-packaged-extensions/#one-version-checked).
 - **Development ergonomics** — the Python half stays `pip install -e`; the
   frontend runs on a dev server and is hot-updated into the running host by
   name.

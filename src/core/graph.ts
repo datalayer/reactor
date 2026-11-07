@@ -34,8 +34,13 @@ import type { ReactorPlatform } from './reactor';
  * unit that contributes, an extension is the package that delivered it. Both
  * are drawn, because "which extension do I uninstall to lose this view?" is a
  * question a graph should be able to answer.
+ *
+ * A `remote` is where a plugin's module is served from — a Module Federation
+ * container, or a plain module at a URL — for a plugin the shell was not built
+ * with. It answers the question before that one: "where did this come from?"
  */
 export type PluginGraphNodeKind =
+  | 'remote'
   | 'plugin'
   | 'extension'
   | 'backend-plugin'
@@ -64,6 +69,8 @@ export type PluginGraphNode = {
   description?: string;
   octicon?: string;
   emoji?: string;
+  /** Why its module never arrived, when it did not. */
+  loadError?: string;
 };
 
 /**
@@ -71,8 +78,10 @@ export type PluginGraphNode = {
  *
  * `offers-point` and `contributes-to` are the two halves of a contribution
  * point: one plugin opens it, others fill it, and neither imports the other.
+ * `serves` runs from a remote to each plugin whose module it serves.
  */
 export type PluginGraphEdgeKind =
+  | 'serves'
   | 'depends-on'
   | 'groups'
   | 'offers-point'
@@ -152,6 +161,7 @@ export type DescribeGraphOptions = {
 /** Node ids are prefixed by kind, so a point and a plugin never collide. */
 export const pluginNodeId = (name: string) => `plugin:${name}`;
 export const extensionNodeId = (name: string) => `extension:${name}`;
+export const remoteNodeId = (name: string) => `remote:${name}`;
 export const backendNodeId = (name: string) => `backend:${name}`;
 export const pointNodeId = (id: string) => `point:${id}`;
 
@@ -215,7 +225,29 @@ export function describePluginGraph(
       description: metadata.description,
       octicon: metadata.octicon,
       emoji: metadata.emoji,
+      loadError: metadata.loadError,
     });
+
+    // Where its module is served from, when the shell was not built with it.
+    // One node per container (or module URL): two plugins exposed by one
+    // container came from one place, and the graph should say so.
+    if (metadata.remote) {
+      const remoteId = remoteNodeId(metadata.remote.name);
+      if (!nodes.has(remoteId)) {
+        nodes.set(remoteId, {
+          id: remoteId,
+          name: metadata.remote.name,
+          label: metadata.remote.name,
+          kind: 'remote',
+          tier: 'frontend',
+          description:
+            metadata.remote.kind === 'federated'
+              ? `Module Federation container at ${metadata.remote.entry}`
+              : `ES module at ${metadata.remote.entry}`,
+        });
+      }
+      edges.push({ source: remoteId, target: id, kind: 'serves' });
+    }
 
     // The extension that delivered it. Drawn from the plugin's manifest rather
     // than by walking the extensions, so a plugin whose group was declared but
@@ -372,8 +404,16 @@ export function describePluginGraph(
   const live = new Set(
     [...nodes.values()].filter((node) => node.enabled !== false).map((node) => node.id),
   );
+  const liveEdges = edges.filter((edge) => live.has(edge.source) && live.has(edge.target));
+  // A remote is only where something came from: with every plugin it serves
+  // switched off, it has nothing left to say.
+  const serving = new Set(
+    liveEdges.filter((edge) => edge.kind === 'serves').map((edge) => edge.source),
+  );
   return {
-    nodes: [...nodes.values()].filter((node) => live.has(node.id)),
-    edges: edges.filter((edge) => live.has(edge.source) && live.has(edge.target)),
+    nodes: [...nodes.values()].filter(
+      (node) => live.has(node.id) && (node.kind !== 'remote' || serving.has(node.id)),
+    ),
+    edges: liveEdges,
   };
 }

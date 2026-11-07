@@ -29,6 +29,7 @@ host can show rather than an absence nobody can explain.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,13 @@ SHARE_ROOT = "share/datalayer/reactor"
 
 #: Where a wheel puts an extension's built frontend.
 SHARE_DIRECTORY = f"{SHARE_ROOT}/extensions"
+
+#: The file in a built frontend's directory that says what version it was built at.
+#:
+#: The frontend's own ``package.json``, copied beside what the build emitted —
+#: JupyterLab's convention for a prebuilt extension, again. Its ``version`` is
+#: what :attr:`FrontendExtension.version` is checked against.
+FRONTEND_VERSION_FILE = "package.json"
 
 
 def find_share(package_file: str | Path, relative: str) -> Path | None:
@@ -179,6 +187,19 @@ class FrontendExtension:
     api_version: str = "v1"
     #: The manifests, without the code. See :class:`FrontendPlugin`.
     plugins: list[FrontendPlugin] = field(default_factory=list)
+    #: The version the built frontend in ``directory`` must have been built at.
+    #:
+    #: Both halves ship in one wheel, so they are one version — and a wheel
+    #: whose JavaScript was built at another one (bumped, reinstalled, never
+    #: rebuilt) is a packaging bug, not a negotiation. Declared, the build must
+    #: carry the same version in :data:`FRONTEND_VERSION_FILE`; anything else
+    #: and the frontend is refused, with the reason on the record the browser
+    #: reads (see :meth:`version_refusal`). Empty declares no coupling.
+    #:
+    #: Unlike ``frontend_dependencies`` on a plugin manifest, which can only
+    #: *ask* a browser what it loaded, this is a fact about files in one
+    #: directory, so it is checked rather than reported.
+    version: str = ""
     #: How the host should load it.
     #:
     #: ``esm`` — a plain module, imported from its URL. ``federated`` — a
@@ -194,6 +215,45 @@ class FrontendExtension:
     #: ``get``). Empty leaves the choice to the browser runtime. Only read
     #: when ``kind`` is ``federated``.
     remote_type: str = ""
+
+    def built_version(self) -> str | None:
+        """The version the build in ``directory`` recorded, or ``None``.
+
+        ``None`` when there is no :data:`FRONTEND_VERSION_FILE`, when it is not
+        JSON, or when it names no version: a build that did not say.
+        """
+        stamp = self.directory / FRONTEND_VERSION_FILE
+        try:
+            recorded = json.loads(stamp.read_text())
+        except (OSError, ValueError):
+            return None
+        version = recorded.get("version") if isinstance(recorded, dict) else None
+        return version if isinstance(version, str) and version else None
+
+    def version_refusal(self, extension: str) -> str | None:
+        """Why this frontend must not be loaded, or ``None`` when it may.
+
+        Only ever a reason when :attr:`version` is declared: then the build
+        must have recorded the same version, compared as written. Read from
+        disk on every call, because a frontend is rebuilt in place while the
+        server runs — and the answer should change with it.
+        """
+        if not self.version:
+            return None
+        built = self.built_version()
+        if built is None:
+            return (
+                f"{extension}: its Python half is {self.version}, and its frontend "
+                f"records no version ({self.directory / FRONTEND_VERSION_FILE} is "
+                "missing or names none). Rebuild the frontend, then reinstall the package."
+            )
+        if built != self.version:
+            return (
+                f"{extension}: its frontend was built at {built} and its Python half "
+                f"is {self.version}. Both ship in one wheel, so this is a packaging "
+                "bug: rebuild the frontend, then reinstall the package."
+            )
+        return None
 
     def resolve(self, relative: str) -> Path | None:
         """Resolve a request against this extension's directory, or refuse.
