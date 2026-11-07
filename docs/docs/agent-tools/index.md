@@ -109,6 +109,11 @@ supplies its own handler — the bundle is the contract with the model; the
 handler is the host's. The `toolset` is the least-privilege list: a harness
 that admits client tools by name admits these.
 
+A host whose tools act on a *document* — read a cell, insert a block, watch an
+arena — builds those handlers with the [tools machinery](/agent-tools/tools-machinery),
+`@datalayer/reactor/tools`: a definition, an operation, an executor over the
+document's store, and an adapter per harness.
+
 ```mermaid
 sequenceDiagram
   actor User

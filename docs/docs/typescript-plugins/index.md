@@ -25,6 +25,8 @@ slug: /typescript-plugins/
 
 - Core runtime exports from `@datalayer/reactor`
 - React bindings export from `@datalayer/reactor/react`
+- The [tools machinery](/agent-tools/tools-machinery) — what a tool is for a
+  host, how it runs and streams — exports from `@datalayer/reactor/tools`
 
 The split is what lets the same platform run in a Node service or a CLI without
 React being installed. See [React bindings](/typescript-plugins/react) for the second
