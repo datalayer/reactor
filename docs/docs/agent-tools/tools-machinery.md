@@ -39,7 +39,7 @@ as `@datalayer/jupyter-react` defines it:
 import type { ToolDefinition } from '@datalayer/reactor/tools';
 import { zodToToolParameters } from '@datalayer/reactor/tools';
 
-export const readCellTool: ToolDefinition = {
+export const readCellTool: ToolDefinition<{ index: number }> = {
   name: 'datalayer_readCell',
   displayName: 'Read Notebook Cell',
   toolReferenceName: 'readCell',
