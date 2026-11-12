@@ -44,7 +44,7 @@ from typing import Any, Optional
 
 import click
 import typer
-from typer.core import TyperGroup
+from typer.core import TyperCommand, TyperGroup
 from typer.models import DefaultPlaceholder
 
 from .extensions import EXTENSION_ENTRY_POINT_GROUP
@@ -145,8 +145,86 @@ def load_platform(*, discover: bool = True) -> PluginPlatform:
     return platform
 
 
-class AlphabeticalGroup(TyperGroup):
-    """A command group that lists its commands in alphabetical order.
+def _option_key(param: click.Parameter) -> tuple[int, str, str]:
+    """Where an option lists: by its long name, `--help` after everything."""
+    names = [*param.opts, *param.secondary_opts]
+    long = next((name for name in names if name.startswith("--")), names[0] if names else "")
+    bare = long.lstrip("-")
+    return (1 if bare == "help" else 0, bare.lower(), bare)
+
+
+class _AlphabeticalOptions:
+    """Lists a command's options alphabetically — in its help and in completion.
+
+    By the long name (`--ai-agents-url` before `--api-key`), `--help` last;
+    `--version` and the completion options sit where the alphabet puts them.
+    Positional arguments are not reordered: their order is the call's meaning.
+
+    Only what is *listed* is ordered. Click also reads the declared order to
+    decide which option is processed — and which prompt is asked — first, so
+    the parameters keep it everywhere but while a help page or a completion
+    is being written.
+    """
+
+    _listing = 0
+
+    def get_params(self, ctx: click.Context) -> list[click.Parameter]:
+        params = super().get_params(ctx)  # type: ignore[misc]
+        if not self._listing:
+            return params
+        arguments = [param for param in params if not isinstance(param, click.Option)]
+        options = [param for param in params if isinstance(param, click.Option)]
+        return arguments + sorted(options, key=_option_key)
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        self._listing += 1
+        try:
+            super().format_help(ctx, formatter)  # type: ignore[misc]
+        finally:
+            self._listing -= 1
+
+    def shell_complete(self, ctx: click.Context, incomplete: str) -> list[Any]:
+        self._listing += 1
+        try:
+            return super().shell_complete(ctx, incomplete)  # type: ignore[misc]
+        finally:
+            self._listing -= 1
+
+
+class AlphabeticalCommand(_AlphabeticalOptions, TyperCommand):
+    """A command that lists its options alphabetically."""
+
+
+#: The ordered counterpart of each command class met, made once.
+_ordered_classes: dict[type, type] = {}
+
+
+def _alphabetical_command_class(cls: Any) -> type:
+    """The command class to use in place of `cls`, listing its options alphabetically."""
+    if cls is None or cls is TyperCommand:
+        return AlphabeticalCommand
+    if issubclass(cls, _AlphabeticalOptions):
+        return cls
+    ordered = _ordered_classes.get(cls)
+    if ordered is None:
+        ordered = type(cls.__name__, (_AlphabeticalOptions, cls), {"__module__": cls.__module__})
+        _ordered_classes[cls] = ordered
+    return ordered
+
+
+def _alphabetical_command(command: click.Command | None) -> click.Command | None:
+    """The command, listing its options alphabetically — whatever its class."""
+    if command is not None and not isinstance(command, _AlphabeticalOptions):
+        # The command is built already, by Typer, from a class named where it
+        # was registered — after this application was ordered, or it would be
+        # of an ordered class. It keeps everything of its class and gains the
+        # listing.
+        command.__class__ = _alphabetical_command_class(type(command))
+    return command
+
+
+class AlphabeticalGroup(_AlphabeticalOptions, TyperGroup):
+    """A command group that lists its commands and options in alphabetical order.
 
     Typer lists commands in the order they were registered, which reads well
     for one author's handful of commands. A reactor command line is assembled
@@ -154,11 +232,17 @@ class AlphabeticalGroup(TyperGroup):
     distributions happened to be discovered in, and nobody can find anything
     in it. The order is decided when the listing is asked for, so a command
     registered late lists in its place; `--help` (within each help panel) and
-    shell completion both read it from here. Options keep their order.
+    shell completion both read it from here.
+
+    The options list alphabetically too — the group's own, and those of every
+    command reached through it (see :class:`_AlphabeticalOptions`).
     """
 
     def list_commands(self, ctx: click.Context) -> list[str]:
         return sorted(super().list_commands(ctx), key=lambda name: (name.lower(), name))
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        return _alphabetical_command(super().get_command(ctx, cmd_name))
 
 
 def _alphabetical_class(cls: Any) -> type[TyperGroup]:
@@ -175,7 +259,7 @@ def _alphabetical_class(cls: Any) -> type[TyperGroup]:
 
 
 def alphabetical(cli: Any) -> Any:
-    """Make a Typer application list its commands alphabetically, at every level.
+    """Make a Typer application list its commands and options alphabetically, at every level.
 
     The application and every group under it, however deep — the ones there
     now; :func:`extend` calls this after the extensions have registered. Safe
@@ -191,6 +275,8 @@ def alphabetical(cli: Any) -> Any:
             return
         seen.add(id(info))
         info.cls = _alphabetical_class(info.cls)
+        for command in getattr(application, "registered_commands", None) or []:
+            command.cls = _alphabetical_command_class(command.cls)
         for group in getattr(application, "registered_groups", None) or []:
             # `add_typer(..., cls=...)` outranks the application's own class.
             if not isinstance(group.cls, DefaultPlaceholder) and group.cls is not None:

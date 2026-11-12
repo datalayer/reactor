@@ -117,18 +117,126 @@ def test_help_lists_alphabetically_within_each_panel():
     assert out.index("zebra") < out.index("bear")
 
 
-def test_options_keep_their_order():
-    cli = typer.Typer(name="host")
+ENV = {"NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "120"}
+
+
+def _in_order(text: str, *words: str) -> bool:
+    """Whether the words appear in the text in the order given."""
+    positions = [text.index(word) for word in words]
+    return positions == sorted(positions)
+
+
+def _optioned() -> typer.Typer:
+    """A host whose options are declared out of order, at three levels."""
+    cli = typer.Typer(name="host", no_args_is_help=True)
+
+    @cli.callback()
+    def root(
+        version: bool = typer.Option(False, "--version"),
+        api_key: str = typer.Option("", "--api-key"),
+        ai_agents_url: str = typer.Option("", "--ai-agents-url"),
+    ) -> None:
+        """The host."""
 
     @cli.command("run")
-    def run(zulu: bool = False, alpha: bool = False) -> None:
+    def run(
+        second: str = typer.Argument("b"),
+        first: str = typer.Argument("a"),
+        zulu: bool = typer.Option(False, "--zulu", "-a"),
+        mike: bool = typer.Option(False, "--mike/--no-mike"),
+        alpha: bool = typer.Option(False, "--alpha", "-z"),
+    ) -> None:
         """Runs."""
+        typer.echo(f"{second} {first}")
+
+    tools = typer.Typer(name="tools", no_args_is_help=True)
+
+    @tools.callback()
+    def tools_root(yes: bool = False, dry_run: bool = False) -> None:
+        """The tools."""
+
+    @tools.command("wrench")
+    def wrench(size: int = 1, grip: str = "") -> None:
+        """Turns."""
+
+    cli.add_typer(tools)
+    return cli
+
+
+def test_options_list_alphabetically_at_every_level_with_help_last():
+    cli = alphabetical(_optioned())
+
+    root = runner.invoke(cli, ["--help"], env=ENV).output
+    # By the long name: `--ai-agents-url` before `--api-key`. `--version` and
+    # the completion options sit where the alphabet puts them; `--help` closes.
+    assert _in_order(
+        root,
+        "--ai-agents-url",
+        "--api-key",
+        "--install-completion",
+        "--show-completion",
+        "--version",
+        "--help",
+    )
+    command = runner.invoke(cli, ["run", "--help"], env=ENV).output
+    # The long name decides, not the short one beside it.
+    assert _in_order(command, "--alpha", "--mike", "--zulu", "--help")
+    group = runner.invoke(cli, ["tools", "--help"], env=ENV).output
+    assert _in_order(group, "--dry-run", "--yes", "--help")
+    nested = runner.invoke(cli, ["tools", "wrench", "--help"], env=ENV).output
+    assert _in_order(nested, "--grip", "--size", "--help")
+
+
+def test_positional_arguments_are_not_reordered():
+    cli = alphabetical(_optioned())
+
+    usage = runner.invoke(cli, ["run", "--help"], env=ENV).output
+    assert _in_order(usage, "[SECOND]", "[FIRST]")
+    # And the call means what it meant.
+    assert runner.invoke(cli, ["run", "one", "two"]).output.strip() == "one two"
+
+
+def test_the_options_of_a_command_registered_late_list_in_order():
+    cli = _application()
+    extend(cli, _platform())
+
+    @cli.command("cherry")
+    def cherry(stone: bool = False, pit: bool = False) -> None:
+        """Late."""
+
+    assert _in_order(runner.invoke(cli, ["cherry", "--help"], env=ENV).output, "--pit", "--stone", "--help")
+
+
+def test_options_are_processed_in_the_order_they_were_declared():
+    # Click asks the prompts, and runs the callbacks, in declared order: only
+    # the listing is alphabetical.
+    cli = typer.Typer(name="host")
+
+    @cli.command("ask")
+    def ask(
+        zulu: str = typer.Option(..., prompt="zulu"),
+        alpha: str = typer.Option(..., prompt="alpha"),
+    ) -> None:
+        typer.echo(f"zulu={zulu} alpha={alpha}")
 
     cli.command("other")(_noop)
     alphabetical(cli)
 
-    out = runner.invoke(cli, ["run", "--help"], env={"NO_COLOR": "1", "TERM": "dumb"}).output
-    assert out.index("--zulu") < out.index("--alpha")
+    result = runner.invoke(cli, ["ask"], input="first\nsecond\n")
+    assert "zulu=first alpha=second" in result.output
+    assert _in_order(runner.invoke(cli, ["ask", "--help"], env=ENV).output, "--alpha", "--zulu")
+
+
+def test_completion_offers_the_options_alphabetically():
+    from click.shell_completion import ShellComplete
+
+    group = get_command(alphabetical(_optioned()))
+    offered = [
+        item.value
+        for item in ShellComplete(group, {}, "host", "_HOST_COMPLETE").get_completions(["run"], "--")
+    ]
+
+    assert offered == ["--alpha", "--mike", "--no-mike", "--zulu", "--help"]
 
 
 def test_completion_offers_the_commands_alphabetically():

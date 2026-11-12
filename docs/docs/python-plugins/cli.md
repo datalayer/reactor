@@ -175,7 +175,7 @@ extend(app)     # every installed extension adds its commands
 app()
 ```
 
-### The order commands are listed in
+### The order commands and options are listed in
 
 A command line built this way lists its commands **alphabetically**, at every
 level: the application's own and every group's, in `--help` (within each help
@@ -184,7 +184,13 @@ its own lists them in the order they were registered, which here would be the
 order the installed distributions happened to be discovered in. `extend` sets
 that up once the extensions have registered, and the order is decided when the
 listing is asked for — a command added afterwards still lists in its place.
-Options keep the order they were declared in.
+
+The **options** list alphabetically too, at every level, by their long name
+(`--ai-agents-url` before `--api-key`), with `--help` last; `--version` and the
+completion options sit where the alphabet puts them. Positional arguments are
+not reordered — their order is the call's meaning — and options are still
+processed, and their prompts asked, in the order they were declared: only the
+listing changes.
 
 An application that does not call `extend` gets the same with
 `alphabetical(app)`, and a group class of its own is kept — only its listing
