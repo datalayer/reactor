@@ -38,14 +38,24 @@ Extensions are discovered under two entry-point groups:
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import inspect
 import logging
+import re
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import typer
+from typer.core import TyperCommand, TyperGroup
+from typer.models import DefaultPlaceholder
 
 from .extensions import EXTENSION_ENTRY_POINT_GROUP
 from .reactor import PluginPlatform
+
+if TYPE_CHECKING:
+    # For the annotations only. Typer drives Click's classes up to 0.2x and
+    # its own copy of them after: nothing here may test against Click's.
+    import click
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +76,7 @@ app = typer.Typer(
 #: reads as its own thing rather than crowding the top level.
 commands_app = typer.Typer(
     name="commands",
-    help="The commands plugins have registered — the palette, from a terminal.",
+    help="List and run the commands plugins have registered.",
     no_args_is_help=True,
 )
 app.add_typer(commands_app)
@@ -142,6 +152,232 @@ def load_platform(*, discover: bool = True) -> PluginPlatform:
     return platform
 
 
+def _option_key(param: click.Parameter) -> tuple[int, str, str]:
+    """Where an option lists: by its long name, `--help` after everything."""
+    names = [*param.opts, *param.secondary_opts]
+    long = next((name for name in names if name.startswith("--")), names[0] if names else "")
+    bare = long.lstrip("-")
+    return (1 if bare == "help" else 0, bare.lower(), bare)
+
+
+def _is_option(param: Any) -> bool:
+    """An option, as opposed to a positional argument — by what it says it is."""
+    return getattr(param, "param_type_name", None) == "option"
+
+
+#: Set while a help page or a completion is being written, and only then.
+_listing: contextvars.ContextVar[bool] = contextvars.ContextVar("reactor_cli_listing", default=False)
+
+
+class _AlphabeticalOptions:
+    """Lists a command's options alphabetically — in its help and in completion.
+
+    By the long name (`--ai-agents-url` before `--api-key`), `--help` last;
+    `--version` and the completion options sit where the alphabet puts them.
+    Positional arguments are not reordered: their order is the call's meaning.
+
+    Only what is *listed* is ordered. Click also reads the declared order to
+    decide which option is processed — and which prompt is asked — first, so
+    the parameters keep it everywhere but while a help page or a completion
+    is being written.
+    """
+
+    def get_params(self, ctx: click.Context) -> list[click.Parameter]:
+        params = super().get_params(ctx)  # type: ignore[misc]
+        if not _listing.get():
+            return params
+        options = [param for param in params if _is_option(param)]
+        arguments = [param for param in params if not _is_option(param)]
+        return arguments + sorted(options, key=_option_key)
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        token = _listing.set(True)
+        try:
+            super().format_help(ctx, formatter)  # type: ignore[misc]
+        finally:
+            _listing.reset(token)
+
+    def shell_complete(self, ctx: click.Context, incomplete: str) -> list[Any]:
+        token = _listing.set(True)
+        try:
+            return super().shell_complete(ctx, incomplete)  # type: ignore[misc]
+        finally:
+            _listing.reset(token)
+
+
+class AlphabeticalCommand(_AlphabeticalOptions, TyperCommand):
+    """A command that lists its options alphabetically."""
+
+
+#: The ordered counterpart of each command class met, made once.
+_ordered_classes: dict[type, type] = {}
+
+
+def _alphabetical_command_class(cls: Any) -> type:
+    """The command class to use in place of `cls`, listing its options alphabetically."""
+    if cls is None or cls is TyperCommand:
+        return AlphabeticalCommand
+    if issubclass(cls, _AlphabeticalOptions):
+        return cls
+    ordered = _ordered_classes.get(cls)
+    if ordered is None:
+        ordered = type(cls.__name__, (_AlphabeticalOptions, cls), {"__module__": cls.__module__})
+        _ordered_classes[cls] = ordered
+    return ordered
+
+
+def _alphabetical_command(command: click.Command | None) -> click.Command | None:
+    """The command, listing its options alphabetically — whatever its class."""
+    if command is None or isinstance(command, _AlphabeticalOptions):
+        return command
+    # Built already, by Typer, from a class named where it was registered —
+    # after this application was ordered, or it would be of an ordered class.
+    # The same command under the ordered counterpart of its class: everything
+    # it holds, and the listing.
+    ordered = object.__new__(_alphabetical_command_class(type(command)))
+    ordered.__dict__.update(command.__dict__)
+    return ordered
+
+
+class AlphabeticalGroup(_AlphabeticalOptions, TyperGroup):
+    """A command group that lists its commands and options in alphabetical order.
+
+    Typer lists commands in the order they were registered, which reads well
+    for one author's handful of commands. A reactor command line is assembled
+    from whatever is installed: registration order is then the order the
+    distributions happened to be discovered in, and nobody can find anything
+    in it. The order is decided when the listing is asked for, so a command
+    registered late lists in its place; `--help` (within each help panel) and
+    shell completion both read it from here.
+
+    The options list alphabetically too — the group's own, and those of every
+    command reached through it (see :class:`_AlphabeticalOptions`).
+    """
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return sorted(super().list_commands(ctx), key=lambda name: (name.lower(), name))
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        command = super().get_command(ctx, cmd_name)
+        ordered = _alphabetical_command(command)
+        if ordered is not command and command is not None and self.commands.get(command.name) is command:
+            # Once: the group hands the same command out from here on.
+            self.commands[command.name] = ordered
+        return ordered
+
+
+def _alphabetical_class(cls: Any) -> type[TyperGroup]:
+    """The group class to use in place of `cls`, listing alphabetically."""
+    if isinstance(cls, DefaultPlaceholder):
+        cls = cls.value
+    if cls is None or cls is TyperGroup:
+        return AlphabeticalGroup
+    if issubclass(cls, AlphabeticalGroup):
+        return cls
+    # A group class of the application's own keeps everything it does; only
+    # the order of its listing changes.
+    return type(cls.__name__, (AlphabeticalGroup, cls), {"__module__": cls.__module__})
+
+
+def alphabetical(cli: Any) -> Any:
+    """Make a Typer application list its commands and options alphabetically, at every level.
+
+    The application and every group under it, however deep — the ones there
+    now; :func:`extend` calls this after the extensions have registered. Safe
+    to call again. Anything that is not a Typer application (no ``info``) is
+    returned untouched, as is a view over one that hands its ``info`` and
+    ``registered_groups`` through.
+    """
+    seen: set[int] = set()
+
+    def visit(application: Any) -> None:
+        info = getattr(application, "info", None)
+        if info is None or not hasattr(info, "cls") or id(info) in seen:
+            return
+        seen.add(id(info))
+        info.cls = _alphabetical_class(info.cls)
+        for command in getattr(application, "registered_commands", None) or []:
+            command.cls = _alphabetical_command_class(command.cls)
+        for group in getattr(application, "registered_groups", None) or []:
+            # `add_typer(..., cls=...)` outranks the application's own class.
+            if not isinstance(group.cls, DefaultPlaceholder) and group.cls is not None:
+                group.cls = _alphabetical_class(group.cls)
+            if group.typer_instance is not None:
+                visit(group.typer_instance)
+
+    visit(cli)
+    return cli
+
+
+#: The longest one-line description that does not wrap in a 120-column listing
+#: beside the longest command names in use.
+HELP_LINE_LIMIT = 90
+
+
+def _one_line_help(command: Any) -> str:
+    """What a listing shows for a command: its short help, else its help's first paragraph."""
+    text = getattr(command, "short_help", None) or getattr(command, "help", None) or ""
+    paragraph = inspect.cleandoc(text).split("\n\n", 1)[0]
+    return " ".join(line.strip() for line in paragraph.splitlines()).replace("\x08", "").strip()
+
+
+def _help_line_faults(name: str, line: str, limit: int) -> list[str]:
+    faults: list[str] = []
+    if not line:
+        return ["has no description"]
+    if len(line) > limit:
+        faults.append(f"is {len(line)} characters long, over {limit}")
+    if not line.endswith(".") or line.endswith(".."):
+        faults.append("does not end with one period")
+    body = line[:-1] if line.endswith(".") else line
+    if re.search(r"[.!?]\s+\S", body) or ";" in body or re.search(r"\s[—–-]\s", body):
+        faults.append("is more than one sentence (a second sentence, a semicolon or a dash between clauses)")
+    if "–" in line:
+        faults.append("uses an en dash")
+    if not line[0].isupper() and not line[0].isdigit():
+        faults.append("does not start with a capital")
+    spoken = re.sub(r"[-_\s]+", " ", name).strip().lower()
+    if spoken and re.match(re.escape(spoken) + r"s?\s*[:—–-]\s", re.sub(r"[-_\s]+", " ", line).lower()):
+        faults.append("starts with the command's own name")
+    return faults
+
+
+def help_style_violations(cli: Any, *, limit: int = HELP_LINE_LIMIT) -> list[str]:
+    """Every command of an application whose one-line description is off the house style.
+
+    One style for the line a listing shows beside a command, at every level:
+    exactly one sentence, ending with one period, starting with a capital,
+    short enough not to wrap (``limit``), and not opening with the command's
+    own name ("Agents: …") — the listing has just said it. The long
+    explanation belongs in the command's own ``--help``, with ``short_help``
+    carrying the line.
+
+    Returns one message per fault, each naming the command by its path, and
+    an empty list when all is well — so a package pins the style for its own
+    commands with one assertion::
+
+        assert help_style_violations(app) == []
+
+    Hidden commands are not listed anywhere and are not checked.
+    """
+    from typer.main import get_command
+
+    violations: list[str] = []
+
+    def visit(command: Any, path: list[str]) -> None:
+        for name, child in sorted((getattr(command, "commands", None) or {}).items()):
+            if getattr(child, "hidden", False):
+                continue
+            where = " ".join([*path, name])
+            line = _one_line_help(child)
+            violations.extend(f"`{where}` {fault}: {line!r}" for fault in _help_line_faults(name, line, limit))
+            visit(child, [*path, name])
+
+    root = get_command(cli) if hasattr(cli, "registered_commands") else cli
+    visit(root, [root.name] if getattr(root, "name", None) else [])
+    return violations
+
+
 def extend(cli: typer.Typer, platform: PluginPlatform | None = None) -> list[str]:
     """Give every installed extension the chance to add its commands.
 
@@ -151,7 +387,10 @@ def extend(cli: typer.Typer, platform: PluginPlatform | None = None) -> list[str
     must not take the whole command line down.
     """
     platform = platform or load_platform()
-    return platform.register_cli(cli)
+    registered = platform.register_cli(cli)
+    # After the extensions, so the groups they brought are covered too.
+    alphabetical(cli)
+    return registered
 
 
 # --------------------------------------------------------------------------
@@ -197,7 +436,10 @@ def plugins_enable(
     name: str = typer.Argument(..., help="Plugin to switch on."),
     url: str = URL_OPTION,
 ) -> None:
-    """Switch a plugin on. A person's decision, and it sticks."""
+    """Switch a plugin on.
+
+    A person's decision, and it sticks.
+    """
     _request(url, f"/plugins/{name}/toggle", method="POST", body={"enabled": True})
     typer.secho(f"{name} enabled.", fg=typer.colors.GREEN)
 
@@ -290,7 +532,10 @@ def extensions_list() -> None:
 def ui_schema(
     out: Optional[Path] = typer.Option(None, "--out", help="Write it here instead of printing it."),
 ) -> None:
-    """The reactor.ui wire as JSON Schema — what the TypeScript types follow."""
+    """Print the reactor.ui wire as JSON Schema.
+
+    What the TypeScript types follow.
+    """
     from .ui.schema import render_schema, write_schema
 
     if out is None:
@@ -356,6 +601,11 @@ def main_callback(ctx: typer.Context) -> None:
     """
     if ctx.invoked_subcommand is None:
         ctx.invoke(serve)
+
+
+# The reactor's own commands list alphabetically however the application is
+# started — `main` below, or a test's runner on `app`.
+alphabetical(app)
 
 
 def main() -> None:

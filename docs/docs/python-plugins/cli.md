@@ -175,6 +175,53 @@ extend(app)     # every installed extension adds its commands
 app()
 ```
 
+### The order commands and options are listed in
+
+A command line built this way lists its commands **alphabetically**, at every
+level: the application's own and every group's, in `--help` (within each help
+panel, when commands are split into panels) and in shell completion. Typer on
+its own lists them in the order they were registered, which here would be the
+order the installed distributions happened to be discovered in. `extend` sets
+that up once the extensions have registered, and the order is decided when the
+listing is asked for — a command added afterwards still lists in its place.
+
+The **options** list alphabetically too, at every level, by their long name
+(`--ai-agents-url` before `--api-key`), with `--help` last; `--version` and the
+completion options sit where the alphabet puts them. Positional arguments are
+not reordered — their order is the call's meaning — and options are still
+processed, and their prompts asked, in the order they were declared: only the
+listing changes.
+
+An application that does not call `extend` gets the same with
+`alphabetical(app)`, and a group class of its own is kept — only its listing
+changes:
+
+```python
+from reactor.cli import alphabetical
+
+alphabetical(app)
+```
+
+### The line a listing shows beside a command
+
+One style for every command's one-line description, at every level: **one
+sentence**, ending with a period, starting with a capital, short enough not to
+wrap in a 120-column listing (90 characters), and not opening with the
+command's own name — the listing has just said it. "Manage secrets.", not
+"Secret management commands"; "A runtime firewall for every agent.", not
+"Agent Shield: a runtime firewall for every agent. Run any agent behind it."
+The long explanation is the command's own `--help`: give the group a
+`short_help`, or let a docstring's first paragraph be the line.
+
+A package pins the style for its own commands with one assertion:
+
+```python
+from reactor.cli import help_style_violations
+
+def test_the_descriptions_keep_the_style():
+    assert help_style_violations(app) == []
+```
+
 `examples/cli` is the smallest version of this — a host, a weather plugin, and
 no browser anywhere. See [the CLI example](/examples/cli/).
 
