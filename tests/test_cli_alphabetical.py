@@ -6,14 +6,14 @@
 
 from __future__ import annotations
 
-import click
 import typer
+from typer._completion_classes import BashComplete
 from typer.core import TyperGroup
 from typer.main import get_command
 from typer.testing import CliRunner
 
 from reactor import PluginManifest, PluginPlatform
-from reactor.cli import AlphabeticalGroup, alphabetical, extend
+from reactor.cli import AlphabeticalGroup, alphabetical, extend, help_style_violations
 from reactor.cli import app as reactor_app
 
 runner = CliRunner()
@@ -38,10 +38,10 @@ def _application() -> typer.Typer:
 def _names(cli: typer.Typer, *path: str) -> list[str]:
     """What the group at `path` lists — what help and completion both read."""
     group = get_command(cli)
-    ctx = click.Context(group)
+    ctx = typer.Context(group)
     for name in path:
         group = group.get_command(ctx, name)
-        ctx = click.Context(group, parent=ctx)
+        ctx = typer.Context(group, parent=ctx)
     return group.list_commands(ctx)
 
 
@@ -191,7 +191,7 @@ def test_positional_arguments_are_not_reordered():
     cli = alphabetical(_optioned())
 
     usage = runner.invoke(cli, ["run", "--help"], env=ENV).output
-    assert _in_order(usage, "[SECOND]", "[FIRST]")
+    assert _in_order(usage.lower(), "[second]", "[first]")
     # And the call means what it meant.
     assert runner.invoke(cli, ["run", "one", "two"]).output.strip() == "one two"
 
@@ -228,12 +228,10 @@ def test_options_are_processed_in_the_order_they_were_declared():
 
 
 def test_completion_offers_the_options_alphabetically():
-    from click.shell_completion import ShellComplete
-
     group = get_command(alphabetical(_optioned()))
     offered = [
         item.value
-        for item in ShellComplete(group, {}, "host", "_HOST_COMPLETE").get_completions(["run"], "--")
+        for item in BashComplete(group, {}, "host", "_HOST_COMPLETE").get_completions(["run"], "--")
     ]
 
     assert offered == ["--alpha", "--mike", "--no-mike", "--zulu", "--help"]
@@ -243,16 +241,14 @@ def test_completion_offers_the_commands_alphabetically():
     cli = alphabetical(_application())
     group = get_command(cli)
 
-    from click.shell_completion import ShellComplete
-
-    offered = [item.value for item in ShellComplete(group, {}, "host", "_HOST_COMPLETE").get_completions([], "")]
+    offered = [item.value for item in BashComplete(group, {}, "host", "_HOST_COMPLETE").get_completions([], "")]
 
     assert offered == ["apple", "tools", "zebra"]
 
 
 def test_a_group_class_of_the_applications_own_is_kept():
     class Loud(TyperGroup):
-        def get_help(self, ctx: click.Context) -> str:
+        def get_help(self, ctx: typer.Context) -> str:
             return "LOUD"
 
     cli = typer.Typer(name="host", cls=Loud)
@@ -264,8 +260,8 @@ def test_a_group_class_of_the_applications_own_is_kept():
 
     group = get_command(cli)
     assert isinstance(group, Loud) and isinstance(group, AlphabeticalGroup)
-    assert group.list_commands(click.Context(group)) == ["apple", "zebra"]
-    assert group.get_help(click.Context(group)) == "LOUD"
+    assert group.list_commands(typer.Context(group)) == ["apple", "zebra"]
+    assert group.get_help(typer.Context(group)) == "LOUD"
     assert cli.info.cls.__mro__.count(AlphabeticalGroup) == 1
 
 
@@ -280,3 +276,73 @@ def test_the_reactor_command_lists_its_own_alphabetically():
 
     assert names == sorted(names)
     assert _names(reactor_app, "plugins") == ["activate", "deactivate", "disable", "enable", "list"]
+
+
+# --------------------------------------------------------------------------
+# The line a listing shows beside a command: one house style.
+# --------------------------------------------------------------------------
+
+
+def _described(name: str, text: str, **kwargs) -> typer.Typer:
+    cli = typer.Typer(name="host", no_args_is_help=True)
+    cli.command("other", help="Do the other thing.")(_noop)
+    cli.command(name, help=text, **kwargs)(_noop)
+    return cli
+
+
+def test_one_sentence_ending_with_a_period_is_the_style():
+    assert help_style_violations(_described("secrets", "Manage secrets.")) == []
+    # A dotted name inside the sentence is not a second sentence.
+    assert help_style_violations(_described("schema", "Print the reactor.ui wire as JSON Schema.")) == []
+
+
+def test_each_fault_is_named_with_the_commands_path():
+    cases = {
+        "does not end with one period": ("usage", "Usage and credits commands"),
+        "is more than one sentence": ("shield", "A runtime firewall for every agent. Run any agent behind it."),
+        "starts with the command's own name": ("agent-shield", "Agent Shield: a runtime firewall for every agent."),
+        "does not start with a capital": ("usage", "show the usage."),
+        "characters long": ("usage", "Show " + "very " * 30 + "much."),
+        "has no description": ("usage", ""),
+    }
+    for fault, (name, text) in cases.items():
+        violations = help_style_violations(_described(name, text))
+        assert any(fault in violation and f"`host {name}`" in violation for violation in violations), (fault, violations)
+    # A dash or a semicolon chaining clauses is a second sentence in disguise.
+    for text in ("Run a team — list, show, start.", "Run a team; follow it."):
+        assert any("more than one sentence" in v for v in help_style_violations(_described("teams", text)))
+    # The plural of the name is the name: `agents` — "Agents: …", `agent-teams` — "Agent teams: …".
+    assert any("own name" in v for v in help_style_violations(_described("agent-teams", "Agent teams: run a team.")))
+
+
+def test_the_short_help_is_the_line_checked_and_the_long_help_is_free():
+    long = "Agent teams: the catalogued teams — list, show, start one; and more. A second sentence."
+    assert help_style_violations(_described("agent-teams", long, short_help="Run, follow and steer a team of agents.")) == []
+    # A docstring's first paragraph is the line; what follows is the command's own page.
+    cli = typer.Typer(name="host")
+    cli.command("other", help="Do the other thing.")(_noop)
+
+    @cli.command("enable")
+    def enable() -> None:
+        """Switch a plugin on.
+
+        A person's decision, and it sticks — said at length, here.
+        """
+
+    assert help_style_violations(cli) == []
+
+
+def test_nested_groups_are_checked_and_hidden_commands_are_not():
+    cli = _application()
+    tools = next(g.typer_instance for g in cli.registered_groups)
+    tools.command("lathe", help="no capital, no period")(_noop)
+    tools.command("secret", help="anything goes", hidden=True)(_noop)
+
+    violations = help_style_violations(cli)
+
+    assert any("`host tools lathe`" in violation for violation in violations)
+    assert not any("secret" in violation for violation in violations)
+
+
+def test_the_reactor_commands_own_descriptions_keep_the_style():
+    assert help_style_violations(reactor_app) == []

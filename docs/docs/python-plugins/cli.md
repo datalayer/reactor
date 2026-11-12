@@ -202,6 +202,26 @@ from reactor.cli import alphabetical
 alphabetical(app)
 ```
 
+### The line a listing shows beside a command
+
+One style for every command's one-line description, at every level: **one
+sentence**, ending with a period, starting with a capital, short enough not to
+wrap in a 120-column listing (90 characters), and not opening with the
+command's own name — the listing has just said it. "Manage secrets.", not
+"Secret management commands"; "A runtime firewall for every agent.", not
+"Agent Shield: a runtime firewall for every agent. Run any agent behind it."
+The long explanation is the command's own `--help`: give the group a
+`short_help`, or let a docstring's first paragraph be the line.
+
+A package pins the style for its own commands with one assertion:
+
+```python
+from reactor.cli import help_style_violations
+
+def test_the_descriptions_keep_the_style():
+    assert help_style_violations(app) == []
+```
+
 `examples/cli` is the smallest version of this — a host, a weather plugin, and
 no browser anywhere. See [the CLI example](/examples/cli/).
 
