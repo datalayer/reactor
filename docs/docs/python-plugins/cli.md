@@ -175,6 +175,27 @@ extend(app)     # every installed extension adds its commands
 app()
 ```
 
+### The order commands are listed in
+
+A command line built this way lists its commands **alphabetically**, at every
+level: the application's own and every group's, in `--help` (within each help
+panel, when commands are split into panels) and in shell completion. Typer on
+its own lists them in the order they were registered, which here would be the
+order the installed distributions happened to be discovered in. `extend` sets
+that up once the extensions have registered, and the order is decided when the
+listing is asked for — a command added afterwards still lists in its place.
+Options keep the order they were declared in.
+
+An application that does not call `extend` gets the same with
+`alphabetical(app)`, and a group class of its own is kept — only its listing
+changes:
+
+```python
+from reactor.cli import alphabetical
+
+alphabetical(app)
+```
+
 `examples/cli` is the smallest version of this — a host, a weather plugin, and
 no browser anywhere. See [the CLI example](/examples/cli/).
 

@@ -40,9 +40,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
+import click
 import typer
+from typer.core import TyperGroup
+from typer.models import DefaultPlaceholder
 
 from .extensions import EXTENSION_ENTRY_POINT_GROUP
 from .reactor import PluginPlatform
@@ -142,6 +145,63 @@ def load_platform(*, discover: bool = True) -> PluginPlatform:
     return platform
 
 
+class AlphabeticalGroup(TyperGroup):
+    """A command group that lists its commands in alphabetical order.
+
+    Typer lists commands in the order they were registered, which reads well
+    for one author's handful of commands. A reactor command line is assembled
+    from whatever is installed: registration order is then the order the
+    distributions happened to be discovered in, and nobody can find anything
+    in it. The order is decided when the listing is asked for, so a command
+    registered late lists in its place; `--help` (within each help panel) and
+    shell completion both read it from here. Options keep their order.
+    """
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return sorted(super().list_commands(ctx), key=lambda name: (name.lower(), name))
+
+
+def _alphabetical_class(cls: Any) -> type[TyperGroup]:
+    """The group class to use in place of `cls`, listing alphabetically."""
+    if isinstance(cls, DefaultPlaceholder):
+        cls = cls.value
+    if cls is None or cls is TyperGroup:
+        return AlphabeticalGroup
+    if issubclass(cls, AlphabeticalGroup):
+        return cls
+    # A group class of the application's own keeps everything it does; only
+    # the order of its listing changes.
+    return type(cls.__name__, (AlphabeticalGroup, cls), {"__module__": cls.__module__})
+
+
+def alphabetical(cli: Any) -> Any:
+    """Make a Typer application list its commands alphabetically, at every level.
+
+    The application and every group under it, however deep — the ones there
+    now; :func:`extend` calls this after the extensions have registered. Safe
+    to call again. Anything that is not a Typer application (no ``info``) is
+    returned untouched, as is a view over one that hands its ``info`` and
+    ``registered_groups`` through.
+    """
+    seen: set[int] = set()
+
+    def visit(application: Any) -> None:
+        info = getattr(application, "info", None)
+        if info is None or not hasattr(info, "cls") or id(info) in seen:
+            return
+        seen.add(id(info))
+        info.cls = _alphabetical_class(info.cls)
+        for group in getattr(application, "registered_groups", None) or []:
+            # `add_typer(..., cls=...)` outranks the application's own class.
+            if not isinstance(group.cls, DefaultPlaceholder) and group.cls is not None:
+                group.cls = _alphabetical_class(group.cls)
+            if group.typer_instance is not None:
+                visit(group.typer_instance)
+
+    visit(cli)
+    return cli
+
+
 def extend(cli: typer.Typer, platform: PluginPlatform | None = None) -> list[str]:
     """Give every installed extension the chance to add its commands.
 
@@ -151,7 +211,10 @@ def extend(cli: typer.Typer, platform: PluginPlatform | None = None) -> list[str
     must not take the whole command line down.
     """
     platform = platform or load_platform()
-    return platform.register_cli(cli)
+    registered = platform.register_cli(cli)
+    # After the extensions, so the groups they brought are covered too.
+    alphabetical(cli)
+    return registered
 
 
 # --------------------------------------------------------------------------
@@ -356,6 +419,11 @@ def main_callback(ctx: typer.Context) -> None:
     """
     if ctx.invoked_subcommand is None:
         ctx.invoke(serve)
+
+
+# The reactor's own commands list alphabetically however the application is
+# started — `main` below, or a test's runner on `app`.
+alphabetical(app)
 
 
 def main() -> None:
