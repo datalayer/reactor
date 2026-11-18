@@ -42,6 +42,7 @@ from reactor_mcp_server import (
     OAuthExtension,
     ProtectedResource,
     ToolExtension,
+    ToolSpec,
     Toolset,
     build_host,
     create_mcp_app,
@@ -51,6 +52,8 @@ from reactor_mcp_server import (
 from reactor_mcp_server.__main__ import oauth_extension, parser
 from reactor_mcp_server.oauth import (
     ChallengeMiddleware,
+    Forbidden,
+    _tools_called,
     anyone,
     challenge,
     with_challenge,
@@ -160,6 +163,29 @@ class TestTheProtectedResource:
         assert bare.well_known_url == (
             "https://mcp.example.com/.well-known/oauth-protected-resource"
         )
+
+    def test_a_path_ending_in_a_slash_is_served_where_clients_look_and_as_written(self) -> None:
+        slashed = replace(RESOURCE, resource="https://mcp.example.com/mcp/")
+        assert slashed.well_known_url == DOCUMENT_URL
+        assert slashed.paths() == (
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/mcp",
+            "/.well-known/oauth-protected-resource/mcp/",
+        )
+
+    @pytest.mark.parametrize(
+        "url",
+        ["https://MCP.example.com/mcp", "https://mcp.example.com:443/mcp", "https://mcp.example.com/a b"],
+    )
+    def test_it_is_written_as_it_is_published(self, url: str) -> None:
+        """A URL the document would publish differently is one a verifier and
+        a client would not agree on, character for character."""
+        with pytest.raises(ValueError, match="written as published"):
+            replace(RESOURCE, resource=url)
+
+    def test_and_so_are_its_authorization_servers(self) -> None:
+        with pytest.raises(ValueError, match="written as published"):
+            replace(RESOURCE, authorization_servers=("https://AUTH.example.com",))
 
     def test_more_members_are_merged_in(self) -> None:
         document = replace(
@@ -403,14 +429,18 @@ class TestServedAsAProtectedResource:
             assert client.get("/mcp", headers=bearer(token("ada"))).status_code == 403
 
     def test_a_request_too_large_to_read_is_refused(self) -> None:
-        host = build_host([Notes(), OAuthExtension(RESOURCE, verifier=verifier)])
-        app = create_mcp_app(host)
+        from starlette.applications import Starlette
+        from starlette.routing import Mount
+
         from reactor_mcp_server.oauth import RequireBearer
 
+        host = build_host([Notes(), OAuthExtension(RESOURCE, verifier=verifier)])
+        oauth = host.oauth()
         guard = RequireBearer(
-            app, host.oauth(), tool_scopes=lambda scope: host.required_scopes(), max_body=64
+            create_mcp_app(host), oauth, tool_scopes=lambda scope: host.required_scopes(), max_body=64
         )
-        answer = TestClient(guard).post(
+        app = Starlette(routes=[Mount("", app=guard)], middleware=oauth.middleware())
+        answer = TestClient(app).post(
             "/mcp", json=call("write_note", text="x" * 200), headers=bearer(token("ada"))
         )
         assert answer.status_code == 413
@@ -471,6 +501,259 @@ class TestAnotherWayIn:
                 "/mcp", json=call("write_note", text="hello"), headers={"X-API-Key": "the-key"}
             )
             assert refused.status_code == 403
+
+
+class TestKnownAndNotAllowed:
+    """A private server: its verifier knows whose the token is, and the
+    deployment does not let everybody it knows in."""
+
+    def test_a_verifier_that_refuses_a_caller_it_knows_answers_403(self) -> None:
+        async def only_ada(presented: str) -> AccessToken | None:
+            found = await verifier(presented)
+            if found is not None and found.subject != "ada":
+                raise Forbidden("Its owner has not allowed you to call it")
+            return found
+
+        host = build_host([Clock(), OAuthExtension(RESOURCE, verifier=only_ada)])
+        with TestClient(create_mcp_app(host)) as client:
+            refused = client.get("/toolsets", headers=bearer(token("grace")))
+            assert refused.status_code == 403
+            assert refused.json() == {
+                "error": "access_denied",
+                "error_description": "Its owner has not allowed you to call it",
+            }
+            # Not a challenge: another token of the same caller would not help.
+            assert "www-authenticate" not in refused.headers
+            assert client.get("/toolsets", headers=bearer(token("ada"))).status_code == 200
+            # Unknown is still unknown.
+            assert client.get("/toolsets", headers=bearer("nobody")).status_code == 401
+
+    def test_an_admission_refuses_the_same_way(self) -> None:
+        async def by_key(scope) -> AccessToken | None:
+            key = dict(scope["headers"]).get(b"x-api-key")
+            if key is None:
+                return None
+            if key != b"the-owners":
+                raise Forbidden()
+            return AccessToken(token="k", client_id="key", scopes=[], subject="owner")
+
+        host = build_host([Clock(), OAuthExtension(RESOURCE, verifier=verifier, admits=by_key)])
+        with TestClient(create_mcp_app(host)) as client:
+            refused = client.get("/toolsets", headers={"X-API-Key": "somebody-elses"})
+            assert (refused.status_code, refused.json()["error"]) == (403, "access_denied")
+            assert client.get("/toolsets", headers={"X-API-Key": "the-owners"}).status_code == 200
+
+
+class TestTheCallerComesFirst:
+    """Authentication before authorization: what a request needs is asked
+    about the caller it turned out to be."""
+
+    def test_what_a_key_is_admitted_to_is_checked_in_the_tenant_it_is_admitted_as(self) -> None:
+        """A tenant read from the caller, and a key admitted without the
+        scope: resolved before the caller was known, the request was checked
+        against the tenant nobody is (where the tool is not served) and then
+        ran the scoped tool in the key's own."""
+        async def by_key(scope) -> AccessToken | None:
+            if dict(scope["headers"]).get(b"x-api-key") != b"acme-key":
+                return None
+            return AccessToken(token="k", client_id="key", scopes=[], subject="acme")
+
+        def tenant(scope) -> str | None:
+            user = scope.get("user")
+            return getattr(getattr(user, "access_token", None), "subject", None) or "nobody"
+
+        class AcmesNotes(Notes):
+            """The notes, served to one tenant."""
+
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="notes", version="1.0.0", tenant_scopes=["acme"])
+
+        host = build_host(
+            [AcmesNotes(), Clock(), OAuthExtension(RESOURCE, verifier=verifier, admits=by_key)]
+        )
+        assert "write_note" not in host.required_scopes(tenant_id="nobody")
+        assert "write_note" in host.required_scopes(tenant_id="acme")
+        with TestClient(create_mcp_app(host, tenant_resolver=tenant)) as client:
+            refused = client.post(
+                "/mcp",
+                json=call("write_note", text="hello"),
+                headers={"X-API-Key": "acme-key", "Accept": "application/json, text/event-stream"},
+            )
+        assert refused.status_code == 403
+        assert 'error="insufficient_scope"' in refused.headers["www-authenticate"]
+
+    def test_a_bad_token_beside_a_good_key_is_a_bad_token(self) -> None:
+        async def by_key(scope) -> AccessToken | None:
+            if dict(scope["headers"]).get(b"x-api-key") != b"the-key":
+                return None
+            return AccessToken(token="k", client_id="key", scopes=["notes:read"], subject="owner")
+
+        host = build_host([Notes(), OAuthExtension(RESOURCE, verifier=verifier, admits=by_key)])
+        with TestClient(create_mcp_app(host)) as client:
+            both = client.get(
+                "/toolsets", headers={"X-API-Key": "the-key", **bearer("expired or invented")}
+            )
+            assert both.status_code == 401
+            assert 'error="invalid_token"' in both.headers["www-authenticate"]
+            # The key alone is admitted, and a good token beside it is the caller.
+            assert client.get("/toolsets", headers={"X-API-Key": "the-key"}).status_code == 200
+            assert (
+                client.get(
+                    "/toolsets", headers={"X-API-Key": "the-key", **bearer(token("ada"))}
+                ).status_code
+                == 200
+            )
+
+    def test_an_open_server_does_not_take_a_bad_token_for_nobody(self) -> None:
+        host = build_host([Clock(), OAuthExtension(RESOURCE, verifier=verifier, admits=anyone)])
+        with TestClient(create_mcp_app(host)) as client:
+            assert client.get("/toolsets").status_code == 200
+            assert client.get("/toolsets", headers=bearer("nope")).status_code == 401
+
+
+class TestTheToolThatIsServedIsTheOneGuarded:
+    """Two tools of one name: the SDK serves the first registered, so the
+    first one's scopes — none included — are the call's."""
+
+    @staticmethod
+    def offering(name: str, order: int, scopes: tuple[str, ...]) -> McpExtension:
+        class Offering(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name=name, version="1.0.0")
+
+            def toolsets(self):
+                return (Toolset(name="notes"),)
+
+            def tools(self):
+                async def save(text: str) -> str:
+                    return f"{name} saved {text}"
+
+                return [ToolSpec(name="save", handler=save, scopes=scopes)]
+
+        return Offering()
+
+    def test_the_first_requires_more_than_the_second(self) -> None:
+        host = build_host(
+            [self.offering("writer", 0, ("notes:write",)), self.offering("reader", 1, ("notes:read",))]
+        )
+        assert [spec.scopes for spec in host.build().tools if spec.name == "save"][0] == ("notes:write",)
+        assert host.required_scopes() == {"save": ("notes:write",)}
+
+    def test_the_first_requires_less_than_the_second(self) -> None:
+        host = build_host(
+            [self.offering("reader", 0, ("notes:read",)), self.offering("writer", 1, ("notes:write",))]
+        )
+        assert host.required_scopes() == {"save": ("notes:read",)}
+
+    def test_the_first_requires_nothing(self) -> None:
+        host = build_host([self.offering("open", 0, ()), self.offering("writer", 1, ("notes:write",))])
+        assert host.required_scopes() == {}
+
+    async def test_and_it_is_the_first_that_runs(self) -> None:
+        host = build_host(
+            [self.offering("writer", 0, ("notes:write",)), self.offering("reader", 1, ("notes:read",))]
+        )
+        answer = await host.build().server.call_tool("save", {"text": "x"})
+        assert "writer saved x" in str(answer)
+
+    def test_a_toolset_two_extensions_declare_requires_what_either_says(self) -> None:
+        class Lifecycle(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="lifecycle", version="1.0.0")
+
+            def toolsets(self):
+                return (Toolset(name="sandboxes"),)
+
+            @tool()
+            async def run(self) -> str:
+                return "ran"
+
+        class Deployment(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="deployment", version="1.0.0")
+
+            def toolsets(self):
+                return (Toolset(name="sandboxes", scopes=("sandboxes:manage",)),)
+
+            @tool()
+            async def launch(self) -> str:
+                return "launched"
+
+        host = build_host([Lifecycle(), Deployment()])
+        assert host.required_scopes() == {
+            "launch": ("sandboxes:manage",),
+            "run": ("sandboxes:manage",),
+        }
+
+
+class TestWhatABodyCouldBeACallOf:
+    """Read to require scopes, so read generously."""
+
+    def test_a_call(self) -> None:
+        assert _tools_called(json.dumps(call("write_note", text="x")).encode()) == {"write_note"}
+
+    def test_anything_else_calls_nothing(self) -> None:
+        assert _tools_called(b'{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}') == set()
+        assert _tools_called(b"not json") == set()
+        assert _tools_called(b"[1, 2]") == set()
+
+    def test_a_member_written_twice_is_taken_each_time(self) -> None:
+        twice = b'{"method": "tools/call", "params": {"name": "now", "name": "write_note"}, "method": "ping"}'
+        assert _tools_called(twice) == {"now", "write_note"}
+        params = b'{"method": "tools/call", "params": {"name": "write_note"}, "params": {"name": "now"}}'
+        assert _tools_called(params) == {"now", "write_note"}
+
+    def test_a_batch_is_every_message_in_it(self) -> None:
+        batch = json.dumps([call("now"), call("write_note", text="x")]).encode()
+        assert _tools_called(batch) == {"now", "write_note"}
+
+    def test_a_scoped_tool_hidden_behind_a_repeated_name_is_still_guarded(self) -> None:
+        body = b'{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "now", "name": "write_note", "arguments": {"text": "x"}}}'
+        with TestClient(app_with(Notes(), Clock())) as client:
+            answer = client.post(
+                "/mcp",
+                content=body,
+                headers={**bearer(token("ada")), "Content-Type": "application/json"},
+            )
+        assert answer.status_code == 403
+
+
+class TestCalledFromABrowser:
+    ORIGIN = "https://app.example.com"
+
+    @pytest.fixture()
+    def client(self):
+        app = app_with(Notes(), cors={"allow_origins": [self.ORIGIN]})
+        with TestClient(app) as client:
+            yield client
+
+    def test_a_preflight_is_answered_not_challenged(self, client) -> None:
+        answer = client.options(
+            "/mcp",
+            headers={
+                "Origin": self.ORIGIN,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization, content-type",
+            },
+        )
+        assert answer.status_code == 200
+        assert answer.headers["access-control-allow-origin"] == self.ORIGIN
+        assert "authorization" in answer.headers["access-control-allow-headers"].lower()
+
+    def test_a_refusal_reaches_the_page_with_its_challenge(self, client) -> None:
+        answer = client.post("/mcp", json=call("list_notes"), headers={"Origin": self.ORIGIN})
+        assert answer.status_code == 401
+        assert answer.headers["access-control-allow-origin"] == self.ORIGIN
+        assert "WWW-Authenticate" in answer.headers["access-control-expose-headers"]
+        assert "resource_metadata=" in answer.headers["www-authenticate"]
+
+    def test_without_it_a_preflight_meets_the_guard(self) -> None:
+        with TestClient(app_with(Notes())) as client:
+            answer = client.options(
+                "/mcp", headers={"Origin": self.ORIGIN, "Access-Control-Request-Method": "POST"}
+            )
+        assert answer.status_code == 401
+        assert "access-control-allow-origin" not in answer.headers
 
 
 # --- A real client ----------------------------------------------------------
@@ -610,6 +893,19 @@ class TestTheJWTVerifier:
         assert (await verify(signed())).subject == "ada"
         assert (await verify(signed(sub="grace"))).subject == "grace"
         assert fetched == [f"{ISSUER}/jwks"]
+
+    async def test_the_audience_is_the_resource_exactly_as_configured(self) -> None:
+        """A resource whose URL carries a query is another audience than the
+        one without it: the document publishes the whole URL, and a token for
+        the bare one is not a token for this resource."""
+        tenant = replace(RESOURCE, resource="https://mcp.example.com/mcp?tenant=acme")
+        assert tenant.document()["resource"] == "https://mcp.example.com/mcp?tenant=acme"
+        verify = JWTVerifier.for_resource(tenant, key=KEY.public_key()).verify_token
+
+        assert await verify(signed()) is None
+        assert await verify(signed(aud="https://mcp.example.com/mcp?tenant=other")) is None
+        found = await verify(signed(aud="https://mcp.example.com/mcp?tenant=acme"))
+        assert found.resource == "https://mcp.example.com/mcp?tenant=acme"
 
     def test_it_needs_one_source_of_keys(self) -> None:
         with pytest.raises(ValueError):

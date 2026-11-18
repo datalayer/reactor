@@ -68,11 +68,11 @@ from mcp.server.auth.middleware.auth_context import (
 )
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser, BearerAuthBackend
 from mcp.server.auth.provider import AccessToken, TokenVerifier
-from mcp.server.auth.routes import build_resource_metadata_url, cors_middleware
+from mcp.server.auth.routes import cors_middleware
 from mcp.shared.auth import ProtectedResourceMetadata
 from pydantic import AnyHttpUrl
 from reactor import PluginManifest
-from starlette.authentication import AuthCredentials
+from starlette.authentication import AuthCredentials, AuthenticationError
 from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.requests import Request
@@ -155,6 +155,18 @@ class ProtectedResource:
         object.__setattr__(self, "required_scopes", tuple(self.required_scopes))
         if not self.authorization_servers:
             raise ValueError("A protected resource names at least one authorization server")
+        # Written as it is published. A token's audience and an issuer are
+        # compared character for character, so a URL the document would
+        # publish differently (a capital in its host, a default port) is one
+        # a verifier and a client would not agree on.
+        published = self.document()
+        if published["resource"] != self.resource or published["authorization_servers"] != list(
+            self.authorization_servers
+        ):
+            raise ValueError(
+                "A protected resource and its authorization servers are written as "
+                f"published: {published['resource']!r}, {published['authorization_servers']!r}"
+            )
 
     def at(self, scope: Optional[Scope]) -> "ProtectedResource":
         """This resource as the request in `scope` sees it."""
@@ -167,8 +179,10 @@ class ProtectedResource:
         """Where the document is: what a challenge's ``resource_metadata`` says."""
         if self.metadata_url:
             return self.metadata_url
-        bare = urlsplit(self.resource)._replace(query="").geturl()
-        return str(build_resource_metadata_url(AnyHttpUrl(bare)))
+        parts = urlsplit(self.resource)
+        # Without a trailing slash, which is where clients look for it
+        # whichever way the resource's own path ends.
+        return f"{parts.scheme}://{parts.netloc}{WELL_KNOWN}{parts.path.rstrip('/')}"
 
     def document(self) -> dict[str, Any]:
         """The RFC 9728 document, checked by the SDK's model of it."""
@@ -190,8 +204,9 @@ class ProtectedResource:
         """The paths the document is served at: the path-suffixed one RFC 9728
         §3.1 defines for this resource, and the root one a client tries next."""
         suffix = urlsplit(self.resource).path
-        suffixed = WELL_KNOWN + ("" if suffix in ("", "/") else suffix)
-        return tuple(dict.fromkeys((WELL_KNOWN, suffixed)))
+        # With the resource's path as written and without its trailing slash:
+        # RFC 9728 inserts the path as it is, and clients commonly strip it.
+        return tuple(dict.fromkeys((WELL_KNOWN, WELL_KNOWN + suffix.rstrip("/"), WELL_KNOWN + suffix)))
 
     def routes(self) -> list[Route]:
         """The routes serving the document, for any Starlette application."""
@@ -334,6 +349,36 @@ class ChallengeMiddleware:
 # --- Verifying --------------------------------------------------------------
 
 
+class Forbidden(AuthenticationError):
+    """The caller is known, and may not come in here.
+
+    Raised by a verifier or an admission that recognised the credential and
+    whose deployment does not let its holder in — a private server, somebody
+    its owner did not allow. Answered ``403`` with ``access_denied`` and no
+    challenge: nothing was wrong with the token, and another one of the same
+    caller would be refused the same way. Answering ``None`` instead says the
+    credential is not valid, and sends a client to get a new one for nothing.
+    """
+
+    def __init__(self, description: str = "Not allowed here") -> None:
+        super().__init__(description)
+        self.description = description
+
+
+def _forbidden(description: str) -> JSONResponse:
+    return JSONResponse(
+        {"error": "access_denied", "error_description": description},
+        status_code=403,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def _refused_by_the_backend(conn: Any, error: AuthenticationError) -> Response:
+    if isinstance(error, Forbidden):
+        return _forbidden(error.description)
+    return JSONResponse({"error": "invalid_request", "error_description": str(error)}, 400)
+
+
 class _Verifiers:
     """Several verifiers as one: asked in order, the first that knows answers."""
 
@@ -411,10 +456,16 @@ class JWTVerifier:
     @classmethod
     def for_resource(cls, resource: ProtectedResource, **options: Any) -> "JWTVerifier":
         """A verifier of the tokens `resource`'s first authorization server
-        issues for it."""
+        issues for it.
+
+        The audience is the resource's URL **exactly as configured** — the
+        one its document publishes and a client sends as ``resource`` — a
+        query included. A deployment whose tokens name another audience (one
+        shared by several URLs) constructs the verifier with it.
+        """
         return cls(
             issuer=resource.authorization_servers[0],
-            audience=urlsplit(resource.resource)._replace(query="").geturl(),
+            audience=resource.resource,
             **options,
         )
 
@@ -505,6 +556,7 @@ class OAuth:
                         else None
                     ),
                 ),
+                on_error=_refused_by_the_backend,
             ),
             Middleware(AuthContextMiddleware),
         ]
@@ -528,13 +580,13 @@ class OAuth:
 ToolScopes = Callable[[Scope], Optional[Mapping[str, Sequence[str]]]]
 
 
-def _bearer(scope: Scope) -> str:
+def _presents_bearer(scope: Scope) -> bool:
+    """Whether the request presents a bearer token, valid or not: the header
+    the SDK's backend reads, read the same way."""
     for name, value in scope.get("headers") or []:
         if name.lower() == b"authorization":
-            text = value.decode("latin-1")
-            if text.lower().startswith("bearer "):
-                return text[7:].strip()
-    return ""
+            return value.decode("latin-1").lower().startswith("bearer ")
+    return False
 
 
 class RequireBearer:
@@ -549,7 +601,9 @@ class RequireBearer:
       the scopes needed;
     * a token that is not valid here — ``401``, ``invalid_token``;
     * a valid token without a scope the request needs — ``403``,
-      ``insufficient_scope``, naming them.
+      ``insufficient_scope``, naming them;
+    * a caller a verifier or an admission knows and does not let in
+      (:class:`Forbidden`) — ``403``, ``access_denied``.
 
     The scopes needed are the resource's ``required_scopes`` and, for a
     ``tools/call``, those of the tool and its toolset.
@@ -572,6 +626,60 @@ class RequireBearer:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        # Who is calling comes first, and everything else is asked about
+        # *that* caller: the resource as the request sees it, the tenant, the
+        # scopes a tool requires. Resolved before the caller is known, a
+        # request admitted by a key would be checked against whatever an
+        # anonymous caller reaches, and then served as somebody else.
+        user = scope.get("user")
+        anonymous = False
+        admitted_as: Optional[AuthenticatedUser] = None
+        if not isinstance(user, AuthenticatedUser):
+            if _presents_bearer(scope):
+                # A token was presented and is not valid here. Said before any
+                # other way in is asked: an admission is for a request
+                # *without* a bearer, and a bad token beside a good key is
+                # still a bad token.
+                await refuse(
+                    send,
+                    self.oauth.resource.at(scope),
+                    error=INVALID_TOKEN,
+                    description="The access token is expired, revoked or not valid here",
+                )
+                return
+            try:
+                admitted = await self.oauth.admitted(scope)
+            except Forbidden as error:
+                await _forbidden(error.description)(scope, receive, send)
+                return
+            if isinstance(admitted, AccessToken):
+                # Another way in that says who came in: the caller from here
+                # on, held to the scopes it was admitted with.
+                user = admitted_as = AuthenticatedUser(admitted)
+                scope["user"] = user
+                scope["auth"] = AuthCredentials(admitted.scopes)
+            else:
+                user = None
+                anonymous = bool(admitted)
+        if admitted_as is None:
+            await self._authorized(scope, receive, send, user, anonymous)
+            return
+        kept = auth_context_var.set(admitted_as)
+        try:
+            await self._authorized(scope, receive, send, user, anonymous)
+        finally:
+            auth_context_var.reset(kept)
+
+    async def _authorized(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        user: Optional[AuthenticatedUser],
+        anonymous: bool,
+    ) -> None:
+        """Serve the request if its caller — known by now, and in the auth
+        context — holds what it needs."""
         resource = self.oauth.resource.at(scope)
         needed = list(resource.required_scopes)
         by_tool = self.tool_scopes(scope) if self.tool_scopes is not None else None
@@ -580,33 +688,15 @@ class RequireBearer:
             if body is None:
                 await _too_large(send)
                 return
-            needed += [item for item in by_tool.get(_tool_called(body), ()) if item not in needed]
+            for name in sorted(_tools_called(body)):
+                needed += [item for item in by_tool.get(name, ()) if item not in needed]
 
-        user = scope.get("user")
-        admitted_as: Optional[AuthenticatedUser] = None
-        if not isinstance(user, AuthenticatedUser):
-            admitted = await self.oauth.admitted(scope)
-            if isinstance(admitted, AccessToken):
-                # Another way in that says who came in: the caller from here
-                # on, held to the scopes it was admitted with.
-                user = admitted_as = AuthenticatedUser(admitted)
-                scope["user"] = user
-                scope["auth"] = AuthCredentials(admitted.scopes)
-            elif _bearer(scope):
-                await refuse(
-                    send,
-                    resource,
-                    error=INVALID_TOKEN,
-                    description="The access token is expired, revoked or not valid here",
-                )
-                return
-            elif admitted and not needed:
+        if user is None:
+            if anonymous and not needed:
                 await self.app(scope, receive, send)
-                return
             else:
                 await refuse(send, resource, scopes=needed)
-                return
-
+            return
         missing = [item for item in needed if item not in user.scopes]
         if missing:
             await refuse(
@@ -618,14 +708,7 @@ class RequireBearer:
                 scopes=needed,
             )
             return
-        if admitted_as is None:
-            await self.app(scope, receive, send)
-            return
-        kept = auth_context_var.set(admitted_as)
-        try:
-            await self.app(scope, receive, send)
-        finally:
-            auth_context_var.reset(kept)
+        await self.app(scope, receive, send)
 
     async def _peeked(self, receive: Receive) -> tuple[Optional[bytes], Receive]:
         """The request's body, and a `receive` that gives it again."""
@@ -659,17 +742,45 @@ class RequireBearer:
         return body, again
 
 
-def _tool_called(body: bytes) -> str:
-    """The tool a JSON-RPC ``tools/call`` names, or ``""`` for anything else."""
+class _Members(list):  # type: ignore[type-arg]
+    """A JSON object as its members in order, a repeated name kept each time."""
+
+    def all(self, name: str) -> list[Any]:
+        return [value for key, value in self if key == name]
+
+
+def _tools_called(body: bytes) -> set[str]:
+    """Every tool a request body could be a ``tools/call`` of.
+
+    Read to *require* scopes, so read generously: what this finds too many of
+    costs a refusal, and what it missed would be a call nobody checked. A
+    member written twice is taken each time (two parsers may not agree on
+    which one counts), and a batch is every message in it. A body no JSON
+    parser reads calls nothing: the server refuses it too.
+    """
     try:
-        message = json.loads(body)
+        message = json.loads(body, object_pairs_hook=_Members)
     except ValueError:
-        return ""
-    if not isinstance(message, dict) or message.get("method") != "tools/call":
-        return ""
-    params = message.get("params")
-    name = params.get("name") if isinstance(params, dict) else ""
-    return name if isinstance(name, str) else ""
+        try:
+            import pydantic_core  # noqa: PLC0415 - the parser the SDK reads a body with
+
+            message = pydantic_core.from_json(body)
+        except ValueError:
+            return set()
+    found: set[str] = set()
+    for item in message if isinstance(message, list) and not isinstance(message, _Members) else [message]:
+        methods = item.all("method") if isinstance(item, _Members) else (
+            [item.get("method")] if isinstance(item, dict) else []
+        )
+        if "tools/call" not in methods:
+            continue
+        several = item.all("params") if isinstance(item, _Members) else [item.get("params")]
+        for params in several:
+            names = params.all("name") if isinstance(params, _Members) else (
+                [params.get("name")] if isinstance(params, dict) else []
+            )
+            found.update(name for name in names if isinstance(name, str))
+    return found
 
 
 async def _too_large(send: Send) -> None:
@@ -768,6 +879,7 @@ __all__ = [
     "Admission",
     "Admitted",
     "ChallengeMiddleware",
+    "Forbidden",
     "JWTVerifier",
     "OAuth",
     "OAuthExtension",

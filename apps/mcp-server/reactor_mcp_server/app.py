@@ -29,6 +29,7 @@ from typing import (
     Awaitable,
     Callable,
     Iterable,
+    Mapping,
     MutableMapping,
     Optional,
 )
@@ -37,6 +38,8 @@ import anyio
 from anyio.abc import TaskStatus
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route, request_response
@@ -234,6 +237,7 @@ def create_mcp_app(
     default_selection: Optional[Selection] = None,
     ignore_query_keys: Iterable[str] = (),
     public_toolsets: bool = False,
+    cors: Optional[Mapping[str, Any]] = None,
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -258,6 +262,15 @@ def create_mcp_app(
     `public_toolsets` says it describes nothing private. What was contributed
     is read here, once: an extension held back by an activation event
     contributes its OAuth too late to be served.
+
+    `cors` is for a deployment browsers call: the options of Starlette's
+    ``CORSMiddleware`` (``allow_origins`` at least; the protocol's methods
+    and any request header are allowed unless it says otherwise), applied
+    **outside** everything else — so a preflight, which carries no token, is
+    answered rather than challenged, and a ``401`` reaches the page with its
+    CORS headers and a ``WWW-Authenticate`` it may read. CORS configured on
+    the servers themselves (a ``server_factory``) sits behind the bearer
+    guard and answers neither.
     """
     oauth = host.oauth()
     router = ToolsetRouter(
@@ -319,6 +332,20 @@ def create_mcp_app(
         finally:
             await router.stop()
 
+    if cors is not None:
+        exposed = dict.fromkeys(
+            ("WWW-Authenticate", "Mcp-Session-Id", *(cors.get("expose_headers") or ()))
+        )
+        # First, so outermost: before the authentication and the guard.
+        options = {
+            # What the protocol uses, unless the deployment says otherwise:
+            # Starlette's own default allows GET alone and no request header.
+            "allow_methods": ["GET", "POST", "DELETE", "OPTIONS"],
+            "allow_headers": ["*"],
+            **dict(cors),
+            "expose_headers": list(exposed),
+        }
+        middleware = [Middleware(CORSMiddleware, **options), *middleware]
     app = Starlette(routes=routes, middleware=middleware, lifespan=lifespan)
     app.state.mcp_host = host
     app.state.mcp_oauth = oauth

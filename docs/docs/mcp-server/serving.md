@@ -110,6 +110,13 @@ app = create_mcp_app(host, path="/mcp", app_options={"stateless_http": False})
 
 Another toolset is not another transport.
 
+A deployment browsers call names its origins, and CORS is applied outside
+everything else, the bearer guard included:
+
+```python
+app = create_mcp_app(host, cors={"allow_origins": ["https://app.example.com"]})
+```
+
 ## Two things a host of the SDK's app must get right
 
 Both are handled by `create_mcp_app`, and both are worth knowing if you build

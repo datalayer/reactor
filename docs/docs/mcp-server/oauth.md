@@ -51,6 +51,7 @@ the host as a protected resource:
 | A request without a token | `401`, `WWW-Authenticate: Bearer resource_metadata="…"`, with `scope="…"` when the request needs scopes |
 | A token that is expired, revoked or not for this server | `401`, `error="invalid_token"` |
 | A token without a scope the request needs | `403`, `error="insufficient_scope"`, `scope="…"` |
+| A caller the verifier knows and does not let in (`Forbidden`) | `403`, `access_denied`, no challenge |
 | `/healthz` | Open |
 | `/toolsets` | Needs a token, unless `create_mcp_app(..., public_toolsets=True)` |
 
@@ -114,6 +115,15 @@ JWTVerifier(
 )
 ```
 
+`JWTVerifier.for_resource(resource, jwks_uri=...)` is the same with the issuer
+and the audience read off the resource: the audience is the resource's URL
+**exactly as configured**, a query included, since that is the URL the
+document publishes and a client sends as `resource`. A deployment whose tokens
+name another audience — one shared by several URLs — constructs the verifier
+with it. A `ProtectedResource` is written as it is published for the same
+reason: a capital in its host or a default port, which the document would
+publish differently, is refused when it is configured.
+
 It checks the signature (the key read from the issuer's JWKS and kept, read
 again when a token names a key not seen yet), the issuer, the expiry and the
 **audience**. The audience is not optional: a token issued for another service
@@ -129,6 +139,28 @@ platform-specific part of a deployment lives there, and nowhere in the host.
 One that does not check the audience itself sets `AccessToken.resource` and
 turns on `ProtectedResource(validate_token_resource=True)`: the SDK's bearer
 backend then refuses a token whose resource is not this server.
+
+### Known, and not allowed
+
+`None` says a token is not valid, and a client answers that by getting a new
+one. A verifier that *does* know whose the token is, on a server that does not
+let everybody it knows in, raises `Forbidden` instead (since 1.3.9):
+
+```python
+from reactor_mcp_server.oauth import Forbidden
+
+async def verify(token: str) -> AccessToken | None:
+    owner = await owner_of(token)
+    if owner is None:
+        return None                      # 401 invalid_token
+    if owner not in allowed:
+        raise Forbidden("Its owner has not allowed you to call it")   # 403 access_denied
+    return AccessToken(token=token, client_id="app", scopes=[...], subject=owner)
+```
+
+The answer is `403` with `{"error": "access_denied"}` and no challenge:
+nothing was wrong with the token, and another one of the same caller would be
+refused the same way. An admission may raise it too.
 
 ## Scopes
 
@@ -166,6 +198,14 @@ def tool_extensions(self):
     return (("launch_sandbox", ToolExtension(scopes=("sandboxes:manage",))),)
 ```
 
+A toolset that two extensions declare requires what either of them says. Two
+tools of one name are one tool to a client: the first registered is the one
+served, and its scopes — none included — are the ones required.
+
+The caller is established first, and what a request needs is asked about that
+caller: with a `tenant_resolver` that reads who is calling, a request is
+checked against the tools of the tenant it is then served in.
+
 `host.required_scopes(selection)` answers what each tool of a selection
 requires. Scopes are consulted where a caller is authenticated: over stdio, or
 on a host without OAuth, they are declared and nothing reads them.
@@ -201,6 +241,11 @@ scope still answers `401` with the scope it needs, which is how a client
 learns that *this* call wants a sign-in. A token that is wrong is refused as
 `invalid_token`, open server or not.
 
+An admission is asked only about a request that presents **no bearer token**.
+A token that is expired or not valid here is refused as `invalid_token`
+whatever else the request carries: a bad token beside a good key is still a
+bad token, and a client is told so rather than served as somebody else.
+
 An admission that knows who came in answers an `AccessToken`, and that is the
 caller from there on, held to the scopes it says:
 
@@ -212,6 +257,23 @@ async def by_key(scope) -> AccessToken | None:
         return None
     return AccessToken(token=key, client_id="key", scopes=["notes:read"], subject=owner)
 ```
+
+## Called from a browser
+
+A page calling the server sends a preflight first, and a preflight carries no
+token. CORS therefore goes **outside** the guard, which `create_mcp_app` does
+when it is told the deployment's origins:
+
+```python
+app = create_mcp_app(host, cors={"allow_origins": ["https://app.example.com"]})
+```
+
+`cors` is the options of Starlette's `CORSMiddleware`. The protocol's methods
+and any request header are allowed unless it says otherwise, and
+`WWW-Authenticate` and `Mcp-Session-Id` are always exposed, so a page can read
+the challenge of a `401`. CORS configured on the servers themselves, through a
+`server_factory`, sits behind the guard: it answers neither the preflight nor
+the refusal.
 
 ## A document that follows the request
 

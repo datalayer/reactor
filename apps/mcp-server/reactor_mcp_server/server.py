@@ -264,11 +264,34 @@ class McpHost:
         """The OAuth scopes each tool of a selection's server requires: its
         toolset's, then its own. Only the tools that require any."""
         built = self.build(selection, tenant_id=tenant_id)
-        of_toolset = {
-            toolset.name: toolset.scopes for toolset in self.declared_toolsets(tenant_id)
-        }
+        # A toolset two extensions declare requires what **either** says: the
+        # one described is the first declared, and an extension adding its
+        # tools to a toolset must not lose the scopes it declared for them.
+        of_toolset: dict[str, tuple[str, ...]] = {}
+        declarations = [
+            item.value for item in self.platform.get_contributions(TOOLSETS, tenant_id=tenant_id)
+        ]
+        allowed = (
+            None if tenant_id is None else set(self.platform.resolve_tenant_plugins(tenant_id))
+        )
+        for name, extension in self._registered.items():
+            if allowed is None or name in allowed:
+                declarations.extend(extension.toolsets())
+        for toolset in declarations:
+            if isinstance(toolset, Toolset) and toolset.scopes:
+                of_toolset[toolset.name] = tuple(
+                    dict.fromkeys((*of_toolset.get(toolset.name, ()), *toolset.scopes))
+                )
         required: dict[str, tuple[str, ...]] = {}
+        seen: set[str] = set()
         for spec in built.tools:
+            if spec.name in seen:
+                # Two tools of one name: the SDK serves the first registered
+                # and drops the rest, so the first one's scopes — none
+                # included — are what a call of that name needs. Taking a
+                # later one's would guard one handler with another's rule.
+                continue
+            seen.add(spec.name)
             scopes = tuple(dict.fromkeys((*of_toolset.get(spec.toolset, ()), *spec.scopes)))
             if scopes:
                 required[spec.name] = scopes
