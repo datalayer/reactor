@@ -47,12 +47,14 @@ from reactor_mcp_server import (
     build_host,
     create_mcp_app,
     current_access_token,
+    on_toolset,
     tool,
 )
 from reactor_mcp_server.__main__ import oauth_extension, parser
 from reactor_mcp_server.oauth import (
     ChallengeMiddleware,
     Forbidden,
+    RequireBearer,
     _tools_called,
     anyone,
     challenge,
@@ -432,12 +434,10 @@ class TestServedAsAProtectedResource:
         from starlette.applications import Starlette
         from starlette.routing import Mount
 
-        from reactor_mcp_server.oauth import RequireBearer
-
         host = build_host([Notes(), OAuthExtension(RESOURCE, verifier=verifier)])
         oauth = host.oauth()
         guard = RequireBearer(
-            create_mcp_app(host), oauth, tool_scopes=lambda scope: host.required_scopes(), max_body=64
+            create_mcp_app(host), oauth, declared_scopes=lambda scope: {}, max_body=64
         )
         app = Starlette(routes=[Mount("", app=guard)], middleware=oauth.middleware())
         answer = TestClient(app).post(
@@ -609,6 +609,106 @@ class TestTheCallerComesFirst:
         with TestClient(create_mcp_app(host)) as client:
             assert client.get("/toolsets").status_code == 200
             assert client.get("/toolsets", headers=bearer("nope")).status_code == 401
+
+
+class TestAuthorizedAgainstTheServerThatServes:
+    """The scopes a call needs are asked of the server the request is
+    dispatched to, and a caller nobody admitted makes the host build nothing."""
+
+    class Late(McpExtension):
+        """Held back until a URL names its toolset; its tool requires a scope."""
+
+        def __init__(self) -> None:
+            self.built_on: list[object] = []
+
+        def manifest(self) -> PluginManifest:
+            return PluginManifest(
+                name="late", version="1.0.0", activation_events=[on_toolset("late")]
+            )
+
+        def toolsets(self):
+            return (Toolset(name="late", default=False),)
+
+        # In a toolset every client is served: once this extension is woken,
+        # the tool is on the default server too.
+        @tool(toolset="clock", scopes=("late:run",))
+        async def run_late(self) -> str:
+            return "ran"
+
+        def on_server(self, server) -> None:
+            self.built_on.append(server)
+
+    def test_a_tool_that_arrives_while_the_request_is_read_is_still_guarded(self) -> None:
+        """The guard reads the body before the server is chosen; an extension
+        woken in between brings a scoped tool the earlier build did not have.
+        Authorized against the earlier build, the call ran without the scope."""
+        from reactor_mcp_server import parse_selection
+
+        late = self.Late()
+        host = build_host([Clock(), Notes(), late, OAuthExtension(RESOURCE, verifier=verifier)])
+        app = create_mcp_app(host)
+        woken: list[bool] = []
+        peeked = RequireBearer._peeked
+
+        async def read_then_wake(self, receive):
+            answer = await peeked(self, receive)
+            if not woken:
+                # Another client's `?late`, served while this body was read.
+                host.build(parse_selection("late"))
+                woken.append(True)
+            return answer
+
+        RequireBearer._peeked = read_then_wake
+        try:
+            with TestClient(app) as client:
+                answer = client.post("/mcp", json=call("run_late"), headers=bearer(token("ada")))
+        finally:
+            RequireBearer._peeked = peeked
+        assert woken == [True]
+        assert answer.status_code == 403
+        assert 'scope="late:run"' in answer.headers["www-authenticate"]
+
+    def test_a_caller_nobody_admitted_builds_and_wakes_nothing(self) -> None:
+        late = self.Late()
+        host = build_host([Notes(), late, OAuthExtension(RESOURCE, verifier=verifier)])
+        with TestClient(create_mcp_app(host)) as client:
+            for query in ("", "?late", "?only=late", "?only=notes", "?without=notes"):
+                assert client.get(f"/mcp{query}").status_code == 401
+                assert client.post(f"/mcp{query}", json=call("write_note", text="x")).status_code == 401
+                assert client.post(f"/mcp{query}", json=call("x"), headers=bearer("nope")).status_code == 401
+            assert host._built == {}
+            assert late.built_on == []
+            assert not any(
+                plugin["activated"] for plugin in host.platform.list_plugins() if plugin["name"] == "late"
+            )
+            # Still told what a declared tool would need.
+            refused = client.post("/mcp", json=call("write_note", text="x"))
+            assert 'scope="notes:read notes:write"' in refused.headers["www-authenticate"]
+            assert host._built == {}
+
+    def test_the_router_is_not_served_past_its_guard(self) -> None:
+        from reactor_mcp_server import ToolsetRouter
+
+        host = build_host([Clock(), OAuthExtension(RESOURCE, verifier=verifier)])
+        router = ToolsetRouter(host)
+        router.requires_authorization = True
+        with pytest.raises(RuntimeError, match="past its guard"):
+            TestClient(router).post("/mcp", json=call("now"))
+
+    def test_an_extension_switched_off_requires_nothing_of_anybody(self) -> None:
+        class Stricter(McpExtension):
+            def manifest(self) -> PluginManifest:
+                return PluginManifest(name="stricter", version="1.0.0")
+
+            def toolsets(self):
+                return (Toolset(name="clock", scopes=("clock:read",)),)
+
+        host = build_host([Clock(), Stricter()])
+        assert host.required_scopes() == {"now": ("clock:read",)}
+        host.platform.disable_plugin("stricter")
+        host.forget_built()
+        assert host.required_scopes() == {}
+        assert host.declared_scopes() == {}
 
 
 class TestTheToolThatIsServedIsTheOneGuarded:
@@ -879,20 +979,51 @@ class TestTheJWTVerifier:
         assert await verify(signed(key=other)) is None
         assert await verify("not a token") is None
 
-    async def test_the_key_is_read_from_the_issuers_jwks(self, monkeypatch) -> None:
-        jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(KEY.public_key()))
+    @staticmethod
+    def issuer_serving(monkeypatch, keys: list) -> list[str]:
+        """The issuer's JWKS endpoint, serving `keys` as they are when asked."""
         fetched: list[str] = []
 
         def fetch_data(self):
             fetched.append(self.uri)
-            return {"keys": [{**jwk, "kid": "k1", "use": "sig", "alg": "RS256"}]}
+            served = {"keys": list(keys)}
+            # As the client's own fetch does: what was read is kept as the set.
+            if self.jwk_set_cache is not None:
+                self.jwk_set_cache.put(served)
+            return served
 
         monkeypatch.setattr(jwt.PyJWKClient, "fetch_data", fetch_data)
+        return fetched
+
+    @staticmethod
+    def published(key=KEY, kid: str = "k1") -> dict:
+        jwk = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+        return {**jwk, "kid": kid, "use": "sig", "alg": "RS256"}
+
+    async def test_the_key_is_read_from_the_issuers_jwks(self, monkeypatch) -> None:
+        fetched = self.issuer_serving(monkeypatch, [self.published()])
         verify = JWTVerifier.for_resource(RESOURCE, jwks_uri=f"{ISSUER}/jwks").verify_token
 
         assert (await verify(signed())).subject == "ada"
         assert (await verify(signed(sub="grace"))).subject == "grace"
         assert fetched == [f"{ISSUER}/jwks"]
+
+    async def test_a_key_the_issuer_removes_stops_being_trusted(self, monkeypatch) -> None:
+        """A compromised key, taken out of the issuer's set: whoever holds it
+        can sign tokens with any expiry, so the set is read again after its
+        time and no key is kept on its own beyond it."""
+        keys = [self.published()]
+        self.issuer_serving(monkeypatch, keys)
+        verify = JWTVerifier.for_resource(
+            RESOURCE, jwks_uri=f"{ISSUER}/jwks", jwks_cache_seconds=0.2
+        ).verify_token
+
+        assert (await verify(signed())).subject == "ada"
+        other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        keys[:] = [self.published(other, "k2")]
+        time.sleep(0.25)
+        assert await verify(signed()) is None
+        assert await verify(signed(exp=int(time.time()) + 86400)) is None
 
     async def test_the_audience_is_the_resource_exactly_as_configured(self) -> None:
         """A resource whose URL carries a query is another audience than the
@@ -921,6 +1052,11 @@ class TestTheCommandLine:
     def test_half_of_it_is_refused(self) -> None:
         with pytest.raises(SystemExit):
             oauth_extension(parser().parse_args(["--oauth-resource", RESOURCE.resource]))
+
+    @pytest.mark.parametrize("option", ["--oauth-required-scopes", "--oauth-scopes"])
+    def test_scopes_alone_do_not_start_a_server_that_requires_them_of_nobody(self, option) -> None:
+        with pytest.raises(SystemExit):
+            oauth_extension(parser().parse_args([option, "notes:read"]))
 
     def test_the_three_together_make_the_host_a_protected_resource(self) -> None:
         arguments = parser().parse_args(

@@ -44,6 +44,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route, request_response
 
+from reactor_mcp_server.oauth import AUTHORIZATION
 from reactor_mcp_server.server import McpHost
 from reactor_mcp_server.toolsets import (
     Selection,
@@ -110,6 +111,9 @@ class ToolsetRouter:
         # and every selection is served with the same ones — a client that
         # asked for another toolset did not ask for another transport.
         self._app_options = dict(app_options or {})
+        #: Set by `create_mcp_app` for a host with OAuth: a request is then
+        #: served only with what its guard established (`oauth.AUTHORIZATION`).
+        self.requires_authorization = False
         self._apps: dict[str, Any] = {}
         self._tasks: Any = None
         self._closing: anyio.Event | None = None
@@ -210,6 +214,19 @@ class ToolsetRouter:
         selection = self.selection_of(scope)
         tenant = self.tenant_of(scope)
         built = self._host.build(selection, tenant_id=tenant)
+        if self.requires_authorization:
+            # Authorized against the server it is about to be served by, not
+            # against one built while the request was still being read.
+            established = (scope.get("state") or {}).get(AUTHORIZATION)
+            if established is None:
+                raise RuntimeError(
+                    "This router serves a host with OAuth and was reached past its "
+                    "guard: nothing established who is calling"
+                )
+            refusal = established.refusal(self._host.scopes_of(built, tenant))
+            if refusal is not None:
+                await refusal(send)
+                return
         if built.unknown:
             # Named but not declared. Served anyway — a stale name in an
             # agent's configuration should not take the connection down — and
@@ -304,16 +321,14 @@ def create_mcp_app(
             RequireBearer,
         )
 
-        def tool_scopes(scope: Scope) -> Optional[dict[str, tuple[str, ...]]]:
-            return (
-                host.required_scopes(router.selection_of(scope), router.tenant_of(scope))
-                or None
-            )
+        def declared_scopes(scope: Scope) -> dict[str, tuple[str, ...]]:
+            return host.declared_scopes(router.selection_of(scope), router.tenant_of(scope))
 
         routes.extend(oauth.resource.routes())
         middleware = oauth.middleware()
+        router.requires_authorization = True
         served = ChallengeMiddleware(
-            RequireBearer(router, oauth, tool_scopes=tool_scopes), oauth.resource
+            RequireBearer(router, oauth, declared_scopes=declared_scopes), oauth.resource
         )
     if toolsets_route:
         described: Any = toolsets

@@ -408,9 +408,11 @@ def as_verifier(verifiers: Sequence[Verifier]) -> TokenVerifier:
 class JWTVerifier:
     """Verify a signed JWT access token: signature, issuer, audience, expiry.
 
-    The key comes from the issuer's JWKS (``jwks_uri``, fetched once and kept,
-    read again when a token names a key not seen yet) or is given (``key``, a
-    PEM public key or a shared secret — name its ``algorithms`` then).
+    The key comes from the issuer's JWKS (``jwks_uri``: the set is kept for
+    ``jwks_cache_seconds``, five minutes unless said, and read again after
+    that or when a token names a key it does not have, so a key the issuer
+    removes stops being trusted) or is given (``key``, a PEM public key or a
+    shared secret — name its ``algorithms`` then).
 
     The audience is checked here: a token issued for another resource is not
     one for this server (RFC 8707), and accepting it would let whoever holds a
@@ -432,6 +434,7 @@ class JWTVerifier:
         leeway: float = 30.0,
         scope_claim: str = "scope",
         client_id_claims: Iterable[str] = ("client_id", "azp"),
+        jwks_cache_seconds: int = 300,
     ) -> None:
         try:
             import jwt  # noqa: PLC0415
@@ -451,7 +454,17 @@ class JWTVerifier:
         self.scope_claim = scope_claim
         self.client_id_claims = tuple(client_id_claims)
         self._key = key
-        self._jwks = jwt.PyJWKClient(jwks_uri, cache_keys=True) if jwks_uri else None
+        # The key *set* is kept for `jwks_cache_seconds` and then read again;
+        # no key is kept on its own beyond that. A key the issuer removes —
+        # a compromised one — stops verifying tokens within that time, where
+        # a per-key cache would trust it for as long as the process lives.
+        self._jwks = (
+            jwt.PyJWKClient(
+                jwks_uri, cache_keys=False, cache_jwk_set=True, lifespan=jwks_cache_seconds
+            )
+            if jwks_uri
+            else None
+        )
 
     @classmethod
     def for_resource(cls, resource: ProtectedResource, **options: Any) -> "JWTVerifier":
@@ -575,9 +588,63 @@ class OAuth:
         return anonymous
 
 
-#: The scopes a ``tools/call`` of this name needs on this request, or ``None``
-#: when no tool of the server it reaches requires any (nothing is read then).
-ToolScopes = Callable[[Scope], Optional[Mapping[str, Sequence[str]]]]
+#: What a selection's tools require, read without building anything
+#: (``McpHost.declared_scopes``): for the challenge of a caller nobody admitted.
+DeclaredScopes = Callable[[Scope], Mapping[str, Sequence[str]]]
+
+#: Where the guard leaves what it established, in the ASGI scope's ``state``,
+#: for whoever dispatches the request to finish authorizing it.
+AUTHORIZATION = "reactor.mcp.oauth.authorization"
+
+
+@dataclass(frozen=True)
+class Authorization:
+    """What the guard established about a request, before it is dispatched.
+
+    The caller, and the tools the request could be a call of. Which scopes
+    those tools require is the business of the server the request is
+    dispatched to, so the question is finished there, against that very
+    server (:meth:`refusal`): asked of an earlier build, a tool that arrived
+    in between would be called without what it requires.
+    """
+
+    resource: ProtectedResource
+    #: The caller, or ``None`` for one admitted without being named.
+    user: Optional[AuthenticatedUser]
+    #: The tools the body could call (:func:`_tools_called`).
+    called: frozenset[str]
+
+    def refusal(
+        self, required: Mapping[str, Sequence[str]]
+    ) -> Optional[Callable[[Send], Awaitable[None]]]:
+        """How to refuse the request given what the server serving it
+        requires, or ``None`` when its caller holds what it needs."""
+        needed = list(self.resource.required_scopes)
+        for name in sorted(self.called):
+            needed += [item for item in required.get(name, ()) if item not in needed]
+        return _refusal(self.resource, self.user, needed)
+
+
+def _refusal(
+    resource: ProtectedResource, user: Optional[AuthenticatedUser], needed: Sequence[str]
+) -> Optional[Callable[[Send], Awaitable[None]]]:
+    if user is None:
+        if not needed:
+            return None
+        # Nobody in particular, and the call needs a scope: somebody has to
+        # hold it. The challenge names it.
+        return lambda send: refuse(send, resource, scopes=needed)
+    missing = [item for item in needed if item not in user.scopes]
+    if not missing:
+        return None
+    return lambda send: refuse(
+        send,
+        resource,
+        status=403,
+        error=INSUFFICIENT_SCOPE,
+        description=f"Required scope: {' '.join(missing)}",
+        scopes=needed,
+    )
 
 
 def _presents_bearer(scope: Scope) -> bool:
@@ -606,7 +673,9 @@ class RequireBearer:
       (:class:`Forbidden`) — ``403``, ``access_denied``.
 
     The scopes needed are the resource's ``required_scopes`` and, for a
-    ``tools/call``, those of the tool and its toolset.
+    ``tools/call``, those of the tool and its toolset — as the server the
+    request is dispatched to requires them, which the router checks with what
+    this leaves it (:class:`Authorization`).
     """
 
     def __init__(
@@ -614,12 +683,15 @@ class RequireBearer:
         app: Any,
         oauth: OAuth,
         *,
-        tool_scopes: Optional[ToolScopes] = None,
+        declared_scopes: Optional[DeclaredScopes] = None,
         max_body: int = MAX_PEEKED_BODY,
     ) -> None:
         self.app = app
         self.oauth = oauth
-        self.tool_scopes = tool_scopes
+        #: Given for the application that serves tools (the router): the
+        #: request's body is then read for the tools it could call, and what
+        #: it established is left for the router (:data:`AUTHORIZATION`).
+        self.declared_scopes = declared_scopes
         self.max_body = max_body
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -681,33 +753,37 @@ class RequireBearer:
         """Serve the request if its caller — known by now, and in the auth
         context — holds what it needs."""
         resource = self.oauth.resource.at(scope)
-        needed = list(resource.required_scopes)
-        by_tool = self.tool_scopes(scope) if self.tool_scopes is not None else None
-        if by_tool and scope.get("method") == "POST":
+        admitted = user is not None or anonymous
+        called: frozenset[str] = frozenset()
+        if self.declared_scopes is not None and scope.get("method") == "POST":
             body, receive = await self._peeked(receive)
             if body is None:
                 await _too_large(send)
                 return
-            for name in sorted(_tools_called(body)):
-                needed += [item for item in by_tool.get(name, ()) if item not in needed]
-
-        if user is None:
-            if anonymous and not needed:
-                await self.app(scope, receive, send)
-            else:
-                await refuse(send, resource, scopes=needed)
+            called = frozenset(_tools_called(body))
+        if not admitted:
+            # Nobody admitted this caller: told what the call would need from
+            # what is declared, and nothing is built or woken for them.
+            needed = list(resource.required_scopes)
+            if called and self.declared_scopes is not None:
+                declared = self.declared_scopes(scope)
+                for name in sorted(called):
+                    needed += [item for item in declared.get(name, ()) if item not in needed]
+            await refuse(send, resource, scopes=needed)
             return
-        missing = [item for item in needed if item not in user.scopes]
-        if missing:
-            await refuse(
-                send,
-                resource,
-                status=403,
-                error=INSUFFICIENT_SCOPE,
-                description=f"Required scope: {' '.join(missing)}",
-                scopes=needed,
+        if self.declared_scopes is None:
+            # Not the application that serves tools: the scopes every request
+            # needs are the whole of it.
+            refusal = _refusal(resource, user, resource.required_scopes)
+            if refusal is not None:
+                await refusal(send)
+                return
+        else:
+            # The tools' scopes belong to the server the request is dispatched
+            # to: the router finishes, against the server it serves it with.
+            scope.setdefault("state", {})[AUTHORIZATION] = Authorization(
+                resource=resource, user=user, called=called
             )
-            return
         await self.app(scope, receive, send)
 
     async def _peeked(self, receive: Receive) -> tuple[Optional[bytes], Receive]:
@@ -875,9 +951,11 @@ def anyone(scope: Scope) -> bool:
 __all__ = [
     "INSUFFICIENT_SCOPE",
     "INVALID_TOKEN",
+    "AUTHORIZATION",
     "AccessToken",
     "Admission",
     "Admitted",
+    "Authorization",
     "ChallengeMiddleware",
     "Forbidden",
     "JWTVerifier",

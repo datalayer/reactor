@@ -124,9 +124,10 @@ with it. A `ProtectedResource` is written as it is published for the same
 reason: a capital in its host or a default port, which the document would
 publish differently, is refused when it is configured.
 
-It checks the signature (the key read from the issuer's JWKS and kept, read
-again when a token names a key not seen yet), the issuer, the expiry and the
-**audience**. The audience is not optional: a token issued for another service
+It checks the signature, the issuer, the expiry and the **audience**. The
+issuer's key set is kept for five minutes (`jwks_cache_seconds`) and then read
+again, and no key is kept on its own beyond that: a key the issuer takes out
+of its set, a compromised one, stops verifying tokens within that time. The audience is not optional: a token issued for another service
 of the same issuer is not a token for this server
 ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)), and a server that
 accepts any audience lets whoever holds a token for one service call all of
@@ -206,8 +207,19 @@ The caller is established first, and what a request needs is asked about that
 caller: with a `tenant_resolver` that reads who is calling, a request is
 checked against the tools of the tenant it is then served in.
 
+A request is authorized against the server it is served by: the guard
+establishes who is calling and which tools the body could call, and the router
+checks their scopes on the server it dispatches to, so a tool that an
+extension brought in the meantime is not called without what it requires. A
+caller nobody admitted is told what a declared tool would need and nothing is
+built or woken for them — a request without a token cannot make the host
+construct servers by varying its URL.
+
 `host.required_scopes(selection)` answers what each tool of a selection
-requires. Scopes are consulted where a caller is authenticated: over stdio, or
+requires (it builds the selection's server, as serving it would);
+`host.scopes_of(built)` asks it of one built server, and
+`host.declared_scopes(selection)` reads it from what is contributed, building
+nothing. An extension that is switched off requires nothing. Scopes are consulted where a caller is authenticated: over stdio, or
 on a host without OAuth, they are declared and nothing reads them.
 
 ## Who is calling, in a handler
@@ -331,4 +343,7 @@ reactor-mcp-server \
 | `--oauth-scopes` / `REACTOR_MCP_OAUTH_SCOPES` | The scopes a client may ask for |
 | `--oauth-required-scopes` / `REACTOR_MCP_OAUTH_REQUIRED_SCOPES` | The scopes every request needs |
 
-Over stdio nothing authenticates a caller, and the options are not read.
+The first three go together, and any OAuth option without them is refused at
+startup: scopes alone would otherwise start a server that requires them of
+nobody. Over stdio nothing authenticates a caller, and the options are not
+read.

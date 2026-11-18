@@ -262,8 +262,45 @@ class McpHost:
         tenant_id: Optional[str] = None,
     ) -> dict[str, tuple[str, ...]]:
         """The OAuth scopes each tool of a selection's server requires: its
-        toolset's, then its own. Only the tools that require any."""
-        built = self.build(selection, tenant_id=tenant_id)
+        toolset's, then its own. Only the tools that require any.
+
+        Builds the selection's server, as serving it would. To authorize a
+        request, ask :meth:`scopes_of` about the server it is dispatched to;
+        to tell a caller nobody knows yet what a call would need, ask
+        :meth:`declared_scopes`, which builds nothing.
+        """
+        return self.scopes_of(self.build(selection, tenant_id=tenant_id), tenant_id)
+
+    def scopes_of(
+        self, built: BuiltServer, tenant_id: Optional[str] = None
+    ) -> dict[str, tuple[str, ...]]:
+        """The scopes each tool of *this* built server requires.
+
+        What a request is authorized against is the server it is served by:
+        asked of another build, a tool that arrived in between would be
+        called without what it requires.
+        """
+        return self._scopes(built.tools, tenant_id)
+
+    def declared_scopes(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> dict[str, tuple[str, ...]]:
+        """What a selection's tools require, read from what is contributed now.
+
+        Nothing is built and nothing is woken: no activation event, no server
+        factory, no `on_server`, no cache entry. For the challenge of a caller
+        nobody has admitted, who should be told what a call needs and should
+        not be able to make the host work by asking. An extension still held
+        back has contributed nothing yet, and its tools are not in the answer.
+        """
+        active = active_toolsets(self.declared_toolsets(tenant_id), selection or Selection())
+        return self._scopes(self.offered_tools(active, tenant_id), tenant_id)
+
+    def _scopes(
+        self, tools: Iterable[ToolSpec], tenant_id: Optional[str]
+    ) -> dict[str, tuple[str, ...]]:
         # A toolset two extensions declare requires what **either** says: the
         # one described is the first declared, and an extension adding its
         # tools to a toolset must not lose the scopes it declared for them.
@@ -271,11 +308,14 @@ class McpHost:
         declarations = [
             item.value for item in self.platform.get_contributions(TOOLSETS, tenant_id=tenant_id)
         ]
-        allowed = (
-            None if tenant_id is None else set(self.platform.resolve_tenant_plugins(tenant_id))
-        )
+        # The extensions that are switched on, a held-back one included (it
+        # has declared and not contributed yet); one switched off requires
+        # nothing of anybody, as its contributions are not read either.
+        enabled = {plugin["name"] for plugin in self.platform.list_plugins() if plugin["enabled"]}
+        if tenant_id is not None:
+            enabled &= set(self.platform.resolve_tenant_plugins(tenant_id))
         for name, extension in self._registered.items():
-            if allowed is None or name in allowed:
+            if name in enabled:
                 declarations.extend(extension.toolsets())
         for toolset in declarations:
             if isinstance(toolset, Toolset) and toolset.scopes:
@@ -284,7 +324,7 @@ class McpHost:
                 )
         required: dict[str, tuple[str, ...]] = {}
         seen: set[str] = set()
-        for spec in built.tools:
+        for spec in tools:
             if spec.name in seen:
                 # Two tools of one name: the SDK serves the first registered
                 # and drops the rest, so the first one's scopes — none

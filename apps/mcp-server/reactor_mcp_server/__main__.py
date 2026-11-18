@@ -120,9 +120,12 @@ def parser() -> argparse.ArgumentParser:
 def oauth_extension(arguments: argparse.Namespace) -> list:
     """The OAuth the command line asked for, as the extension that gives it."""
     named = (arguments.oauth_resource, arguments.oauth_issuer, arguments.oauth_jwks_uri)
-    if not any(named):
+    asked = any(named) or arguments.oauth_scopes or arguments.oauth_required_scopes
+    if not asked:
         return []
     if not all(named):
+        # Any OAuth option without the three is refused: scopes alone would
+        # otherwise start a server that requires them of nobody.
         raise SystemExit(
             "OAuth needs --oauth-resource, --oauth-issuer and --oauth-jwks-uri together"
         )
