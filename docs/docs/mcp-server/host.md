@@ -84,6 +84,12 @@ def make_server(name, instructions):
 host = build_host(extensions, name="my-server", server_factory=make_server)
 ```
 
+A host that verifies tokens does not need the factory for it: OAuth is
+contributed ([OAuth](/mcp-server/oauth)), and the router verifies the bearer
+of every request before any built server sees it. With OAuth on, CORS belongs
+to `create_mcp_app(host, cors=...)` rather than to the servers, so that a
+browser's preflight is answered before the guard.
+
 The `instructions` it is given are the host's own followed by those of every
 active toolset (`host.instructions_for(active)`), so a server built for
 `?benchmarks` says how to use benchmarks and one built without it does not.

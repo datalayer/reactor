@@ -52,12 +52,18 @@ class ToolSpec:
     #: The toolset this tool belongs to. Empty means the extension's own name,
     #: filled in by the host when the tool is contributed.
     toolset: str = ""
-    #: Anything the host should carry but not interpret — a policy, a scope.
+    #: Anything the host should carry but not interpret — a policy, a price.
     meta: dict[str, Any] = field(default_factory=dict)
+    #: The OAuth scopes a caller's token must carry to call this tool, on a
+    #: host that verifies tokens (:mod:`reactor_mcp_server.oauth`); its
+    #: toolset's are required with them. Not consulted where nothing
+    #: authenticates the caller — stdio, a server without OAuth.
+    scopes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("A tool needs a name")
+        object.__setattr__(self, "scopes", tuple(self.scopes))
         if not callable(self.handler):
             raise ValueError(f"Tool {self.name} has no callable handler")
 
@@ -73,7 +79,7 @@ class ToolSpec:
 class ToolExtension:
     """What one extension does to another extension's tool.
 
-    Three things, and nothing else, because a fourth would be the extension
+    Four things, and nothing else, because a fifth would be the extension
     replacing the tool rather than extending it:
 
     * ``wrap`` takes the handler and answers another one — the way to add a
@@ -81,7 +87,9 @@ class ToolExtension:
     * ``description`` and ``title`` replace what a model reads, for an
       extension that narrows a tool and should say so;
     * ``annotations`` replace the tool's, for a deployment where the same
-      tool is, say, no longer read-only.
+      tool is, say, no longer read-only;
+    * ``scopes`` are required **as well as** the tool's own — a deployment
+      can ask more of a caller than the tool's author did, never less.
 
     An extension of a tool nobody offered is not an error: it is stored, never
     applies, and the host says so when asked. An extension that is installed
@@ -95,6 +103,8 @@ class ToolExtension:
     #: Merged over the tool's own, so an extension can carry a policy the host
     #: reads without the tool having to know the extension exists.
     meta: dict[str, Any] = field(default_factory=dict)
+    #: OAuth scopes required of a caller, added to the tool's own.
+    scopes: tuple[str, ...] = ()
 
     def apply(self, spec: ToolSpec) -> ToolSpec:
         """This extension, applied to a tool."""
@@ -119,6 +129,8 @@ class ToolExtension:
             changes["annotations"] = self.annotations
         if self.meta:
             changes["meta"] = {**spec.meta, **self.meta}
+        if self.scopes:
+            changes["scopes"] = tuple(dict.fromkeys((*spec.scopes, *self.scopes)))
         return replace(spec, **changes) if changes else spec
 
 
@@ -130,6 +142,7 @@ def tool(
     annotations: Any = None,
     toolset: str = "",
     meta: Optional[dict[str, Any]] = None,
+    scopes: Iterable[str] = (),
 ) -> Callable[[Handler], Handler]:
     """Mark a function as a tool this extension offers.
 
@@ -154,6 +167,7 @@ def tool(
             annotations=annotations,
             toolset=toolset,
             meta=dict(meta or {}),
+            scopes=tuple(scopes),
         )
         setattr(handler, "__mcp_tool__", spec)
         return handler

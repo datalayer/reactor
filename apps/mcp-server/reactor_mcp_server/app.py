@@ -29,6 +29,7 @@ from typing import (
     Awaitable,
     Callable,
     Iterable,
+    Mapping,
     MutableMapping,
     Optional,
 )
@@ -37,10 +38,13 @@ import anyio
 from anyio.abc import TaskStatus
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Mount, Route, request_response
 
+from reactor_mcp_server.oauth import AUTHORIZATION
 from reactor_mcp_server.server import McpHost
 from reactor_mcp_server.toolsets import (
     Selection,
@@ -107,6 +111,9 @@ class ToolsetRouter:
         # and every selection is served with the same ones — a client that
         # asked for another toolset did not ask for another transport.
         self._app_options = dict(app_options or {})
+        #: Set by `create_mcp_app` for a host with OAuth: a request is then
+        #: served only with what its guard established (`oauth.AUTHORIZATION`).
+        self.requires_authorization = False
         self._apps: dict[str, Any] = {}
         self._tasks: Any = None
         self._closing: anyio.Event | None = None
@@ -207,6 +214,19 @@ class ToolsetRouter:
         selection = self.selection_of(scope)
         tenant = self.tenant_of(scope)
         built = self._host.build(selection, tenant_id=tenant)
+        if self.requires_authorization:
+            # Authorized against the server it is about to be served by, not
+            # against one built while the request was still being read.
+            established = (scope.get("state") or {}).get(AUTHORIZATION)
+            if established is None:
+                raise RuntimeError(
+                    "This router serves a host with OAuth and was reached past its "
+                    "guard: nothing established who is calling"
+                )
+            refusal = established.refusal(self._host.scopes_of(built, tenant))
+            if refusal is not None:
+                await refusal(send)
+                return
         if built.unknown:
             # Named but not declared. Served anyway — a stale name in an
             # agent's configuration should not take the connection down — and
@@ -233,6 +253,8 @@ def create_mcp_app(
     tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
     default_selection: Optional[Selection] = None,
     ignore_query_keys: Iterable[str] = (),
+    public_toolsets: bool = False,
+    cors: Optional[Mapping[str, Any]] = None,
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -247,7 +269,27 @@ def create_mcp_app(
     `default_selection` is what a URL naming no toolset gets, in place of each
     toolset's own `default`. `ignore_query_keys` are query keys this
     deployment reads for something else, so they are never taken for names.
+
+    A host that was given OAuth (:mod:`reactor_mcp_server.oauth`) is served
+    as a protected resource: the protected-resource document at its
+    well-known paths, a bearer token verified and required for `path` and
+    everything else the servers answer, the scopes a tool declares required on
+    its calls, and the challenge on every ``401``. ``/healthz`` and the
+    document stay open; ``/toolsets`` needs a token too unless
+    `public_toolsets` says it describes nothing private. What was contributed
+    is read here, once: an extension held back by an activation event
+    contributes its OAuth too late to be served.
+
+    `cors` is for a deployment browsers call: the options of Starlette's
+    ``CORSMiddleware`` (``allow_origins`` at least; the protocol's methods
+    and any request header are allowed unless it says otherwise), applied
+    **outside** everything else — so a preflight, which carries no token, is
+    answered rather than challenged, and a ``401`` reaches the page with its
+    CORS headers and a ``WWW-Authenticate`` it may read. CORS configured on
+    the servers themselves (a ``server_factory``) sits behind the bearer
+    guard and answers neither.
     """
+    oauth = host.oauth()
     router = ToolsetRouter(
         host,
         path=path,
@@ -268,14 +310,34 @@ def create_mcp_app(
     async def health(request: Request) -> JSONResponse:
         return JSONResponse({"success": True, "service": host.name})
 
-    routes = []
+    routes: list[Any] = []
+    served: Any = router
+    middleware: list[Any] = []
     if healthz:
         routes.append(Route(healthz, health, methods=["GET"]))
+    if oauth is not None:
+        from reactor_mcp_server.oauth import (  # noqa: PLC0415
+            ChallengeMiddleware,
+            RequireBearer,
+        )
+
+        def declared_scopes(scope: Scope) -> dict[str, tuple[str, ...]]:
+            return host.declared_scopes(router.selection_of(scope), router.tenant_of(scope))
+
+        routes.extend(oauth.resource.routes())
+        middleware = oauth.middleware()
+        router.requires_authorization = True
+        served = ChallengeMiddleware(
+            RequireBearer(router, oauth, declared_scopes=declared_scopes), oauth.resource
+        )
     if toolsets_route:
-        routes.append(Route(toolsets_route, toolsets, methods=["GET"]))
+        described: Any = toolsets
+        if oauth is not None and not public_toolsets:
+            described = RequireBearer(request_response(toolsets), oauth)
+        routes.append(Route(toolsets_route, described, methods=["GET"]))
     # Last, and mounted at the root so the path reaches the SDK's application
-    # exactly as the client sent it. The two routes above are matched first.
-    routes.append(Mount("", app=router))
+    # exactly as the client sent it. The routes above are matched first.
+    routes.append(Mount("", app=served))
 
     @asynccontextmanager
     async def lifespan(_: Starlette) -> AsyncIterator[None]:
@@ -285,6 +347,21 @@ def create_mcp_app(
         finally:
             await router.stop()
 
-    app = Starlette(routes=routes, lifespan=lifespan)
+    if cors is not None:
+        exposed = dict.fromkeys(
+            ("WWW-Authenticate", "Mcp-Session-Id", *(cors.get("expose_headers") or ()))
+        )
+        # First, so outermost: before the authentication and the guard.
+        options = {
+            # What the protocol uses, unless the deployment says otherwise:
+            # Starlette's own default allows GET alone and no request header.
+            "allow_methods": ["GET", "POST", "DELETE", "OPTIONS"],
+            "allow_headers": ["*"],
+            **dict(cors),
+            "expose_headers": list(exposed),
+        }
+        middleware = [Middleware(CORSMiddleware, **options), *middleware]
+    app = Starlette(routes=routes, middleware=middleware, lifespan=lifespan)
     app.state.mcp_host = host
+    app.state.mcp_oauth = oauth
     return app

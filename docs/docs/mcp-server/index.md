@@ -103,6 +103,7 @@ code at all runs the module instead — see [Serving](/mcp-server/serving).
 | `McpHost` | The platform, the extensions on it, and the servers built from them. |
 | `BuiltServer` | A server and what it was built from — so a host can say *why* these tools. |
 | `ToolsetRouter` | The ASGI application that reads the URL and routes to the right built server. |
+| `OAuthExtension` | OAuth on a host: its `ProtectedResource`, what verifies a token, another way in. |
 
 ## Where to go next
 
@@ -111,5 +112,6 @@ code at all runs the module instead — see [Serving](/mcp-server/serving).
 - [Toolsets](/mcp-server/toolsets) — the URL grammar, and activation.
 - [The host](/mcp-server/host) — building a server, and what a deployment decides.
 - [Serving](/mcp-server/serving) — over HTTP, with one endpoint and many servers.
+- [OAuth](/mcp-server/oauth) — a protected resource: tokens verified, scopes per tool, the challenge.
 - [Writing an extension](/mcp-server/writing-an-extension) — start to published.
 - [Example toolsets](/mcp-server/example-toolsets) — `math` and `geo`, in one installable example.

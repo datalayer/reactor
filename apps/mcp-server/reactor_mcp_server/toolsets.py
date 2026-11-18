@@ -57,10 +57,15 @@ class Toolset:
     #: without — the ones every client needs before it can ask for anything
     #: else — so `only=` cannot produce an endpoint nobody can use.
     always: bool = False
+    #: The OAuth scopes a caller's token must carry to call any tool of this
+    #: toolset, on a host that verifies tokens
+    #: (:mod:`reactor_mcp_server.oauth`). A tool's own are required with them.
+    scopes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("A toolset needs a name")
+        object.__setattr__(self, "scopes", tuple(self.scopes))
 
 
 @dataclass(frozen=True)

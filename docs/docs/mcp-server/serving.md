@@ -46,6 +46,10 @@ curl https://mcp.example.com/toolsets?only=spaces
 }
 ```
 
+A host that was given [OAuth](/mcp-server/oauth) serves the protected-resource
+document at `/.well-known/oauth-protected-resource` as well, and requires a
+token for `/mcp` and `/toolsets`.
+
 It is how a client is *told* which names it may put in its URL, rather than
 being sent to read a deployment's source. Both extra routes can be turned off
 (`healthz=None`, `toolsets_route=None`) for a deployment that serves its own.
@@ -105,6 +109,13 @@ app = create_mcp_app(host, path="/mcp", app_options={"stateless_http": False})
 ```
 
 Another toolset is not another transport.
+
+A deployment browsers call names its origins, and CORS is applied outside
+everything else, the bearer guard included:
+
+```python
+app = create_mcp_app(host, cors={"allow_origins": ["https://app.example.com"]})
+```
 
 ## Two things a host of the SDK's app must get right
 

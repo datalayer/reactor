@@ -23,7 +23,16 @@ from mcp.server.mcpserver import MCPServer
 from reactor import PluginPlatform
 
 from reactor_mcp_server.extension import McpExtension, manifest_of
-from reactor_mcp_server.points import PROMPTS, RESOURCES, TOOLS, TOOLSETS, on_toolset
+from reactor_mcp_server.points import (
+    ADMISSIONS,
+    PROMPTS,
+    PROTECTED_RESOURCES,
+    RESOURCES,
+    TOKEN_VERIFIERS,
+    TOOLS,
+    TOOLSETS,
+    on_toolset,
+)
 from reactor_mcp_server.tools import ToolSpec, resolve
 from reactor_mcp_server.toolsets import (
     Selection,
@@ -203,6 +212,130 @@ class McpHost:
                     "Tool %s is not served: an extension of it failed", spec.name
                 )
         return resolved
+
+    # --- OAuth ---------------------------------------------------------------
+
+    def oauth(self) -> Any:
+        """The OAuth this host was given (:class:`~reactor_mcp_server.oauth.OAuth`),
+        or ``None`` when no extension contributed any.
+
+        Half of it is a mistake, said at once rather than served: a resource
+        nobody verifies tokens for would challenge every client into a flow
+        whose token is then refused, and a verifier without a resource would
+        refuse callers without telling them where to get a token.
+        """
+        from reactor_mcp_server.oauth import (  # noqa: PLC0415
+            OAuth,
+            ProtectedResource,
+            as_verifier,
+        )
+
+        def offered(point: Any) -> list[Any]:
+            return [item.value for item in self.platform.get_contributions(point)]
+
+        resources = [
+            item for item in offered(PROTECTED_RESOURCES) if isinstance(item, ProtectedResource)
+        ]
+        verifiers = offered(TOKEN_VERIFIERS)
+        admissions = offered(ADMISSIONS)
+        if not resources and not verifiers and not admissions:
+            return None
+        if len(resources) != 1:
+            raise ValueError(
+                "OAuth needs exactly one protected resource, and "
+                f"{len(resources)} were contributed: a host is one resource"
+            )
+        if not verifiers:
+            raise ValueError(
+                "A protected resource was contributed and nothing verifies its "
+                "tokens: contribute a token verifier"
+            )
+        return OAuth(
+            resource=resources[0],
+            verifier=as_verifier(verifiers),
+            admissions=tuple(admissions),
+        )
+
+    def required_scopes(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> dict[str, tuple[str, ...]]:
+        """The OAuth scopes each tool of a selection's server requires: its
+        toolset's, then its own. Only the tools that require any.
+
+        Builds the selection's server, as serving it would. To authorize a
+        request, ask :meth:`scopes_of` about the server it is dispatched to;
+        to tell a caller nobody knows yet what a call would need, ask
+        :meth:`declared_scopes`, which builds nothing.
+        """
+        return self.scopes_of(self.build(selection, tenant_id=tenant_id), tenant_id)
+
+    def scopes_of(
+        self, built: BuiltServer, tenant_id: Optional[str] = None
+    ) -> dict[str, tuple[str, ...]]:
+        """The scopes each tool of *this* built server requires.
+
+        What a request is authorized against is the server it is served by:
+        asked of another build, a tool that arrived in between would be
+        called without what it requires.
+        """
+        return self._scopes(built.tools, tenant_id)
+
+    def declared_scopes(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> dict[str, tuple[str, ...]]:
+        """What a selection's tools require, read from what is contributed now.
+
+        Nothing is built and nothing is woken: no activation event, no server
+        factory, no `on_server`, no cache entry. For the challenge of a caller
+        nobody has admitted, who should be told what a call needs and should
+        not be able to make the host work by asking. An extension still held
+        back has contributed nothing yet, and its tools are not in the answer.
+        """
+        active = active_toolsets(self.declared_toolsets(tenant_id), selection or Selection())
+        return self._scopes(self.offered_tools(active, tenant_id), tenant_id)
+
+    def _scopes(
+        self, tools: Iterable[ToolSpec], tenant_id: Optional[str]
+    ) -> dict[str, tuple[str, ...]]:
+        # A toolset two extensions declare requires what **either** says: the
+        # one described is the first declared, and an extension adding its
+        # tools to a toolset must not lose the scopes it declared for them.
+        of_toolset: dict[str, tuple[str, ...]] = {}
+        declarations = [
+            item.value for item in self.platform.get_contributions(TOOLSETS, tenant_id=tenant_id)
+        ]
+        # The extensions that are switched on, a held-back one included (it
+        # has declared and not contributed yet); one switched off requires
+        # nothing of anybody, as its contributions are not read either.
+        enabled = {plugin["name"] for plugin in self.platform.list_plugins() if plugin["enabled"]}
+        if tenant_id is not None:
+            enabled &= set(self.platform.resolve_tenant_plugins(tenant_id))
+        for name, extension in self._registered.items():
+            if name in enabled:
+                declarations.extend(extension.toolsets())
+        for toolset in declarations:
+            if isinstance(toolset, Toolset) and toolset.scopes:
+                of_toolset[toolset.name] = tuple(
+                    dict.fromkeys((*of_toolset.get(toolset.name, ()), *toolset.scopes))
+                )
+        required: dict[str, tuple[str, ...]] = {}
+        seen: set[str] = set()
+        for spec in tools:
+            if spec.name in seen:
+                # Two tools of one name: the SDK serves the first registered
+                # and drops the rest, so the first one's scopes — none
+                # included — are what a call of that name needs. Taking a
+                # later one's would guard one handler with another's rule.
+                continue
+            seen.add(spec.name)
+            scopes = tuple(dict.fromkeys((*of_toolset.get(spec.toolset, ()), *spec.scopes)))
+            if scopes:
+                required[spec.name] = scopes
+        return required
 
     # --- Which toolsets -------------------------------------------------------
 
