@@ -46,6 +46,10 @@ curl https://mcp.example.com/toolsets?only=spaces
 }
 ```
 
+A host that was given [OAuth](/mcp-server/oauth) serves the protected-resource
+document at `/.well-known/oauth-protected-resource` as well, and requires a
+token for `/mcp` and `/toolsets`.
+
 It is how a client is *told* which names it may put in its URL, rather than
 being sent to read a deployment's source. Both extra routes can be turned off
 (`healthz=None`, `toolsets_route=None`) for a deployment that serves its own.

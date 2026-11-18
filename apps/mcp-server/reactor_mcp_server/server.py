@@ -23,7 +23,16 @@ from mcp.server.mcpserver import MCPServer
 from reactor import PluginPlatform
 
 from reactor_mcp_server.extension import McpExtension, manifest_of
-from reactor_mcp_server.points import PROMPTS, RESOURCES, TOOLS, TOOLSETS, on_toolset
+from reactor_mcp_server.points import (
+    ADMISSIONS,
+    PROMPTS,
+    PROTECTED_RESOURCES,
+    RESOURCES,
+    TOKEN_VERIFIERS,
+    TOOLS,
+    TOOLSETS,
+    on_toolset,
+)
 from reactor_mcp_server.tools import ToolSpec, resolve
 from reactor_mcp_server.toolsets import (
     Selection,
@@ -203,6 +212,67 @@ class McpHost:
                     "Tool %s is not served: an extension of it failed", spec.name
                 )
         return resolved
+
+    # --- OAuth ---------------------------------------------------------------
+
+    def oauth(self) -> Any:
+        """The OAuth this host was given (:class:`~reactor_mcp_server.oauth.OAuth`),
+        or ``None`` when no extension contributed any.
+
+        Half of it is a mistake, said at once rather than served: a resource
+        nobody verifies tokens for would challenge every client into a flow
+        whose token is then refused, and a verifier without a resource would
+        refuse callers without telling them where to get a token.
+        """
+        from reactor_mcp_server.oauth import (  # noqa: PLC0415
+            OAuth,
+            ProtectedResource,
+            as_verifier,
+        )
+
+        def offered(point: Any) -> list[Any]:
+            return [item.value for item in self.platform.get_contributions(point)]
+
+        resources = [
+            item for item in offered(PROTECTED_RESOURCES) if isinstance(item, ProtectedResource)
+        ]
+        verifiers = offered(TOKEN_VERIFIERS)
+        admissions = offered(ADMISSIONS)
+        if not resources and not verifiers and not admissions:
+            return None
+        if len(resources) != 1:
+            raise ValueError(
+                "OAuth needs exactly one protected resource, and "
+                f"{len(resources)} were contributed: a host is one resource"
+            )
+        if not verifiers:
+            raise ValueError(
+                "A protected resource was contributed and nothing verifies its "
+                "tokens: contribute a token verifier"
+            )
+        return OAuth(
+            resource=resources[0],
+            verifier=as_verifier(verifiers),
+            admissions=tuple(admissions),
+        )
+
+    def required_scopes(
+        self,
+        selection: Optional[Selection] = None,
+        tenant_id: Optional[str] = None,
+    ) -> dict[str, tuple[str, ...]]:
+        """The OAuth scopes each tool of a selection's server requires: its
+        toolset's, then its own. Only the tools that require any."""
+        built = self.build(selection, tenant_id=tenant_id)
+        of_toolset = {
+            toolset.name: toolset.scopes for toolset in self.declared_toolsets(tenant_id)
+        }
+        required: dict[str, tuple[str, ...]] = {}
+        for spec in built.tools:
+            scopes = tuple(dict.fromkeys((*of_toolset.get(spec.toolset, ()), *spec.scopes)))
+            if scopes:
+                required[spec.name] = scopes
+        return required
 
     # --- Which toolsets -------------------------------------------------------
 

@@ -17,6 +17,9 @@ Three ideas, and the rest follows:
   client says which ones it wants in the URL it connects to:
   ``https://mcp.example.com/mcp?benchmarks``.
 
+OAuth is contributed the same way (:mod:`reactor_mcp_server.oauth`): what the
+protected resource is, what verifies a token, the scopes a tool requires.
+
 @module reactor_mcp_server
 """
 
@@ -26,10 +29,20 @@ from reactor_mcp_server.extension import (
     load_extensions,
     manifest_of,
 )
+from reactor_mcp_server.oauth import (
+    JWTVerifier,
+    OAuth,
+    OAuthExtension,
+    ProtectedResource,
+    current_access_token,
+)
 from reactor_mcp_server.points import (
+    ADMISSIONS,
     ENTRY_POINT_GROUP,
     PROMPTS,
+    PROTECTED_RESOURCES,
     RESOURCES,
+    TOKEN_VERIFIERS,
     TOOLS,
     TOOLSETS,
     on_toolset,
@@ -64,18 +77,25 @@ try:
 
     __version__ = _distribution_version("reactor_mcp_server")
 except Exception:  # pragma: no cover - not installed as a distribution
-    __version__ = "1.3.7"
+    __version__ = "1.3.8"
 
 __all__ = [
+    "ADMISSIONS",
     "BuiltServer",
     "ENTRY_POINT_GROUP",
     "LIST_SERVER_TOOLSETS",
     "Handler",
+    "JWTVerifier",
     "McpExtension",
     "McpHost",
+    "OAuth",
+    "OAuthExtension",
     "PROMPTS",
+    "PROTECTED_RESOURCES",
+    "ProtectedResource",
     "RESOURCES",
     "Selection",
+    "TOKEN_VERIFIERS",
     "TOOLS",
     "TOOLSETS",
     "ToolExtension",
@@ -88,6 +108,7 @@ __all__ = [
     "active_toolsets",
     "build_host",
     "create_mcp_app",
+    "current_access_token",
     "load_extensions",
     "manifest_of",
     "on_toolset",

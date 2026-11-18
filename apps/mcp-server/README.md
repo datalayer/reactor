@@ -120,6 +120,44 @@ app = create_mcp_app(host, path="/mcp")
 per-tenant scoping and disposal work as they do for any other reactor plugin,
 and a server is built once per distinct set of toolsets and shared.
 
+## OAuth
+
+A host is made an OAuth 2.1 protected resource — the MCP authorization
+specification — by one more extension:
+
+```python
+from reactor_mcp_server import JWTVerifier, OAuthExtension, ProtectedResource
+
+resource = ProtectedResource(
+    resource="https://mcp.example.com/mcp",
+    authorization_servers=("https://auth.example.com",),
+    scopes_supported=("notes:read", "notes:write"),
+)
+host = build_host([
+    *load_extensions(),
+    OAuthExtension(
+        resource,
+        verifier=JWTVerifier.for_resource(resource, jwks_uri="https://auth.example.com/jwks"),
+    ),
+])
+```
+
+`create_mcp_app` then serves the RFC 9728 document at
+`/.well-known/oauth-protected-resource/mcp`, verifies the bearer token of
+every request, and answers one without a usable token with the challenge that
+starts a sign-in (`401`, `WWW-Authenticate: Bearer resource_metadata="…"`).
+A tool or a toolset names the scopes it requires (`@tool(scopes=...)`,
+`Toolset(scopes=...)`) and a token without them is answered `403`
+`insufficient_scope`; a handler reads who is calling with
+`current_access_token()`.
+
+What the resource is, what verifies a token and any other way in are
+contributions, like tools: a deployment's own verifier — its keys, its token
+exchange — is a class with `verify_token`, and nothing about it lives in the
+host. `JWTVerifier` (issuer, audience, expiry, a JWKS) needs
+`pip install "reactor_mcp_server[oauth]"`; the same from the command line is
+`--oauth-resource`, `--oauth-issuer` and `--oauth-jwks-uri`.
+
 ## License
 
 BSD 3-Clause License.

@@ -39,7 +39,7 @@ from anyio.abc import TaskStatus
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Mount, Route, request_response
 
 from reactor_mcp_server.server import McpHost
 from reactor_mcp_server.toolsets import (
@@ -233,6 +233,7 @@ def create_mcp_app(
     tenant_resolver: Optional[Callable[[Scope], Optional[str]]] = None,
     default_selection: Optional[Selection] = None,
     ignore_query_keys: Iterable[str] = (),
+    public_toolsets: bool = False,
 ) -> Starlette:
     """An application serving `host` at `path`.
 
@@ -247,7 +248,18 @@ def create_mcp_app(
     `default_selection` is what a URL naming no toolset gets, in place of each
     toolset's own `default`. `ignore_query_keys` are query keys this
     deployment reads for something else, so they are never taken for names.
+
+    A host that was given OAuth (:mod:`reactor_mcp_server.oauth`) is served
+    as a protected resource: the protected-resource document at its
+    well-known paths, a bearer token verified and required for `path` and
+    everything else the servers answer, the scopes a tool declares required on
+    its calls, and the challenge on every ``401``. ``/healthz`` and the
+    document stay open; ``/toolsets`` needs a token too unless
+    `public_toolsets` says it describes nothing private. What was contributed
+    is read here, once: an extension held back by an activation event
+    contributes its OAuth too late to be served.
     """
+    oauth = host.oauth()
     router = ToolsetRouter(
         host,
         path=path,
@@ -268,14 +280,36 @@ def create_mcp_app(
     async def health(request: Request) -> JSONResponse:
         return JSONResponse({"success": True, "service": host.name})
 
-    routes = []
+    routes: list[Any] = []
+    served: Any = router
+    middleware: list[Any] = []
     if healthz:
         routes.append(Route(healthz, health, methods=["GET"]))
+    if oauth is not None:
+        from reactor_mcp_server.oauth import (  # noqa: PLC0415
+            ChallengeMiddleware,
+            RequireBearer,
+        )
+
+        def tool_scopes(scope: Scope) -> Optional[dict[str, tuple[str, ...]]]:
+            return (
+                host.required_scopes(router.selection_of(scope), router.tenant_of(scope))
+                or None
+            )
+
+        routes.extend(oauth.resource.routes())
+        middleware = oauth.middleware()
+        served = ChallengeMiddleware(
+            RequireBearer(router, oauth, tool_scopes=tool_scopes), oauth.resource
+        )
     if toolsets_route:
-        routes.append(Route(toolsets_route, toolsets, methods=["GET"]))
+        described: Any = toolsets
+        if oauth is not None and not public_toolsets:
+            described = RequireBearer(request_response(toolsets), oauth)
+        routes.append(Route(toolsets_route, described, methods=["GET"]))
     # Last, and mounted at the root so the path reaches the SDK's application
-    # exactly as the client sent it. The two routes above are matched first.
-    routes.append(Mount("", app=router))
+    # exactly as the client sent it. The routes above are matched first.
+    routes.append(Mount("", app=served))
 
     @asynccontextmanager
     async def lifespan(_: Starlette) -> AsyncIterator[None]:
@@ -285,6 +319,7 @@ def create_mcp_app(
         finally:
             await router.stop()
 
-    app = Starlette(routes=routes, lifespan=lifespan)
+    app = Starlette(routes=routes, middleware=middleware, lifespan=lifespan)
     app.state.mcp_host = host
+    app.state.mcp_oauth = oauth
     return app

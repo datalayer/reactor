@@ -8,13 +8,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reactor_mcp_server"
-version = "1.3.7"
+version = "1.3.8"
 description = "An extensible MCP server built on Reactor: tools are contributions, and a contribution can be extended"
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
 requires-python = ">=3.10"
 authors = [{ name = "Datalayer", email = "support@datalayer.io" }]
-keywords = ["mcp", "reactor", "plugins", "tools"]
+keywords = ["mcp", "reactor", "plugins", "tools", "oauth"]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -24,14 +24,16 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "datalayer_reactor>=1.3.7",
+    "datalayer_reactor>=1.3.8",
     "mcp>=2,<3",
     "starlette",
 ]
 
 [project.optional-dependencies]
 server = ["uvicorn[standard]"]
-test = ["pytest", "pytest-asyncio", "httpx", "uvicorn[standard]"]
+# The ready verifier of signed tokens, `reactor_mcp_server.oauth.JWTVerifier`.
+oauth = ["pyjwt[crypto]>=2.8"]
+test = ["pytest", "pytest-asyncio", "httpx", "uvicorn[standard]", "pyjwt[crypto]>=2.8"]
 
 [project.scripts]
 reactor-mcp-server = "reactor_mcp_server.__main__:main"

@@ -85,8 +85,68 @@ def parser() -> argparse.ArgumentParser:
         default=_flag("REACTOR_MCP_TOOLSETS_TOOL", True),
         help="Put list_server_toolsets on every server (default: on).",
     )
+    parsed.add_argument(
+        "--oauth-resource",
+        default=os.environ.get("REACTOR_MCP_OAUTH_RESOURCE", ""),
+        help=(
+            "Serve as an OAuth protected resource: this server's public URL "
+            "(https://mcp.example.com/mcp). Needs --oauth-issuer and --oauth-jwks-uri."
+        ),
+    )
+    parsed.add_argument(
+        "--oauth-issuer",
+        default=os.environ.get("REACTOR_MCP_OAUTH_ISSUER", ""),
+        help="The authorization server whose tokens are accepted.",
+    )
+    parsed.add_argument(
+        "--oauth-jwks-uri",
+        default=os.environ.get("REACTOR_MCP_OAUTH_JWKS_URI", ""),
+        help="Where the authorization server publishes its signing keys.",
+    )
+    parsed.add_argument(
+        "--oauth-scopes",
+        default=os.environ.get("REACTOR_MCP_OAUTH_SCOPES", ""),
+        help="The scopes a client may ask for, separated by spaces or commas.",
+    )
+    parsed.add_argument(
+        "--oauth-required-scopes",
+        default=os.environ.get("REACTOR_MCP_OAUTH_REQUIRED_SCOPES", ""),
+        help="The scopes every request needs, separated by spaces or commas.",
+    )
     parsed.add_argument("--log-level", default=os.environ.get("REACTOR_MCP_LOG", "info"))
     return parsed
+
+
+def oauth_extension(arguments: argparse.Namespace) -> list:
+    """The OAuth the command line asked for, as the extension that gives it."""
+    named = (arguments.oauth_resource, arguments.oauth_issuer, arguments.oauth_jwks_uri)
+    if not any(named):
+        return []
+    if not all(named):
+        raise SystemExit(
+            "OAuth needs --oauth-resource, --oauth-issuer and --oauth-jwks-uri together"
+        )
+    from reactor_mcp_server.oauth import (  # noqa: PLC0415
+        JWTVerifier,
+        OAuthExtension,
+        ProtectedResource,
+    )
+
+    def scopes(value: str) -> tuple[str, ...]:
+        return tuple(value.replace(",", " ").split())
+
+    resource = ProtectedResource(
+        resource=arguments.oauth_resource,
+        authorization_servers=(arguments.oauth_issuer,),
+        scopes_supported=scopes(arguments.oauth_scopes),
+        required_scopes=scopes(arguments.oauth_required_scopes),
+    )
+    return [
+        OAuthExtension(
+            resource,
+            verifier=JWTVerifier.for_resource(resource, jwks_uri=arguments.oauth_jwks_uri),
+        )
+    ]
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -99,7 +159,11 @@ def main(argv: list[str] | None = None) -> None:
         if part.strip()
     ]
     host = build_host(
-        load_extensions(names or None),
+        [
+            *load_extensions(names or None),
+            # Over stdio nothing authenticates a caller: OAuth is HTTP's.
+            *(oauth_extension(arguments) if arguments.transport != "stdio" else []),
+        ],
         name=arguments.name,
         toolsets_tool=arguments.toolsets_tool,
     )

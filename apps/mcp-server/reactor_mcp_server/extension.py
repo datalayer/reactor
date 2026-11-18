@@ -29,7 +29,15 @@ from typing import Any, Iterable, Sequence
 from reactor import PluginContributions, PluginManifest
 from reactor.hooks import hookimpl
 
-from reactor_mcp_server.points import PROMPTS, RESOURCES, TOOLS, TOOLSETS
+from reactor_mcp_server.points import (
+    ADMISSIONS,
+    PROMPTS,
+    PROTECTED_RESOURCES,
+    RESOURCES,
+    TOKEN_VERIFIERS,
+    TOOLS,
+    TOOLSETS,
+)
 from reactor_mcp_server.tools import ToolExtension, ToolSpec, tool_spec_of
 from reactor_mcp_server.toolsets import Toolset
 
@@ -91,6 +99,24 @@ class McpExtension:
 
     def prompts(self) -> Sequence[Any]:
         """Callables that register MCP prompts on a server."""
+        return ()
+
+    # --- OAuth (`reactor_mcp_server.oauth`) ----------------------------------
+
+    def protected_resources(self) -> Sequence[Any]:
+        """The OAuth protected resource this server is
+        (:class:`~reactor_mcp_server.oauth.ProtectedResource`). One per host:
+        the extension that knows the deployment's URL and issuer says it."""
+        return ()
+
+    def token_verifiers(self) -> Sequence[Any]:
+        """What verifies a bearer token here: the SDK's ``TokenVerifier`` or
+        an async callable. Asked after those contributed before it."""
+        return ()
+
+    def admissions(self) -> Sequence[Any]:
+        """Other ways in than a bearer token: callables taking the ASGI scope
+        (:data:`~reactor_mcp_server.oauth.Admission`)."""
         return ()
 
     def on_server(self, server: Any) -> None:
@@ -169,6 +195,12 @@ class McpExtension:
             contributions.contribute(RESOURCES, register)
         for register in self.prompts():
             contributions.contribute(PROMPTS, register)
+        for resource in self.protected_resources():
+            contributions.contribute(PROTECTED_RESOURCES, resource)
+        for verifier in self.token_verifiers():
+            contributions.contribute(TOKEN_VERIFIERS, verifier)
+        for admission in self.admissions():
+            contributions.contribute(ADMISSIONS, admission)
 
 
 def manifest_of(extension: McpExtension) -> PluginManifest:
@@ -180,7 +212,16 @@ def manifest_of(extension: McpExtension) -> PluginManifest:
     manifest = extension.manifest()
     points = list(
         dict.fromkeys(
-            [*manifest.contribution_points, TOOLS.id, TOOLSETS.id, RESOURCES.id, PROMPTS.id]
+            [
+                *manifest.contribution_points,
+                TOOLS.id,
+                TOOLSETS.id,
+                RESOURCES.id,
+                PROMPTS.id,
+                PROTECTED_RESOURCES.id,
+                TOKEN_VERIFIERS.id,
+                ADMISSIONS.id,
+            ]
         )
     )
     return replace(manifest, contribution_points=points)
