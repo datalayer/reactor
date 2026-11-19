@@ -16,8 +16,10 @@ are installed like any other plugin, and switched off like any other plugin.
 | [`@datalayer/reactor-graph`](/core-plugins/graph) | the platform drawn as a graph — extensions, dependencies, points and contributors |
 | [`@datalayer/reactor-commands`](/core-plugins/commands) | a Ctrl-K palette over every command plugins have registered |
 | [`@datalayer/reactor-shell`](/core-plugins/shell) | a view point, a selector that shows nothing until plugins contribute, and the choice as a command |
+| [`@datalayer/reactor-excalidraw`](/core-plugins/excalidraw) | Excalidraw drawings as tools an agent draws with, over any host that keeps drawings |
+| [`@datalayer/reactor-mermaid`](/core-plugins/mermaid) | Mermaid diagrams as tools an agent writes, checks with Mermaid's parser and renders to SVG |
 
-All four are built by `npm run build` at the repository root, alongside the runtime.
+All six are built by `npm run build` at the repository root, alongside the runtime.
 
 The distinction worth keeping: these are not features of the runtime. A plugin
 manager that shipped inside `@datalayer/reactor` would be a manager you could

@@ -16,13 +16,15 @@ All packages carry **one version**, the one the tag names.
 
 npm (GitHub environment `npm`):
 
-| Package                       | Path               |
-| ----------------------------- | ------------------ |
+| Package                         | Path                 |
+| ------------------------------- | -------------------- |
 | `@datalayer/reactor`          | `.`                |
-| `@datalayer/reactor-commands` | `plugins/commands` |
-| `@datalayer/reactor-graph`    | `plugins/graph`    |
-| `@datalayer/reactor-manager`  | `plugins/manager`  |
-| `@datalayer/reactor-shell`    | `plugins/shell`    |
+| `@datalayer/reactor-commands`   | `plugins/commands`   |
+| `@datalayer/reactor-excalidraw` | `plugins/excalidraw` |
+| `@datalayer/reactor-graph`      | `plugins/graph`      |
+| `@datalayer/reactor-manager`    | `plugins/manager`    |
+| `@datalayer/reactor-mermaid`    | `plugins/mermaid`    |
+| `@datalayer/reactor-shell`      | `plugins/shell`      |
 
 PyPI (GitHub environment `pypi`):
 
@@ -37,7 +39,7 @@ The examples under `examples/` and the docs are private and never published.
 
 Done once per package, by an owner of the registry account.
 
-**npm** — for each of the five packages, on npmjs.com → package → Settings →
+**npm** — for each of the seven packages, on npmjs.com → package → Settings →
 Publishing access → _Trusted publisher_:
 
 - publisher: GitHub Actions
@@ -69,7 +71,7 @@ environment exactly: renaming any of them means re-registering the publisher.
    ```
 
    `dev/bump_version.py` moves the root `package.json` (which
-   `datalayer-reactor` reads), the four plugins' `package.json`, the MCP
+   `datalayer-reactor` reads), the six plugins' `package.json`, the MCP
    server's `pyproject.toml` with its `datalayer_reactor>=` floor, and the
    `__version__` fallback — all of them or none. The plugins' floor on
    `@datalayer/reactor` stays at a published version: the root package is

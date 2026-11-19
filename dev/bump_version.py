@@ -9,8 +9,8 @@
 
 """Bump the version, in every package this repository releases.
 
-Seven packages, one version: the five npm packages (`@datalayer/reactor` and
-the four plugins), `datalayer-reactor` on PyPI — which reads its version from
+Nine packages, one version: the seven npm packages (`@datalayer/reactor` and
+the six plugins), `datalayer-reactor` on PyPI — which reads its version from
 the root `package.json`, so it carries no copy — and `reactor-mcp-server`,
 whose `pyproject.toml` carries the version and a floor on `datalayer_reactor`.
 The root `package.json` is the source of truth; everything else is a copy,
@@ -45,7 +45,7 @@ ROOT = Path(__file__).resolve().parent.parent
 #: `datalayer-reactor`, which is what makes it the source rather than a copy.
 SOURCE = ROOT / "package.json"
 
-PLUGINS = ("commands", "graph", "manager", "shell")
+PLUGINS = ("commands", "excalidraw", "graph", "manager", "mermaid", "shell")
 MCP_PYPROJECT = ROOT / "apps" / "mcp-server" / "pyproject.toml"
 MCP_INIT = ROOT / "apps" / "mcp-server" / "reactor_mcp_server" / "__init__.py"
 

@@ -26,7 +26,7 @@ permissions:
 env:
   # The npm packages this workflow releases: the root package, then the
   # plugins (published in that order; the plugins depend on the root).
-  NPM_PACKAGES: . plugins/commands plugins/graph plugins/manager plugins/shell
+  NPM_PACKAGES: . plugins/commands plugins/excalidraw plugins/graph plugins/manager plugins/mermaid plugins/shell
   # The Python packages this workflow releases (directories with a pyproject).
   # The root package takes its version from package.json (hatch-nodejs-version).
   PY_PACKAGES: . apps/mcp-server
@@ -242,6 +242,6 @@ jobs:
             --notes "## Release $version
 
           - [PyPI datalayer-reactor](https://pypi.org/project/datalayer-reactor/$version/) · [reactor-mcp-server](https://pypi.org/project/reactor-mcp-server/$version/)
-          - [npm @datalayer/reactor](https://www.npmjs.com/package/@datalayer/reactor/v/$version) · reactor-commands · reactor-graph · reactor-manager · reactor-shell"
+          - [npm @datalayer/reactor](https://www.npmjs.com/package/@datalayer/reactor/v/$version) · reactor-commands · reactor-excalidraw · reactor-graph · reactor-manager · reactor-mermaid · reactor-shell"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
