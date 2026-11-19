@@ -25,7 +25,14 @@
  * each shape lists it in `boundElements`. Get that wrong and the arrow looks
  * right until somebody drags a box, at which point it stays behind. So
  * arrows between existing elements go through `bindArrow`, which writes both
- * halves of the relationship and computes the geometry.
+ * halves of the relationship and computes the geometry — at both ends, or at
+ * the one end an arrow names — and lays the arrow's label out on it. A shape
+ * that moves or changes size takes its label and its arrows along in the
+ * same edit.
+ *
+ * And one drawing is changed by one call at a time: each read-change-write
+ * waits for the ones asked before it on the same drawing
+ * (`serializeDrawingEdit`), so two parallel calls both land.
  *
  * @module handlers
  */
@@ -188,31 +195,87 @@ function addBoundElement(element: ExcalidrawElementData, arrowId: string): Excal
   return touchElement({ ...element, boundElements: bound });
 }
 
+/** Where an arrow's points start and end, in scene coordinates. */
+function arrowEnds(arrow: ExcalidrawElementData): {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+} {
+  const x = Number(arrow.x ?? 0);
+  const y = Number(arrow.y ?? 0);
+  const points: number[][] = Array.isArray(arrow.points) && arrow.points.length > 0 ? arrow.points : [];
+  const first = points[0] ?? [0, 0];
+  const last = points[points.length - 1] ?? [Number(arrow.width ?? 0), Number(arrow.height ?? 0)];
+  return {
+    start: { x: x + Number(first[0] ?? 0), y: y + Number(first[1] ?? 0) },
+    end: { x: x + Number(last[0] ?? 0), y: y + Number(last[1] ?? 0) },
+  };
+}
+
+const isLinear = (element: ExcalidrawElementData | undefined) =>
+  element?.type === 'arrow' || element?.type === 'line';
+
 /**
- * Bind an arrow to the two elements it runs between, in the live scene.
+ * Put the text bound inside a container where it belongs: centred in a
+ * shape's box, or on the middle of an arrow as it now runs.
  *
- * Both halves: the arrow's `startBinding`/`endBinding`, and each shape's
- * `boundElements`. Excalidraw needs both — the first is how the arrow finds
- * its shapes, the second is how a shape knows to drag its arrows along.
+ * Every change that moves a container calls it, with the container as it
+ * now is (not yet written back to the scene), so the label never sits where
+ * the container used to be.
+ */
+export function layoutBoundText(scene: ExcalidrawScene, container: ExcalidrawElementData): void {
+  const id = String(container.id);
+  let centre: { x: number; y: number };
+  if (isLinear(container)) {
+    const { start, end } = arrowEnds(container);
+    centre = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+  } else {
+    centre = centreOf(container);
+  }
+  scene.elements = scene.elements.map((element) => {
+    if (element?.type !== 'text' || String(element.containerId) !== id) {
+      return element;
+    }
+    const x = centre.x - Number(element.width ?? 0) / 2;
+    const y = centre.y - Number(element.height ?? 0) / 2;
+    return element.x === x && element.y === y ? element : touchElement({ ...element, x, y });
+  });
+}
+
+/**
+ * Bind an arrow to the elements it runs between, in the live scene: both,
+ * or the one it names.
+ *
+ * Both halves of each binding: the arrow's `startBinding`/`endBinding`, and
+ * the shape's `boundElements`. Excalidraw needs both — the first is how the
+ * arrow finds its shapes, the second is how a shape knows to drag its arrows
+ * along. A free end keeps the point it was asked for; a bound end meets its
+ * shape's edge on the way to the other end. The arrow's own label is laid
+ * out on the arrow as it finally runs.
  */
 export function bindArrow(
   scene: ExcalidrawScene,
   arrow: ExcalidrawElementData,
-  fromId: string,
-  toId: string,
+  ends: { fromId?: string; toId?: string },
 ): ExcalidrawElementData {
-  const from = scene.elements.find((element) => element.id === fromId);
-  const to = scene.elements.find((element) => element.id === toId);
-  if (!from || !to) {
-    const missing = !from ? fromId : toId;
-    throw new Error(
-      `No element '${missing}' in this drawing. ` +
-        'Call excalidrawReadScene to see the element ids it holds.',
-    );
-  }
+  const find = (id: string | undefined) => {
+    if (!id) {
+      return undefined;
+    }
+    const found = scene.elements.find((element) => element.id === id);
+    if (!found) {
+      throw new Error(
+        `No element '${id}' in this drawing. ` +
+          'Call excalidrawReadScene to see the element ids it holds.',
+      );
+    }
+    return found;
+  };
+  const from = find(ends.fromId);
+  const to = find(ends.toId);
+  const asked = arrowEnds(arrow);
 
-  const start = edgePoint(from, centreOf(to));
-  const end = edgePoint(to, centreOf(from));
+  const start = from ? edgePoint(from, to ? centreOf(to) : asked.end) : asked.start;
+  const end = to ? edgePoint(to, from ? centreOf(from) : asked.start) : asked.end;
 
   const bound = {
     ...arrow,
@@ -224,18 +287,30 @@ export function bindArrow(
       [0, 0],
       [end.x - start.x, end.y - start.y],
     ],
-    startBinding: { elementId: fromId, focus: 0, gap: BINDING_GAP },
-    endBinding: { elementId: toId, focus: 0, gap: BINDING_GAP },
+    ...(from ? { startBinding: { elementId: ends.fromId, focus: 0, gap: BINDING_GAP } } : {}),
+    ...(to ? { endBinding: { elementId: ends.toId, focus: 0, gap: BINDING_GAP } } : {}),
   };
 
   scene.elements = scene.elements.map((element) => {
-    if (element.id === fromId || element.id === toId) {
+    if ((from && element.id === ends.fromId) || (to && element.id === ends.toId)) {
       return addBoundElement(element, String(arrow.id));
     }
     return element;
   });
+  layoutBoundText(scene, bound);
 
   return bound;
+}
+
+/** Bind an arrow again to what it is bound to, and put it in the scene. */
+function rebind(scene: ExcalidrawScene, arrow: ExcalidrawElementData): void {
+  const bound = touchElement(
+    bindArrow(scene, arrow, {
+      fromId: arrow.startBinding?.elementId ? String(arrow.startBinding.elementId) : undefined,
+      toId: arrow.endBinding?.elementId ? String(arrow.endBinding.elementId) : undefined,
+    }),
+  );
+  scene.elements = scene.elements.map((element) => (element.id === arrow.id ? bound : element));
 }
 
 // ============================================================================
@@ -259,16 +334,17 @@ export function addToScene(
    * converted plainly and bound afterwards, against the live scene.
    */
   const batchIds = new Set(asked.map((element) => String(element.id ?? '')).filter(Boolean));
-  const deferred = new Map<number, { fromId: string; toId: string }>();
+  const deferred = new Map<number, { fromId?: string; toId?: string }>();
   const prepared = asked.map((element, index) => {
     const { startId, endId } = element;
-    const crossesBatch =
-      (element.type === 'arrow' || element.type === 'line') &&
-      startId &&
-      endId &&
-      (!batchIds.has(String(startId)) || !batchIds.has(String(endId)));
-    if (crossesBatch) {
-      deferred.set(index, { fromId: String(startId), toId: String(endId) });
+    // Each end is told apart on its own: one end naming a shape outside the
+    // batch is enough to bind the arrow afterwards, at the ends it names.
+    const outside = (id: unknown) => Boolean(id) && !batchIds.has(String(id));
+    if (isLinear(element) && (outside(startId) || outside(endId))) {
+      deferred.set(index, {
+        fromId: startId ? String(startId) : undefined,
+        toId: endId ? String(endId) : undefined,
+      });
       const { startId: _s, endId: _e, ...rest } = element;
       return rest;
     }
@@ -282,7 +358,7 @@ export function addToScene(
     const arrowId = converted.ids[index];
     const arrow = scene.elements.find((element) => element.id === arrowId);
     if (arrow) {
-      const boundArrow = bindArrow(scene, arrow, ends.fromId, ends.toId);
+      const boundArrow = bindArrow(scene, arrow, ends);
       scene.elements = scene.elements.map((element) =>
         element.id === arrowId ? boundArrow : element,
       );
@@ -340,6 +416,25 @@ export function updateInScene(scene: ExcalidrawScene, updates: Record<string, an
     const fields = byId.get(String(element.id));
     return fields ? touchElement({ ...element, ...fields }) : element;
   });
+
+  // What moved or changed size takes what hangs on it along, in the same
+  // edit: the text bound inside it, and the arrows bound to it.
+  const GEOMETRY = ['x', 'y', 'width', 'height', 'angle'];
+  const moved = [...byId.entries()]
+    .filter(([, fields]) => GEOMETRY.some((field) => field in fields))
+    .map(([id]) => scene.elements.find((element) => String(element.id) === id))
+    .filter((element): element is ExcalidrawElementData => Boolean(element) && element!.type !== 'text');
+  const movedIds = new Set(moved.map((element) => String(element.id)));
+  for (const element of moved) {
+    layoutBoundText(scene, element);
+  }
+  for (const arrow of scene.elements.filter(isLinear)) {
+    const fromId = String(arrow.startBinding?.elementId ?? '');
+    const toId = String(arrow.endBinding?.elementId ?? '');
+    if (movedIds.has(fromId) || movedIds.has(toId)) {
+      rebind(scene, arrow);
+    }
+  }
 }
 
 /**
@@ -408,7 +503,10 @@ export function connectInScene(
   const arrowId = ids[0];
   scene.elements = [...scene.elements, ...made];
   const arrow = scene.elements.find((element) => element.id === arrowId);
-  const bound = bindArrow(scene, arrow as ExcalidrawElementData, args.fromId, args.toId);
+  const bound = bindArrow(scene, arrow as ExcalidrawElementData, {
+    fromId: args.fromId,
+    toId: args.toId,
+  });
   scene.elements = scene.elements.map((element) => (element.id === arrowId ? bound : element));
   return arrowId;
 }
@@ -460,6 +558,44 @@ async function mermaidToScene(
 // The handlers
 // ============================================================================
 
+/** Each host's drawings, each one's edits in a queue: the edit last asked for runs last. */
+const QUEUES = new WeakMap<ExcalidrawDrawingHost, Map<string, Promise<void>>>();
+
+/**
+ * Run one read-change-write of a drawing once the edits asked before it on
+ * the same drawing of the same host are done.
+ *
+ * Two calls on one drawing at once (a model's parallel tool calls) would
+ * otherwise both read the same scene, and the second write would silently
+ * drop the first one's change. Queued by host, not by handler set, so the
+ * handlers a host builds per call still wait for each other; a host that
+ * builds a new host object per call keeps one per document instead.
+ */
+export function serializeDrawingEdit<T>(
+  host: ExcalidrawDrawingHost,
+  blockId: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  let queues = QUEUES.get(host);
+  if (!queues) {
+    queues = new Map();
+    QUEUES.set(host, queues);
+  }
+  const before = queues.get(blockId) ?? Promise.resolve();
+  const run = before.then(work);
+  const settled = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  queues.set(blockId, settled);
+  void settled.then(() => {
+    if (queues!.get(blockId) === settled) {
+      queues!.delete(blockId);
+    }
+  });
+  return run;
+}
+
 /**
  * Every Excalidraw handler, keyed by the operation the executor looks up,
  * over one host.
@@ -468,15 +604,16 @@ export function createExcalidrawToolHandlers(
   host: ExcalidrawDrawingHost,
   converters: ExcalidrawConverters,
 ): Record<string, ExcalidrawToolHandler> {
-  const change = async (
+  const change = (
     blockId: string,
     edit: (scene: ExcalidrawScene) => Record<string, unknown> | void,
-  ) => {
-    const scene = await host.readDrawing(blockId);
-    const extra = edit(scene) ?? {};
-    await host.writeDrawing(blockId, scene);
-    return sceneResult(blockId, scene, extra);
-  };
+  ) =>
+    serializeDrawingEdit(host, blockId, async () => {
+      const scene = await host.readDrawing(blockId);
+      const extra = edit(scene) ?? {};
+      await host.writeDrawing(blockId, scene);
+      return sceneResult(blockId, scene, extra);
+    });
 
   return {
     excalidrawInsertNode: async (args) => {
@@ -571,8 +708,10 @@ export function createExcalidrawToolHandlers(
       const blockId = String(args.blockId);
       const width = args.width === undefined ? 'inherit' : Number(args.width);
       const height = args.height === undefined ? 'inherit' : Number(args.height);
-      await host.resizeDrawing(blockId, width, height);
-      const scene = await host.readDrawing(blockId);
+      const scene = await serializeDrawingEdit(host, blockId, async () => {
+        await host.resizeDrawing(blockId, width, height);
+        return host.readDrawing(blockId);
+      });
       return sceneResult(blockId, scene, {
         message:
           width === 'inherit' && height === 'inherit'

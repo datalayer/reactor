@@ -462,3 +462,80 @@ describe('from Mermaid', () => {
     );
   });
 });
+
+/*
+ * The review of #36 (issue #37): four ways a drawing could end up subtly wrong.
+ */
+describe('a drawing that stays right under pressure', () => {
+  const box = (id: string, x: number, y: number) => ({ id, type: 'rectangle', x, y, width: 100, height: 100 });
+  const endOf = (arrow: any) => ({
+    x: arrow.x + arrow.points[arrow.points.length - 1][0],
+    y: arrow.y + arrow.points[arrow.points.length - 1][1],
+  });
+
+  it('keeps both of two edits made at once on one drawing', async () => {
+    makeDrawing('1');
+    await Promise.all([
+      handlers.excalidrawAddElements({ blockId: '1', elements: [box('a', 0, 0)] }),
+      handlers.excalidrawAddElements({ blockId: '1', elements: [box('b', 300, 0)] }),
+    ]);
+    expect(sceneOf('1').elements.map((e: any) => e.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('binds an arrow to the one existing shape it names, and leaves its free end where it was asked', async () => {
+    makeDrawing('1', { elements: [box('a', 0, 0)] });
+    await handlers.excalidrawAddElements({
+      blockId: '1',
+      elements: [{ id: 'out', type: 'arrow', x: 300, y: 50, points: [[0, 0], [100, 0]], startId: 'a' }],
+    });
+    const arrow = elementOf('1', 'out');
+    expect(arrow.startBinding?.elementId).toBe('a');
+    expect(arrow.endBinding ?? null).toBeNull();
+    expect(arrow.x).toBeCloseTo(104, 0);
+    expect(endOf(arrow)).toEqual({ x: 400, y: 50 });
+    expect(elementOf('1', 'a').boundElements).toContainEqual({ id: 'out', type: 'arrow' });
+
+    await handlers.excalidrawAddElements({
+      blockId: '1',
+      elements: [{ id: 'in', type: 'arrow', x: -300, y: 50, points: [[0, 0], [100, 0]], endId: 'a' }],
+    });
+    const incoming = elementOf('1', 'in');
+    expect(incoming.endBinding?.elementId).toBe('a');
+    expect(incoming.startBinding ?? null).toBeNull();
+    expect([incoming.x, incoming.y]).toEqual([-300, 50]);
+    expect(endOf(incoming).x).toBeCloseTo(-4, 0);
+  });
+
+  it('brings a moved shape’s label and arrows along in the same edit', async () => {
+    makeDrawing('1', {
+      elements: [
+        box('a', 0, 0),
+        { id: 'a-label', type: 'text', text: 'A', containerId: 'a', x: 30, y: 40, width: 40, height: 20 },
+        box('b', 400, 0),
+      ],
+    });
+    await handlers.excalidrawConnectElements({ blockId: '1', fromId: 'a', toId: 'b' });
+    const arrowId = sceneOf('1').elements.find((e: any) => e.type === 'arrow').id;
+
+    await handlers.excalidrawUpdateElements({ blockId: '1', updates: [{ id: 'a', y: 300, width: 200 }] });
+
+    const label = elementOf('1', 'a-label');
+    expect([label.x, label.y]).toEqual([80, 340]);
+    const arrow = elementOf('1', arrowId);
+    const start = edgePoint(elementOf('1', 'a'), { x: 450, y: 50 });
+    expect(arrow.x).toBeCloseTo(start.x, 5);
+    expect(arrow.y).toBeCloseTo(start.y, 5);
+    expect(endOf(arrow).x).toBeLessThan(400);
+  });
+
+  it('lays a connection’s label out on the arrow as it finally runs', async () => {
+    makeDrawing('1', { elements: [box('a', 0, 0), box('b', 400, 200)] });
+    await handlers.excalidrawConnectElements({ blockId: '1', fromId: 'a', toId: 'b', label: 'yes' });
+    const arrow = sceneOf('1').elements.find((e: any) => e.type === 'arrow');
+    const label = sceneOf('1').elements.find((e: any) => e.containerId === arrow.id);
+    const end = endOf(arrow);
+    const mid = { x: (arrow.x + end.x) / 2, y: (arrow.y + end.y) / 2 };
+    expect(label.x + (label.width ?? 0) / 2).toBeCloseTo(mid.x, 5);
+    expect(label.y + (label.height ?? 0) / 2).toBeCloseTo(mid.y, 5);
+  });
+});

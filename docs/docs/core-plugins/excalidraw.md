@@ -96,14 +96,20 @@ await excalidrawTools.operations.excalidrawReadScene.execute(
 node's key, and the node, the editor extension and the components stay in
 Lexical as the editor-side binding over these operations.
 
-## Two rules the handlers keep
+## Three rules the handlers keep
 
 - **Ids are the contract.** Every skeleton gets an explicit id and is
   converted with `regenerateIds: false`, so an id a caller chose, or read back
   from a scene, keeps working in the next call.
-- **Bindings are not decoration.** An arrow between existing shapes is bound
-  at both ends and listed in both shapes' `boundElements`, so it follows them
-  when they move.
+- **Bindings are not decoration.** An arrow is bound at each end that names a
+  shape, one or both, and listed in that shape's `boundElements`; a free end
+  keeps the point it was asked for. Its label sits on the arrow as it finally
+  runs. A shape that moves or changes size brings its label and its arrows
+  along in the same edit.
+- **One edit of a drawing at a time.** Each read-change-write waits for the
+  ones asked before it on the same drawing of the same host, so two parallel
+  calls both land. A host that builds a new host object per call should keep
+  one per document, as the queue is the host's.
 
 ## Testing
 
