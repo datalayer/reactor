@@ -1,0 +1,15 @@
+// Build config for this plugin. `paths` points at the reactor's own build
+// output: see plugins/commands/tsconfig.json for why.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib",
+    "baseUrl": ".",
+    "paths": {
+      "@datalayer/reactor": ["../../lib/index.d.ts"],
+      "@datalayer/reactor/tools": ["../../lib/tools/index.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

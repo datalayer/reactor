@@ -1,0 +1,15 @@
+{
+  // Typecheck against the reactor's source, not its built `lib/`: see
+  // plugins/commands/tsconfig.typecheck.json for why.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@datalayer/reactor": ["../../src/index.ts"],
+      "@datalayer/reactor/tools": ["../../src/tools/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

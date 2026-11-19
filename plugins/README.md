@@ -36,6 +36,8 @@ reactor itself. In practice that means:
 | [`graph`](./graph) — `@datalayer/reactor-graph` | Draws the plugin graph: dependencies, contribution points and their extenders, across the frontend and backend tiers |
 | [`manager`](./manager) — `@datalayer/reactor-manager` | Lists every plugin in the platform and switches each one on and off while the application runs |
 | [`commands`](./commands) — `@datalayer/reactor-commands` | A Ctrl-K palette over every command plugins have registered, and runs the one chosen |
+| [`excalidraw`](./excalidraw) — `@datalayer/reactor-excalidraw` | Excalidraw drawings as agent tools: insert, read, add, change, connect and delete shapes, and draw from Mermaid, over any host that keeps drawings |
+| [`mermaid`](./mermaid) — `@datalayer/reactor-mermaid` | Mermaid diagrams as agent tools: write a diagram's source, read it back, check it with Mermaid's parser, render it to SVG, list the diagram types |
 
 ## How the two fit together
 
