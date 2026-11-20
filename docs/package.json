@@ -25,6 +25,7 @@
     "@docusaurus/theme-mermaid": "^3.5.2",
     "@mdx-js/react": "^3.0.1",
     "@primer/octicons-react": "^19.42.0",
+    "@primer/primitives": "^10.7.0",
     "@primer/react": "^37.31.0",
     "@tailwindcss/postcss": "^4.3.3",
     "boring-avatars": "^2.0.1",
