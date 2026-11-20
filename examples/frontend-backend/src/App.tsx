@@ -6,7 +6,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Button, Heading, Text } from '@primer/react';
-import { AppearanceControlsWithStore, Box, useThemeStore } from '@datalayer/primer-addons';
+import { AppearanceControls, Box, useThemeStore } from '@datalayer/primer-addons';
 import { buildReactorFromPlugins } from '../../../src';
 import { ReactorSlot, useReactor, useReactorPlatform } from '../../../src/react';
 import { StatusBannerPlugin } from './plugins/statusBannerPlugin';
@@ -58,7 +58,7 @@ function AppHeader() {
       <Heading as="h1" sx={{ fontSize: 3, m: 0 }}>
         Datalayer Reactor
       </Heading>
-      <AppearanceControlsWithStore useStore={useThemeStore} />
+      <AppearanceControls layout="inline" useStore={useThemeStore} />
     </Box>
   );
 }

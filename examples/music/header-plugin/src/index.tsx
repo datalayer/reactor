@@ -6,7 +6,7 @@
 
 import React, { useRef, useState } from 'react';
 import { AnchoredOverlay, Heading, Label, Text } from '@primer/react';
-import { AppearanceControlsWithStore, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
+import { AppearanceControls, Box, ThemedProvider, useThemeStore } from '@datalayer/primer-addons';
 import { UnmuteIcon } from '@primer/octicons-react';
 import { definePlugin } from '@datalayer/reactor';
 import { ReactorSlot } from '@datalayer/reactor/react';
@@ -160,7 +160,7 @@ function StoreHeader() {
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
         <CartSummary />
-        <AppearanceControlsWithStore useStore={useThemeStore} />
+        <AppearanceControls layout="inline" useStore={useThemeStore} />
       </Box>
     </Box>
   );

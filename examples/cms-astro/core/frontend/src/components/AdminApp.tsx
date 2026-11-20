@@ -22,7 +22,7 @@ import {
 } from '@datalayer/reactor/react';
 import * as PrimerAddons from '@datalayer/primer-addons';
 import {
-  AppearanceControlsWithStore,
+  AppearanceControls,
   Box,
   SlidingPanel,
   ThemedProvider,
@@ -836,7 +836,7 @@ function Shell({
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Label variant={isAdmin ? 'accent' : 'secondary'}>{activeSite?.role ?? 'member'}</Label>
-          <AppearanceControlsWithStore useStore={useThemeStore} />
+          <AppearanceControls layout="inline" useStore={useThemeStore} />
           <Button variant="invisible" onClick={onLogout}>
             <SignOutIcon /> Sign out
           </Button>
