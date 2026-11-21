@@ -18,8 +18,17 @@ PluginManifest(
     dependencies=["catalog"],        # backend: enforced at registration
     frontend_dependencies=["@app/checkout"],          # declared, not enforced
     optional_frontend_dependencies=["@app/header"],
+    package="app-checkout",          # the distribution that ships it
+    tags=["commerce"],
+    config_schema={"type": "object", "properties": {"currency": {"type": "string", "default": "EUR"}}},
+    metadata={"my_host": {"category": "payments"}},  # the host's own, carried as is
 )
 ```
+
+`package`, `tags`, `config_schema` and `metadata` are what a catalogue shows
+beyond the presentation, the TypeScript manifest's `package`, `tags`,
+`configSchema` and `metadata`. `list_plugins()` returns them as declared; the
+platform reads none of `metadata`.
 
 `manifest.title` returns `display_name` or, failing that, `name` — so a host
 always has something to print.

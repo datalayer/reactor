@@ -113,6 +113,11 @@ function placeholderFor(ref: LazyPluginRef): ReactorPlugin<any, any, any> {
     description: ref.description,
     octicon: ref.octicon,
     emoji: ref.emoji,
+    package: ref.package,
+    tags: ref.tags,
+    configSchema: ref.configSchema,
+    declares: ref.declares,
+    metadata: ref.metadata,
     dependencies: ref.dependencies,
     activationEvents: ref.activationEvents,
     deactivationEvents: ref.deactivationEvents,
@@ -138,6 +143,11 @@ function mergeLoaded(
     octicon: loaded.octicon ?? ref.octicon,
     emoji: loaded.emoji ?? ref.emoji,
     version: loaded.version ?? ref.version,
+    package: loaded.package ?? ref.package,
+    tags: loaded.tags ?? ref.tags,
+    configSchema: loaded.configSchema ?? ref.configSchema,
+    declares: loaded.declares ?? ref.declares,
+    metadata: loaded.metadata ?? ref.metadata,
     activationEvents: loaded.activationEvents ?? ref.activationEvents,
     deactivationEvents: loaded.deactivationEvents ?? ref.deactivationEvents,
     requiredBackendPlugins:
@@ -603,6 +613,10 @@ export function buildReactorFromPlugins(
         description: plugin.description,
         octicon: plugin.octicon,
         emoji: plugin.emoji,
+        package: plugin.package,
+        tags: plugin.tags ?? [],
+        configSchema: plugin.configSchema,
+        metadata: plugin.metadata,
         extension: current.extension,
         requiredBackendPlugins: plugin.requiredBackendPlugins ?? [],
         optionalBackendPlugins: plugin.optionalBackendPlugins ?? [],
@@ -619,7 +633,17 @@ export function buildReactorFromPlugins(
         // imperative `ctx.contribute` is not knowable before it runs, and the
         // graph reads those from the registry instead.
         contributesTo: [
-          ...new Set((plugin.contributes ?? []).map((record) => record.point.id)),
+          ...new Set([
+            ...(plugin.contributes ?? []).map((record) => record.point.id),
+            ...(plugin.declares?.contributesTo ?? []),
+          ]),
+        ],
+        slots: [...new Set(plugin.declares?.slots ?? [])],
+        commands: [
+          ...new Set([
+            ...(plugin.commands ?? []).map((command) => command.id),
+            ...(plugin.declares?.commands ?? []),
+          ]),
         ],
       };
     },

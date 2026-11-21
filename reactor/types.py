@@ -80,6 +80,18 @@ class PluginManifest:
     #: A single emoji, for hosts with no icon set to draw from.
     emoji: str = ""
     tags: list[str] = field(default_factory=list)
+    #: The distribution that ships it: its PyPI name (``agent-runtimes``), so a
+    #: host can say what to install, and a spec that names the plugin can be
+    #: resolved to its code. The TypeScript ``package`` says the npm name.
+    package: str = ""
+    #: Its configuration as a JSON Schema (an object with ``properties``),
+    #: each default the plugin's own. What a host draws a settings form from.
+    #: The TypeScript ``configSchema``.
+    config_schema: dict[str, Any] = field(default_factory=dict)
+    #: Whatever else a host says about its plugins, under keys of its own:
+    #: carried as declared, read by none of the platform. The TypeScript
+    #: ``metadata``.
+    metadata: dict[str, Any] = field(default_factory=dict)
     dependencies: list[str] = field(default_factory=list)
     #: The extension that groups this plugin, when one delivered it.
     #:

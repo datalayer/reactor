@@ -34,7 +34,12 @@
 
 import { defineExtension, type ReactorExtension } from './extension';
 import { defineFederatedPlugin } from './federation';
-import { defineLazyPlugin, type LazyPluginRef, type PluginRemote } from './plugin';
+import {
+  defineLazyPlugin,
+  type LazyPluginRef,
+  type PluginDescription,
+  type PluginRemote,
+} from './plugin';
 import { assertOriginAllowed } from './origins';
 import type { ActivationEvent } from './activation';
 
@@ -161,7 +166,7 @@ export const importRemoteModule: RemoteModuleLoader = (url) =>
   >;
 
 /** A plugin whose module is at a URL. */
-export interface RemotePluginRef {
+export interface RemotePluginRef extends PluginDescription {
   name: string;
   version?: string;
   displayName?: string;
@@ -277,6 +282,11 @@ export function defineRemotePlugin(
     description: ref.description,
     octicon: ref.octicon,
     emoji: ref.emoji,
+    package: ref.package,
+    tags: ref.tags,
+    configSchema: ref.configSchema,
+    declares: ref.declares,
+    metadata: ref.metadata,
     dependencies: ref.dependencies,
     activationEvents: ref.activationEvents,
     deactivationEvents: ref.deactivationEvents,
