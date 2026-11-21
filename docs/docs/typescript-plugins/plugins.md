@@ -40,6 +40,46 @@ reactor.getManifest('@app/notebook');
 Nothing here is required. A plugin that says none of it still runs, and
 `displayName` falls back to `name`, so a host always has something to print.
 
+## How a plugin describes itself
+
+A catalogue shows more of a plugin than its name and face: the package to
+install, how it is configured, what it fills and adds. Those are on the
+manifest too, all optional, readable before the module is fetched:
+
+```ts
+definePlugin({
+  name: '@app/notebook',
+  package: '@app/notebook-ui',              // what ships it, on npm
+  tags: ['notebook', 'jupyter'],
+  config: { lineNumbers: true },
+  configSchema: {                           // its settings, as a JSON Schema
+    type: 'object',
+    properties: {
+      lineNumbers: { type: 'boolean', title: 'Line numbers', default: true },
+    },
+  },
+  declares: {                               // what it does in its phases
+    slots: ['app.main'],
+    contributesTo: ['app.toolbar'],
+    commands: ['notebook.run'],
+  },
+  metadata: { myHost: { placements: ['main'] } }, // the host's own, carried as is
+});
+```
+
+`getManifest` returns them with `tags`, `slots` and `commands` as lists
+(empty when nothing is said). `contributesTo` is the points of the plugin's
+`contributes` records together with those it `declares`, and `commands` the
+ids of its `commands` records with those it `declares`: a contribution or a
+command made in a phase is only known once the plugin has run, so saying it
+in `declares` is what lets a host list it first. The reactor never checks a
+declaration; a host that wants one held to what the plugin does compares it
+with the registry after `start()`. `metadata` is read by nobody but the host
+that wrote it.
+
+`package`, `tags`, `configSchema` and `metadata` are the Python manifest's
+`package`, `tags`, `config_schema` and `metadata`.
+
 ## Declaring what a plugin needs
 
 ```ts

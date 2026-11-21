@@ -60,6 +60,61 @@ export interface PluginPresentation {
 }
 
 /**
+ * What a plugin contributes that the reactor cannot read before it runs.
+ *
+ * A contribution declared in `contributes`, a command declared in `commands`,
+ * is on the manifest already. One made in a phase — `ctx.contribute` over
+ * build output, a component returned for a slot, a command registered with
+ * `ctx.registerCommand` — is only known once the plugin has run. Declared
+ * here, a host can list it before then: in a catalogue page, a marketplace, a
+ * graph drawn while the module is still on the wire. The reactor carries what
+ * is said and never checks it; a host that wants it held to what the plugin
+ * does compares it with the registry after `start()`.
+ */
+export type PluginDeclarations = {
+  /** The slots it fills with a component, by id. */
+  slots?: string[];
+  /** The contribution points it contributes to, by id, including in phases. */
+  contributesTo?: string[];
+  /** The commands it adds, by id or by the name a host invokes them by. */
+  commands?: string[];
+};
+
+/**
+ * What a plugin says of itself beyond its presentation: where it ships from,
+ * how it is configured, and what it does — readable without running it.
+ *
+ * Mirrors the Python `PluginManifest`'s `package`, `tags`, `config_schema`
+ * and `metadata`, so a catalogue listing both tiers reads one shape.
+ */
+export interface PluginDescription {
+  /**
+   * The package that ships it: its npm name for a frontend plugin
+   * (`@music/catalog-ui`), so a host can say what to install, and a spec
+   * that names the plugin can be resolved to its code.
+   */
+  package?: string;
+  /** Words to find it by. */
+  tags?: string[];
+  /**
+   * Its configuration as a JSON Schema (an object with `properties`), each
+   * default the plugin's own `config`. What a host draws a settings form
+   * from, and what it checks a configuration against.
+   */
+  configSchema?: Record<string, unknown>;
+  /** What it contributes in its phases, said up-front. */
+  declares?: PluginDeclarations;
+  /**
+   * Whatever else a host says about its plugins, under keys of its own: the
+   * reactor carries it to the manifest as it is and reads none of it. An
+   * application platform puts there what its catalogue shows — where a
+   * plugin may be placed, the renderers it may be exposed through, the
+   * components it draws.
+   */
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Where a remote plugin's module comes from.
  *
  * A bundled plugin came with the shell, and there is nothing to say. A remote
@@ -104,6 +159,14 @@ export type PluginRemote = {
 export type PluginManifest = PluginPresentation & {
   name: string;
   version?: string;
+  /** The package that ships it, when it says. */
+  package?: string;
+  /** Words to find it by; empty when it says none. */
+  tags: string[];
+  /** Its configuration as a JSON Schema, when it says. */
+  configSchema?: Record<string, unknown>;
+  /** What its host says of it, carried as declared; absent when nothing is. */
+  metadata?: Record<string, unknown>;
   /** The extension that groups this plugin, when it came from one. */
   extension?: string;
   /** Backend plugins this plugin cannot work without. */
@@ -152,8 +215,19 @@ export type PluginManifest = PluginPresentation & {
   deactivationEvents: ActivationEvent[];
   /** Ids of the contribution points this plugin offers to others. */
   contributionPoints: string[];
-  /** Ids of the points it declares contributions to, up-front. */
+  /**
+   * Ids of the points it contributes to, as far as is knowable before it
+   * runs: those of its `contributes` records once its module is here, and
+   * those it `declares`.
+   */
   contributesTo: string[];
+  /** The slots it declares it fills. */
+  slots: string[];
+  /**
+   * The commands it adds, as far as is knowable before it runs: the ids of its
+   * `commands` records once its module is here, and those it `declares`.
+   */
+  commands: string[];
 };
 
 export type PeerDependency = {
@@ -209,7 +283,7 @@ export type PluginState<C, I, O> = {
   getOutput: () => O | undefined;
 };
 
-export interface ReactorPlugin<C, I, O> extends PluginPresentation {
+export interface ReactorPlugin<C, I, O> extends PluginPresentation, PluginDescription {
   name: string;
   version?: string;
   /**
@@ -372,7 +446,7 @@ export type LazyPluginLoader = () => Promise<
  * This is the manifest/entry-point split made concrete: this object *is* the
  * manifest, and `load` is the entry point.
  */
-export interface LazyPluginRef extends PluginPresentation {
+export interface LazyPluginRef extends PluginPresentation, PluginDescription {
   name: string;
   version?: string;
   /** Fetches the module. Called once; a second `start` reuses the result. */

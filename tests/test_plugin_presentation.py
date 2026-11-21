@@ -35,6 +35,40 @@ def test_presentation_travels_with_the_manifest() -> None:
     assert listed["emoji"] == "🎵"
 
 
+def test_package_settings_schema_and_metadata_travel_with_the_manifest() -> None:
+    """What a catalogue shows of a plugin is on its manifest, listed as declared."""
+    schema = {
+        "type": "object",
+        "properties": {"size": {"type": "integer", "default": 3}},
+    }
+    platform = PluginPlatform()
+    platform.register_plugin(
+        manifest(
+            "catalog",
+            package="music-catalog",
+            tags=["music"],
+            config_schema=schema,
+            metadata={"ui": {"placements": ["left"]}},
+        ),
+        object(),
+    )
+
+    listed = platform.list_plugins()[0]
+
+    assert listed["package"] == "music-catalog"
+    assert listed["tags"] == ["music"]
+    assert listed["config_schema"] == schema
+    assert listed["metadata"] == {"ui": {"placements": ["left"]}}
+
+
+def test_a_manifest_says_nothing_it_was_not_told() -> None:
+    bare = manifest("catalog")
+
+    assert bare.package == ""
+    assert bare.config_schema == {}
+    assert bare.metadata == {}
+
+
 def test_frontend_requirements_report_what_is_missing() -> None:
     platform = PluginPlatform()
     platform.register_plugin(
