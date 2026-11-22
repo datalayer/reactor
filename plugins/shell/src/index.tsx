@@ -18,11 +18,11 @@
  *
  * What a chosen view *does* is the host's business: the plugin announces the
  * choice through a configurable `announce` callback and records it, and the
- * host wires the announcement to whatever hosts the views. The LOOP
+ * host wires the announcement to whatever hosts the views. The Agent
  * workspace in `@datalayer/agent-runtimes` wires it to the chat's
  * surface-request channel; a simpler host can read the store directly.
  *
- * Grown out of the LOOP editor selector, generalised: the loop's shell
+ * Grown out of the Agent workspace's editor selector, generalised: its shell
  * plugin is now a thin wrapper over this one.
  *
  * @module index
@@ -49,7 +49,7 @@ export const SHELL_PLUGIN_NAME = "@datalayer/reactor-shell";
 /**
  * The default view point, for a host with no point of its own.
  *
- * A host that already declared one — the loop's editor point predates this
+ * A host that already declared one — the Agent workspace's editor point predates this
  * plugin — passes it in `config.point` instead, and nothing has to move.
  */
 export const ShellView =
@@ -64,7 +64,7 @@ export type ShellPluginConfig = {
    * The default assumes the contribution *is* one — which it is when the
    * host uses {@link ShellView}. A host with its own richer contribution
    * type maps it here, and this is also where gating lives: `context` is
-   * whatever the slot passes (the loop hands its workspace), so a view can
+   * whatever the slot passes (the Agent workspace hands itself), so a view can
    * be disabled against live state.
    */
   describe: (value: unknown, context: unknown) => ShellViewDescriptor;

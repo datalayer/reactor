@@ -41,7 +41,7 @@ type ViewChoiceState = {
  * Told that a view was chosen, before the choice is recorded.
  *
  * How the host application learns of a choice without the store knowing the
- * host: the loop workspace wires this to its surface-request channel. The
+ * host: the Agent workspace wires this to its surface-request channel. The
  * return value says whether anyone was listening — a command with nobody on
  * the other end should say so rather than appear to work.
  */
