@@ -13,11 +13,11 @@ differ; a REPL prompt completes ``/mo`` into ``/models``, a palette fuzzy
 matches labels.
 
 :class:`SlashCommandSpec` is the Python mirror of the TypeScript
-``CommandContribution`` in the LOOP workspace, so a command is described the
+``CommandContribution`` in the Agent workspace, so a command is described the
 same way in the terminal and in the browser even when the two implementations
 differ — a Rich panel there, a React panel here.
 
-Grown out of ``agent_runtimes.loop.commands`` and moved here unchanged in
+Grown out of ``agent_runtimes.agent.commands`` and moved here unchanged in
 shape: the registry was never about agents, and the REPL that consumes it
 (:mod:`reactor.repl`) knows nothing about what a host does with a prompt.
 

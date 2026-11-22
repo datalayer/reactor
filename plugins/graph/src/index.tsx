@@ -797,7 +797,7 @@ export type GraphPluginConfig = {
    * Whether to register the "View the plugin graph" command.
    *
    * On by default, and worth turning off in one case: a host that already has
-   * its own way to open the graph. The loop workspace does — its adapter
+   * its own way to open the graph. The Agent workspace does — its adapter
    * contributes a command that switches the active view directly — and two
    * palette entries for one action, one of which is a hopeful event dispatch,
    * is worse than either alone.

@@ -89,12 +89,12 @@ my-package = "my_package.repl_plugin:plugin"
 `repl.discover("my.app.plugins")` loads every advertised plugin and hands it
 the registry; the return value names the ones that contributed, so a session
 can say what it found. The agent-runtimes terminal discovers under its own
-group, `loop.plugins` — one distribution can serve both by advertising under
+group, `agent.plugins` — one distribution can serve both by advertising under
 both groups.
 
 `provide_slash_commands` is the interactive sibling of the
 [`provide_cli`](/python-plugins/cli) hook, and the same mirror exists in the browser:
-the LOOP workspace's `LoopCommand` contributions are the TypeScript spelling
+the Agent workspace's `AgentCommand` contributions are the TypeScript spelling
 of the same spec, so a command is described identically in a terminal and in
 a web palette even when the two implementations differ.
 

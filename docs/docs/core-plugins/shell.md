@@ -62,11 +62,11 @@ rather than appearing to work.
 | `commandId`, `keybinding` | `shell.cycleView`, `Mod+Alt+E` | The cycle command |
 | `noneLabel`, `ariaLabel` | `None`, `View` | Words |
 
-## Grown from Loop
+## Grown from the Agent workspace
 
-This plugin is the LOOP workspace's editor selector, generalised. The loop's
+This plugin is the Agent workspace's editor selector, generalised. The workspace's
 own shell plugin in `@datalayer/agent-runtimes` is now a thin wrapper: it
-points `config.point` at the loop's editor contribution point, `describe`
+points `config.point` at the workspace's editor contribution point, `describe`
 gates each editor against the live workspace, and `announce` forwards the
 choice to the chat's surface-request channel. The
-[Loop documentation](https://datalayer.ai) describes that composition.
+[Agent documentation](https://datalayer.ai) describes that composition.

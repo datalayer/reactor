@@ -71,7 +71,7 @@ export type ViewSelectorProps = {
   noneLabel: string;
   ariaLabel: string;
   /**
-   * Whether "none" is offered. True by default — the loop's chat stands on
+   * Whether "none" is offered. True by default — the Agent workspace's chat stands on
    * its own beside an empty editor. False for a host whose views *are* the
    * application: the control then draws only the views, and not at all until
    * there are two, since a choice of one is furniture.
